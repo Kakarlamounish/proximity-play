@@ -14,7 +14,337 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      badges: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      bubble_memberships: {
+        Row: {
+          bubble_id: string
+          id: string
+          joined_at: string | null
+          user_id: string
+        }
+        Insert: {
+          bubble_id: string
+          id?: string
+          joined_at?: string | null
+          user_id: string
+        }
+        Update: {
+          bubble_id?: string
+          id?: string
+          joined_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bubble_memberships_bubble_id_fkey"
+            columns: ["bubble_id"]
+            isOneToOne: false
+            referencedRelation: "bubbles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bubbles: {
+        Row: {
+          created_at: string | null
+          id: string
+          interest_tag: string
+          latitude: number
+          longitude: number
+          member_count: number | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          interest_tag: string
+          latitude: number
+          longitude: number
+          member_count?: number | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          interest_tag?: string
+          latitude?: number
+          longitude?: number
+          member_count?: number | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      meetup_rsvps: {
+        Row: {
+          created_at: string | null
+          id: string
+          meetup_id: string
+          status: Database["public"]["Enums"]["rsvp_status"]
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          meetup_id: string
+          status: Database["public"]["Enums"]["rsvp_status"]
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          meetup_id?: string
+          status?: Database["public"]["Enums"]["rsvp_status"]
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meetup_rsvps_meetup_id_fkey"
+            columns: ["meetup_id"]
+            isOneToOne: false
+            referencedRelation: "meetups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meetups: {
+        Row: {
+          bubble_id: string
+          created_at: string | null
+          date_time: string
+          description: string | null
+          id: string
+          latitude: number
+          location_name: string | null
+          longitude: number
+          organizer_id: string
+          status: Database["public"]["Enums"]["meetup_status"] | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          bubble_id: string
+          created_at?: string | null
+          date_time: string
+          description?: string | null
+          id?: string
+          latitude: number
+          location_name?: string | null
+          longitude: number
+          organizer_id: string
+          status?: Database["public"]["Enums"]["meetup_status"] | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          bubble_id?: string
+          created_at?: string | null
+          date_time?: string
+          description?: string | null
+          id?: string
+          latitude?: number
+          location_name?: string | null
+          longitude?: number
+          organizer_id?: string
+          status?: Database["public"]["Enums"]["meetup_status"] | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meetups_bubble_id_fkey"
+            columns: ["bubble_id"]
+            isOneToOne: false
+            referencedRelation: "bubbles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          bubble_id: string | null
+          content: string
+          created_at: string | null
+          id: string
+          recipient_id: string | null
+          sender_id: string
+        }
+        Insert: {
+          bubble_id?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          recipient_id?: string | null
+          sender_id: string
+        }
+        Update: {
+          bubble_id?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          recipient_id?: string | null
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_bubble_id_fkey"
+            columns: ["bubble_id"]
+            isOneToOne: false
+            referencedRelation: "bubbles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          age: number
+          bio: string | null
+          created_at: string | null
+          first_name: string
+          gender: Database["public"]["Enums"]["gender_type"] | null
+          id: string
+          interests: string[] | null
+          latitude: number | null
+          location_updated_at: string | null
+          longitude: number | null
+          profile_photo_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          age: number
+          bio?: string | null
+          created_at?: string | null
+          first_name: string
+          gender?: Database["public"]["Enums"]["gender_type"] | null
+          id: string
+          interests?: string[] | null
+          latitude?: number | null
+          location_updated_at?: string | null
+          longitude?: number | null
+          profile_photo_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          age?: number
+          bio?: string | null
+          created_at?: string | null
+          first_name?: string
+          gender?: Database["public"]["Enums"]["gender_type"] | null
+          id?: string
+          interests?: string[] | null
+          latitude?: number | null
+          location_updated_at?: string | null
+          longitude?: number | null
+          profile_photo_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      user_badges: {
+        Row: {
+          badge_id: string
+          earned_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          badge_id: string
+          earned_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          badge_id?: string
+          earned_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "badges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_blocks: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string | null
+          id: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string | null
+          id?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      user_reports: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          reason: Database["public"]["Enums"]["report_reason"]
+          reported_id: string
+          reporter_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          reason: Database["public"]["Enums"]["report_reason"]
+          reported_id: string
+          reporter_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          reason?: Database["public"]["Enums"]["report_reason"]
+          reported_id?: string
+          reporter_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +353,15 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      gender_type: "male" | "female" | "non_binary" | "prefer_not_to_say"
+      meetup_status: "upcoming" | "ongoing" | "completed" | "cancelled"
+      report_reason:
+        | "spam"
+        | "harassment"
+        | "inappropriate_content"
+        | "fake_profile"
+        | "other"
+      rsvp_status: "going" | "maybe" | "not_going"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +488,17 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      gender_type: ["male", "female", "non_binary", "prefer_not_to_say"],
+      meetup_status: ["upcoming", "ongoing", "completed", "cancelled"],
+      report_reason: [
+        "spam",
+        "harassment",
+        "inappropriate_content",
+        "fake_profile",
+        "other",
+      ],
+      rsvp_status: ["going", "maybe", "not_going"],
+    },
   },
 } as const

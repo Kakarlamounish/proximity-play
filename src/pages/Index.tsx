@@ -11,11 +11,7 @@ const Index = () => {
   const [profile, setProfile] = useState<any>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
-  // Redirect unauthenticated users to auth page
-  if (!user && !loading) {
-    return <Navigate to="/auth" replace />;
-  }
-
+  // All hooks must be called before any conditional returns
   useEffect(() => {
     const checkProfile = async () => {
       if (!user) return;
@@ -48,6 +44,11 @@ const Index = () => {
       checkProfile();
     }
   }, [user, loading, navigate]);
+
+  // Now safe to do conditional rendering after all hooks
+  if (!user && !loading) {
+    return <Navigate to="/auth" replace />;
+  }
 
   if (loading || profileLoading) {
     return (

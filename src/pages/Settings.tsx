@@ -57,7 +57,11 @@ const Settings = () => {
     // Check for dark mode preference
     const savedTheme = localStorage.getItem('theme');
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    setDarkMode(savedTheme === 'dark' || (!savedTheme && systemTheme));
+    const isDark = savedTheme === 'dark' || (!savedTheme && systemTheme);
+    setDarkMode(isDark);
+    
+    // Apply theme to document
+    document.documentElement.classList.toggle('dark', isDark);
   }, []);
 
   const toggleDarkMode = () => {

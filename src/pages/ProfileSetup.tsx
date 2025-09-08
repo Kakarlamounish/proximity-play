@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { ImageUpload } from '@/components/ImageUpload';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,7 +9,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, X } from 'lucide-react';
@@ -29,6 +30,7 @@ const ProfileSetup = () => {
   const [bio, setBio] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
   const [customInterest, setCustomInterest] = useState('');
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   // Redirect unauthenticated users
@@ -69,16 +71,17 @@ const ProfileSetup = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .insert({
-          id: user.id,
-          first_name: firstName,
-          age: parseInt(age),
-          gender: gender as "male" | "female" | "non_binary" | "prefer_not_to_say" | null,
-          bio: bio || null,
-          interests,
-        });
+        const { error } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            first_name: firstName,
+            age: parseInt(age),
+            gender: gender as "male" | "female" | "non_binary" | "prefer_not_to_say" | null,
+            bio: bio || null,
+            interests,
+            profile_photo_url: profilePhotoUrl || null,
+          });
 
       if (error) {
         throw error;
@@ -126,6 +129,15 @@ const ProfileSetup = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Profile Photo */}
+              <div className="flex justify-center">
+                <ImageUpload
+                  currentImageUrl={profilePhotoUrl}
+                  onImageUploaded={setProfilePhotoUrl}
+                  userName={firstName}
+                />
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name / Nickname *</Label>

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/Navigation';
+import { ChatWindow } from '@/components/ChatWindow';
+import { MeetupDialog } from '@/components/MeetupDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +15,9 @@ const Messages = () => {
   const { user, loading } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [bubbles, setBubbles] = useState<any[]>([]);
+  const [selectedBubble, setSelectedBubble] = useState<any>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [meetupDialogOpen, setMeetupDialogOpen] = useState(false);
 
   // Redirect unauthenticated users
   if (!user && !loading) {
@@ -48,7 +52,13 @@ const Messages = () => {
           `)
           .eq('user_id', user.id);
 
-        setBubbles(userBubbles?.map(ub => ub.bubbles) || []);
+        const bubblesData = userBubbles?.map(ub => ub.bubbles) || [];
+        setBubbles(bubblesData);
+
+        // Auto-select first bubble if none selected
+        if (bubblesData.length > 0 && !selectedBubble) {
+          setSelectedBubble(bubblesData[0]);
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -59,7 +69,7 @@ const Messages = () => {
     if (user && !loading) {
       fetchData();
     }
-  }, [user, loading]);
+  }, [user, loading, selectedBubble]);
 
   if (loading || profileLoading) {
     return (
@@ -100,7 +110,12 @@ const Messages = () => {
                       bubbles.map((bubble) => (
                         <div
                           key={bubble.id}
-                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                          className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                            selectedBubble?.id === bubble.id 
+                              ? 'bg-primary/10 border border-primary/20' 
+                              : 'hover:bg-muted/50'
+                          }`}
+                          onClick={() => setSelectedBubble(bubble)}
                         >
                           <Avatar className="h-10 w-10 bg-gradient-to-br from-secondary to-primary">
                             <AvatarFallback className="text-white font-semibold">
@@ -130,16 +145,33 @@ const Messages = () => {
             {/* Chat Area */}
             <div className="lg:col-span-2">
               <Card className="backdrop-blur-sm bg-card/95 border-0 h-[600px]">
-                <CardContent className="p-0 h-full flex items-center justify-center">
-                  <div className="text-center text-muted-foreground">
-                    <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p className="text-lg font-medium mb-2">Select a bubble to start chatting</p>
-                    <p className="text-sm">Connect with your community members in real-time</p>
-                  </div>
-                </CardContent>
+                {selectedBubble ? (
+                  <ChatWindow 
+                    bubble={selectedBubble} 
+                    onCreateMeetup={() => setMeetupDialogOpen(true)}
+                  />
+                ) : (
+                  <CardContent className="p-0 h-full flex items-center justify-center">
+                    <div className="text-center text-muted-foreground">
+                      <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p className="text-lg font-medium mb-2">Select a bubble to start chatting</p>
+                      <p className="text-sm">Connect with your community members in real-time</p>
+                    </div>
+                  </CardContent>
+                )}
               </Card>
             </div>
           </div>
+
+          {/* Meetup Dialog */}
+          {selectedBubble && (
+            <MeetupDialog
+              open={meetupDialogOpen}
+              onOpenChange={setMeetupDialogOpen}
+              bubbleId={selectedBubble.id}
+              bubbleName={selectedBubble.name}
+            />
+          )}
         </div>
       </div>
     </div>

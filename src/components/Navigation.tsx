@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Home, MessageSquare, User, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { NotificationCenter } from '@/components/NotificationCenter';
 
 interface NavigationProps {
   profile?: any;
@@ -53,6 +54,8 @@ export const Navigation: React.FC<NavigationProps> = ({ profile }) => {
 
           {/* User Menu */}
           <div className="flex items-center gap-3">
+            <NotificationCenter />
+            
             <div className="flex items-center gap-2">
               <Avatar className="h-8 w-8">
                 <AvatarImage src={profile?.profile_photo_url} />

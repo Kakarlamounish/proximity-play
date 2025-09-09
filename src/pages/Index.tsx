@@ -4,12 +4,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from '@/hooks/useLocation';
 import { Navigation } from '@/components/Navigation';
 import { BubbleCard } from '@/components/BubbleCard';
+import { CreateBubbleDialog } from '@/components/CreateBubbleDialog';
+import { ActivityFeed } from '@/components/ActivityFeed';
+import { SearchDialog } from '@/components/SearchDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, MapPin, Users, Sparkles, RefreshCw } from 'lucide-react';
+import { Loader2, MapPin, Users, Sparkles, RefreshCw, Search } from 'lucide-react';
 
 interface Bubble {
   id: string;
@@ -173,6 +176,12 @@ const Index = () => {
             <p className="text-lg text-muted-foreground">
               Discover social bubbles near you and connect with like-minded people
             </p>
+            
+            {/* Quick Actions */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-6">
+              <SearchDialog />
+              <CreateBubbleDialog onBubbleCreated={refreshBubbles} />
+            </div>
           </div>
 
           {/* Location Status */}
@@ -267,6 +276,36 @@ const Index = () => {
               </CardContent>
             </Card>
           )}
+
+          {/* Activity Feed */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <div className="lg:col-span-2">
+              <ActivityFeed limit={8} />
+            </div>
+            <div>
+              <Card className="backdrop-blur-sm bg-card/95 border-0">
+                <CardHeader>
+                  <CardTitle>Quick Stats</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Active Bubbles</span>
+                      <span className="font-medium">{bubbles.filter(b => b.is_member).length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Nearby Options</span>
+                      <span className="font-medium">{bubbles.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Your Interests</span>
+                      <span className="font-medium">{profile?.interests?.length || 0}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
 
           {/* Nearby Bubbles */}
           <div className="mb-8">

@@ -41,20 +41,23 @@ export type Database = {
       bubble_memberships: {
         Row: {
           bubble_id: string
+          created_at: string | null
           id: string
-          joined_at: string | null
+          role: string | null
           user_id: string
         }
         Insert: {
           bubble_id: string
+          created_at?: string | null
           id?: string
-          joined_at?: string | null
+          role?: string | null
           user_id: string
         }
         Update: {
           bubble_id?: string
+          created_at?: string | null
           id?: string
-          joined_at?: string | null
+          role?: string | null
           user_id?: string
         }
         Relationships: [
@@ -70,8 +73,11 @@ export type Database = {
       bubbles: {
         Row: {
           created_at: string | null
+          creator_id: string | null
+          description: string | null
           id: string
           interest_tag: string
+          is_private: boolean | null
           latitude: number
           longitude: number
           member_count: number | null
@@ -80,8 +86,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          creator_id?: string | null
+          description?: string | null
           id?: string
           interest_tag: string
+          is_private?: boolean | null
           latitude: number
           longitude: number
           member_count?: number | null
@@ -90,8 +99,11 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          creator_id?: string | null
+          description?: string | null
           id?: string
           interest_tag?: string
+          is_private?: boolean | null
           latitude?: number
           longitude?: number
           member_count?: number | null

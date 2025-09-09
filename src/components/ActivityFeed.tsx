@@ -148,10 +148,10 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ limit = 10, showTitl
         // Recent memberships in user's bubbles
         const { data: membershipsData } = await supabase
           .from('bubble_memberships')
-          .select('id, joined_at, user_id, bubble_id')
+          .select('id, created_at, user_id, bubble_id')
           .in('bubble_id', bubbleIds)
           .neq('user_id', user.id)
-          .order('joined_at', { ascending: false })
+          .order('created_at', { ascending: false })
           .limit(5);
 
         if (membershipsData && membershipsData.length > 0) {
@@ -178,7 +178,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ limit = 10, showTitl
               id: `join-${membership.id}`,
               type: 'join',
               content: `joined ${bubble?.name || 'a bubble'}`,
-              created_at: membership.joined_at!,
+              created_at: membership.created_at!,
               user_id: membership.user_id,
               bubble_id: membership.bubble_id,
               user: memberMap.get(membership.user_id),

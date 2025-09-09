@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Send, MoreVertical, Users, Calendar } from 'lucide-react';
+import { Send, MoreVertical, Users, Calendar, ImageIcon, Paperclip } from 'lucide-react';
+import { ImageUpload } from '@/components/ImageUpload';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +16,8 @@ interface Message {
   content: string;
   created_at: string;
   sender_id: string;
+  message_type?: 'text' | 'image';
+  image_url?: string;
   sender?: {
     first_name: string;
     profile_photo_url?: string;
@@ -38,6 +41,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
+  const [showImageUpload, setShowImageUpload] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -158,6 +162,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
           content: newMessage.trim(),
           sender_id: user.id,
           bubble_id: bubble.id,
+          message_type: 'text'
         });
 
       if (error) throw error;
@@ -171,6 +176,36 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImageUpload = async (imageUrl: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          content: 'Shared an image',
+          sender_id: user.id,
+          bubble_id: bubble.id,
+          message_type: 'image',
+          image_url: imageUrl
+        });
+
+      if (error) throw error;
+
+      setShowImageUpload(false);
+      toast({
+        title: 'Image shared!',
+        description: 'Your image has been sent to the chat.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error sharing image',
+        description: error.message,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -238,27 +273,39 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
                 </AvatarFallback>
               </Avatar>
               
-              <div
-                className={`max-w-[70%] ${
-                  message.sender_id === user?.id ? 'text-right' : ''
-                }`}
-              >
                 <div
-                  className={`rounded-lg p-3 ${
-                    message.sender_id === user?.id
-                      ? 'bg-gradient-to-r from-secondary to-primary text-white'
-                      : 'bg-muted'
+                  className={`max-w-[70%] ${
+                    message.sender_id === user?.id ? 'text-right' : ''
                   }`}
                 >
-                  <p className="text-sm">{message.content}</p>
+                  <div
+                    className={`rounded-lg p-3 ${
+                      message.sender_id === user?.id
+                        ? 'bg-gradient-to-r from-secondary to-primary text-white'
+                        : 'bg-muted'
+                    }`}
+                  >
+                    {message.message_type === 'image' && message.image_url ? (
+                      <div className="max-w-xs">
+                        <img 
+                          src={message.image_url} 
+                          alt="Shared image" 
+                          className="rounded-lg w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => window.open(message.image_url, '_blank')}
+                        />
+                        <p className="text-sm mt-2">{message.content}</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm">{message.content}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                    {message.sender_id !== user?.id && (
+                      <span>{message.sender?.first_name}</span>
+                    )}
+                    <span>{formatMessageTime(message.created_at)}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                  {message.sender_id !== user?.id && (
-                    <span>{message.sender?.first_name}</span>
-                  )}
-                  <span>{formatMessageTime(message.created_at)}</span>
-                </div>
-              </div>
             </div>
           ))
         )}
@@ -268,6 +315,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
       {/* Message Input */}
       <form onSubmit={handleSendMessage} className="p-4 border-t">
         <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => setShowImageUpload(true)}
+            className="flex-shrink-0"
+          >
+            <ImageIcon className="h-4 w-4" />
+          </Button>
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
@@ -278,12 +334,35 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
           <Button
             type="submit"
             disabled={loading || !newMessage.trim()}
-            className="bg-gradient-to-r from-secondary to-primary"
+            className="bg-gradient-to-r from-secondary to-primary flex-shrink-0"
           >
             <Send className="h-4 w-4" />
           </Button>
         </div>
       </form>
+
+      {/* Image Upload Dialog */}
+      {showImageUpload && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card p-6 rounded-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Share an Image</h3>
+            <ImageUpload
+              onImageUploaded={handleImageUpload}
+              userName="Chat Image"
+              className="w-full"
+            />
+            <div className="flex gap-2 mt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowImageUpload(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MapPin, Users, Calendar, Award } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
+import { EditProfileDialog } from '@/components/EditProfileDialog';
 
 const Profile = () => {
   const { user, loading } = useAuth();
@@ -41,7 +42,7 @@ const Profile = () => {
           .from('bubble_memberships')
           .select(`
             bubble_id,
-            joined_at,
+            created_at,
             bubbles (
               id,
               name,
@@ -131,9 +132,10 @@ const Profile = () => {
                     </div>
                   </div>
                   
-                  <Button className="bg-gradient-to-r from-secondary to-primary hover:from-secondary-dark hover:to-primary-dark">
-                    Edit Profile
-                  </Button>
+                  <EditProfileDialog 
+                    profile={profile} 
+                    onProfileUpdate={setProfile}
+                  />
                 </div>
               </div>
             </CardContent>
@@ -217,7 +219,7 @@ const Profile = () => {
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            Joined {formatDate(membership.joined_at)}
+                            Joined {formatDate(membership.created_at)}
                           </p>
                         </div>
                       </div>

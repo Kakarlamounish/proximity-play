@@ -12,6 +12,7 @@ import { Settings as SettingsIcon, Moon, Sun, Bell, Shield, MapPin, Trash2, Down
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { UpdateLocationDialog } from '@/components/UpdateLocationDialog';
 
 const Settings = () => {
   const { user, loading, signOut } = useAuth();
@@ -30,6 +31,40 @@ const Settings = () => {
   const [language, setLanguage] = useState('en');
   const [timezone, setTimezone] = useState('UTC');
   const [storageUsed, setStorageUsed] = useState(0);
+
+  // Load preferences from localStorage
+  useEffect(() => {
+    const savedNotifications = localStorage.getItem('notification-preferences');
+    const savedLanguage = localStorage.getItem('app-language');
+    const savedTimezone = localStorage.getItem('app-timezone');
+    
+    if (savedNotifications) {
+      try {
+        setNotifications(JSON.parse(savedNotifications));
+      } catch (error) {
+        console.error('Error loading notification preferences:', error);
+      }
+    }
+    
+    if (savedLanguage) setLanguage(savedLanguage);
+    if (savedTimezone) setTimezone(savedTimezone);
+  }, []);
+
+  // Save preferences to localStorage
+  const updateNotifications = (newNotifications: typeof notifications) => {
+    setNotifications(newNotifications);
+    localStorage.setItem('notification-preferences', JSON.stringify(newNotifications));
+  };
+
+  const updateLanguage = (newLanguage: string) => {
+    setLanguage(newLanguage);
+    localStorage.setItem('app-language', newLanguage);
+  };
+
+  const updateTimezone = (newTimezone: string) => {
+    setTimezone(newTimezone);
+    localStorage.setItem('app-timezone', newTimezone);
+  };
 
   // Redirect unauthenticated users
   if (!user && !loading) {
@@ -52,21 +87,39 @@ const Settings = () => {
         // Fetch blocked users
         const { data: blocks } = await supabase
           .from('user_blocks')
-          .select(`
-            blocked_id,
-            profiles!user_blocks_blocked_id_fkey(first_name, profile_photo_url)
-          `)
+          .select('blocked_id')
           .eq('blocker_id', user.id);
+
+        if (blocks && blocks.length > 0) {
+          const { data: blockedProfiles } = await supabase
+            .from('profiles')
+            .select('id, first_name, profile_photo_url')
+            .in('id', blocks.map(b => b.blocked_id));
+
+          const blocksWithProfiles = blocks.map(block => ({
+            ...block,
+            profiles: blockedProfiles?.find(p => p.id === block.blocked_id)
+          }));
+          
+          setBlockedUsers(blocksWithProfiles || []);
+        }
 
         setBlockedUsers(blocks || []);
 
         // Calculate storage usage
-        const { data: photos } = await supabase.storage
-          .from('profile-photos')
-          .list(user.id);
-        
-        const totalSize = photos?.reduce((sum, file) => sum + (file.metadata?.size || 0), 0) || 0;
-        setStorageUsed(Math.round(totalSize / 1024 / 1024 * 100) / 100); // MB
+        try {
+          const { data: photos } = await supabase.storage
+            .from('profile-photos')
+            .list(user.id);
+          
+          if (photos) {
+            const totalSize = photos.reduce((sum, file) => sum + (file.metadata?.size || 0), 0);
+            setStorageUsed(Math.round(totalSize / 1024 / 1024 * 100) / 100); // MB
+          }
+        } catch (error) {
+          console.error('Error calculating storage usage:', error);
+          setStorageUsed(0);
+        }
 
       } catch (error) {
         console.error('Error fetching profile:', error);
@@ -259,13 +312,13 @@ const Settings = () => {
                     <Label htmlFor="messages-notif" className="text-base">Messages</Label>
                     <p className="text-sm text-muted-foreground">Get notified about new messages</p>
                   </div>
-                  <Switch
-                    id="messages-notif"
-                    checked={notifications.messages}
-                    onCheckedChange={(checked) => 
-                      setNotifications(prev => ({ ...prev, messages: checked }))
-                    }
-                  />
+                   <Switch
+                     id="messages-notif"
+                     checked={notifications.messages}
+                     onCheckedChange={(checked) => 
+                       updateNotifications({ ...notifications, messages: checked })
+                     }
+                   />
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
@@ -273,13 +326,13 @@ const Settings = () => {
                     <Label htmlFor="meetups-notif" className="text-base">Meetups</Label>
                     <p className="text-sm text-muted-foreground">Get notified about meetup invites</p>
                   </div>
-                  <Switch
-                    id="meetups-notif"
-                    checked={notifications.meetups}
-                    onCheckedChange={(checked) => 
-                      setNotifications(prev => ({ ...prev, meetups: checked }))
-                    }
-                  />
+                   <Switch
+                     id="meetups-notif"
+                     checked={notifications.meetups}
+                     onCheckedChange={(checked) => 
+                       updateNotifications({ ...notifications, meetups: checked })
+                     }
+                   />
                 </div>
                  <Separator />
                  <div className="flex items-center justify-between">
@@ -291,7 +344,7 @@ const Settings = () => {
                      id="bubbles-notif"
                      checked={notifications.bubbles}
                      onCheckedChange={(checked) => 
-                       setNotifications(prev => ({ ...prev, bubbles: checked }))
+                       updateNotifications({ ...notifications, bubbles: checked })
                      }
                    />
                  </div>
@@ -305,7 +358,7 @@ const Settings = () => {
                      id="push-notif"
                      checked={notifications.push}
                      onCheckedChange={(checked) => 
-                       setNotifications(prev => ({ ...prev, push: checked }))
+                       updateNotifications({ ...notifications, push: checked })
                      }
                    />
                  </div>
@@ -319,7 +372,7 @@ const Settings = () => {
                      id="email-notif"
                      checked={notifications.email}
                      onCheckedChange={(checked) => 
-                       setNotifications(prev => ({ ...prev, email: checked }))
+                       updateNotifications({ ...notifications, email: checked })
                      }
                    />
                  </div>
@@ -367,7 +420,7 @@ const Settings = () => {
                     <Label className="text-base">Language</Label>
                     <p className="text-sm text-muted-foreground">Choose your preferred language</p>
                   </div>
-                  <Select value={language} onValueChange={setLanguage}>
+                  <Select value={language} onValueChange={updateLanguage}>
                     <SelectTrigger className="w-32">
                       <SelectValue />
                     </SelectTrigger>
@@ -385,7 +438,7 @@ const Settings = () => {
                     <Label className="text-base">Timezone</Label>
                     <p className="text-sm text-muted-foreground">Set your local timezone</p>
                   </div>
-                  <Select value={timezone} onValueChange={setTimezone}>
+                  <Select value={timezone} onValueChange={updateTimezone}>
                     <SelectTrigger className="w-32">
                       <SelectValue />
                     </SelectTrigger>
@@ -453,10 +506,17 @@ const Settings = () => {
                 
                 <Separator />
                 
-                <Button variant="outline" className="w-full justify-start">
-                  <MapPin className="h-4 w-4 mr-2" />
-                  Update Location
-                </Button>
+                <UpdateLocationDialog onLocationUpdate={() => {
+                  // Refresh profile data after location update
+                  if (user) {
+                    supabase
+                      .from('profiles')
+                      .select('*')
+                      .eq('id', user.id)
+                      .single()
+                      .then(({ data }) => setProfile(data));
+                  }
+                }} />
                 
                 <Button variant="outline" className="w-full justify-start" onClick={handleExportData}>
                   <Download className="h-4 w-4 mr-2" />

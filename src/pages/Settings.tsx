@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Settings as SettingsIcon, Moon, Sun, Bell, Shield, MapPin, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Settings as SettingsIcon, Moon, Sun, Bell, Shield, MapPin, Trash2, Download, HelpCircle, UserX, Globe, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -22,7 +23,13 @@ const Settings = () => {
     messages: true,
     meetups: true,
     bubbles: true,
+    push: true,
+    email: false,
   });
+  const [blockedUsers, setBlockedUsers] = useState([]);
+  const [language, setLanguage] = useState('en');
+  const [timezone, setTimezone] = useState('UTC');
+  const [storageUsed, setStorageUsed] = useState(0);
 
   // Redirect unauthenticated users
   if (!user && !loading) {
@@ -41,6 +48,26 @@ const Settings = () => {
           .single();
 
         setProfile(profileData);
+
+        // Fetch blocked users
+        const { data: blocks } = await supabase
+          .from('user_blocks')
+          .select(`
+            blocked_id,
+            profiles!user_blocks_blocked_id_fkey(first_name, profile_photo_url)
+          `)
+          .eq('blocker_id', user.id);
+
+        setBlockedUsers(blocks || []);
+
+        // Calculate storage usage
+        const { data: photos } = await supabase.storage
+          .from('profile-photos')
+          .list(user.id);
+        
+        const totalSize = photos?.reduce((sum, file) => sum + (file.metadata?.size || 0), 0) || 0;
+        setStorageUsed(Math.round(totalSize / 1024 / 1024 * 100) / 100); // MB
+
       } catch (error) {
         console.error('Error fetching profile:', error);
       } finally {
@@ -95,6 +122,77 @@ const Settings = () => {
     } catch (error: any) {
       toast({
         title: 'Error deleting account',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleExportData = async () => {
+    try {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user?.id)
+        .single();
+
+      const { data: bubbleData } = await supabase
+        .from('bubble_memberships')
+        .select('*, bubbles(*)')
+        .eq('user_id', user?.id);
+
+      const { data: messageData } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('sender_id', user?.id);
+
+      const exportData = {
+        profile: profileData,
+        bubbles: bubbleData,
+        messages: messageData,
+        exportDate: new Date().toISOString(),
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `social-bubble-data-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: 'Data exported',
+        description: 'Your data has been downloaded successfully.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Export failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleUnblockUser = async (blockedId: string) => {
+    try {
+      const { error } = await supabase
+        .from('user_blocks')
+        .delete()
+        .eq('blocker_id', user?.id)
+        .eq('blocked_id', blockedId);
+
+      if (error) throw error;
+
+      setBlockedUsers(prev => prev.filter((block: any) => block.blocked_id !== blockedId));
+      
+      toast({
+        title: 'User unblocked',
+        description: 'The user has been unblocked successfully.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Failed to unblock',
         description: error.message,
         variant: 'destructive',
       });
@@ -183,20 +281,48 @@ const Settings = () => {
                     }
                   />
                 </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="bubbles-notif" className="text-base">Bubble Suggestions</Label>
-                    <p className="text-sm text-muted-foreground">Get notified about new bubble suggestions</p>
-                  </div>
-                  <Switch
-                    id="bubbles-notif"
-                    checked={notifications.bubbles}
-                    onCheckedChange={(checked) => 
-                      setNotifications(prev => ({ ...prev, bubbles: checked }))
-                    }
-                  />
-                </div>
+                 <Separator />
+                 <div className="flex items-center justify-between">
+                   <div>
+                     <Label htmlFor="bubbles-notif" className="text-base">Bubble Suggestions</Label>
+                     <p className="text-sm text-muted-foreground">Get notified about new bubble suggestions</p>
+                   </div>
+                   <Switch
+                     id="bubbles-notif"
+                     checked={notifications.bubbles}
+                     onCheckedChange={(checked) => 
+                       setNotifications(prev => ({ ...prev, bubbles: checked }))
+                     }
+                   />
+                 </div>
+                 <Separator />
+                 <div className="flex items-center justify-between">
+                   <div>
+                     <Label htmlFor="push-notif" className="text-base">Push Notifications</Label>
+                     <p className="text-sm text-muted-foreground">Receive push notifications on your device</p>
+                   </div>
+                   <Switch
+                     id="push-notif"
+                     checked={notifications.push}
+                     onCheckedChange={(checked) => 
+                       setNotifications(prev => ({ ...prev, push: checked }))
+                     }
+                   />
+                 </div>
+                 <Separator />
+                 <div className="flex items-center justify-between">
+                   <div>
+                     <Label htmlFor="email-notif" className="text-base">Email Notifications</Label>
+                     <p className="text-sm text-muted-foreground">Receive important updates via email</p>
+                   </div>
+                   <Switch
+                     id="email-notif"
+                     checked={notifications.email}
+                     onCheckedChange={(checked) => 
+                       setNotifications(prev => ({ ...prev, email: checked }))
+                     }
+                   />
+                 </div>
               </CardContent>
             </Card>
 
@@ -227,19 +353,150 @@ const Settings = () => {
               </CardContent>
             </Card>
 
-            {/* Account */}
+            {/* Preferences */}
             <Card className="backdrop-blur-sm bg-card/95 border-0">
               <CardHeader>
-                <CardTitle>Account</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="h-5 w-5" />
+                  Preferences
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-base">Language</Label>
+                    <p className="text-sm text-muted-foreground">Choose your preferred language</p>
+                  </div>
+                  <Select value={language} onValueChange={setLanguage}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="es">Español</SelectItem>
+                      <SelectItem value="fr">Français</SelectItem>
+                      <SelectItem value="de">Deutsch</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-base">Timezone</Label>
+                    <p className="text-sm text-muted-foreground">Set your local timezone</p>
+                  </div>
+                  <Select value={timezone} onValueChange={setTimezone}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="UTC">UTC</SelectItem>
+                      <SelectItem value="America/New_York">EST</SelectItem>
+                      <SelectItem value="America/Los_Angeles">PST</SelectItem>
+                      <SelectItem value="Europe/London">GMT</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Blocked Users */}
+            <Card className="backdrop-blur-sm bg-card/95 border-0">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserX className="h-5 w-5" />
+                  Blocked Users
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {blockedUsers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No blocked users
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {blockedUsers.map((block: any) => (
+                      <div key={block.blocked_id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center">
+                            {block.profiles?.first_name?.[0] || '?'}
+                          </div>
+                          <span className="font-medium">{block.profiles?.first_name || 'Unknown User'}</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleUnblockUser(block.blocked_id)}
+                        >
+                          Unblock
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Storage & Data */}
+            <Card className="backdrop-blur-sm bg-card/95 border-0">
+              <CardHeader>
+                <CardTitle>Storage & Data</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-base">Storage Used</Label>
+                    <p className="text-sm text-muted-foreground">{storageUsed} MB of photos</p>
+                  </div>
+                  <div className="text-sm font-medium">{storageUsed} MB</div>
+                </div>
+                
+                <Separator />
+                
                 <Button variant="outline" className="w-full justify-start">
                   <MapPin className="h-4 w-4 mr-2" />
                   Update Location
                 </Button>
                 
-                <Button variant="outline" className="w-full justify-start">
+                <Button variant="outline" className="w-full justify-start" onClick={handleExportData}>
+                  <Download className="h-4 w-4 mr-2" />
                   Export Data
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Help & Support */}
+            <Card className="backdrop-blur-sm bg-card/95 border-0">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <HelpCircle className="h-5 w-5" />
+                  Help & Support
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button variant="ghost" className="w-full justify-start">
+                  Privacy Policy
+                </Button>
+                <Button variant="ghost" className="w-full justify-start">
+                  Terms of Service
+                </Button>
+                <Button variant="ghost" className="w-full justify-start">
+                  Contact Support
+                </Button>
+                <Button variant="ghost" className="w-full justify-start">
+                  Report a Bug
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Account Actions */}
+            <Card className="backdrop-blur-sm bg-card/95 border-0">
+              <CardHeader>
+                <CardTitle>Account Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button variant="outline" className="w-full" onClick={signOut}>
+                  Sign Out
                 </Button>
                 
                 <Separator />

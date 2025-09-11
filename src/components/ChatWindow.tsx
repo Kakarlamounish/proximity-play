@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Send, MoreVertical, Users, Calendar, ImageIcon, Paperclip } from 'lucide-react';
 import { ImageUpload } from '@/components/ImageUpload';
+import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';

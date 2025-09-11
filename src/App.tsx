@@ -8,6 +8,8 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import ProfileSetup from "./pages/ProfileSetup";
 import Messages from "./pages/Messages";
+import Live from "./pages/Live";
+import Calls from "./pages/Calls";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -26,6 +28,8 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/profile-setup" element={<ProfileSetup />} />
             <Route path="/messages" element={<Messages />} />
+            <Route path="/live" element={<Live />} />
+            <Route path="/calls" element={<Calls />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

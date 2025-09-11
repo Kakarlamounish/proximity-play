@@ -112,6 +112,47 @@ export type Database = {
         }
         Relationships: []
       }
+      live_locations: {
+        Row: {
+          bubble_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          latitude: number
+          longitude: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bubble_id: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          latitude: number
+          longitude: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bubble_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_locations_bubble_id_fkey"
+            columns: ["bubble_id"]
+            isOneToOne: false
+            referencedRelation: "bubbles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meetup_rsvps: {
         Row: {
           created_at: string | null
@@ -279,6 +320,82 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      status_reactions: {
+        Row: {
+          created_at: string
+          id: string
+          reaction_type: string
+          status_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reaction_type?: string
+          status_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reaction_type?: string
+          status_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "status_reactions_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "status_updates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      status_updates: {
+        Row: {
+          activity_type: string
+          bubble_id: string
+          created_at: string
+          emoji: string
+          expires_at: string
+          id: string
+          status_text: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activity_type?: string
+          bubble_id: string
+          created_at?: string
+          emoji?: string
+          expires_at: string
+          id?: string
+          status_text: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          activity_type?: string
+          bubble_id?: string
+          created_at?: string
+          emoji?: string
+          expires_at?: string
+          id?: string
+          status_text?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "status_updates_bubble_id_fkey"
+            columns: ["bubble_id"]
+            isOneToOne: false
+            referencedRelation: "bubbles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_badges: {
         Row: {

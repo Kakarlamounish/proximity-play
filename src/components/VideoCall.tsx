@@ -121,12 +121,11 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   const sendSignal = async (signal: any) => {
     try {
       await supabase
-        .from('messages') // Reusing messages table for signaling
+        .from('messages')
         .insert({
           bubble_id: bubbleId,
-          user_id: user?.id,
-          content: JSON.stringify({ type: 'webrtc_signal', signal }),
-          message_type: 'system'
+          sender_id: user?.id,
+          content: JSON.stringify({ type: 'webrtc_signal', signal })
         });
     } catch (error) {
       console.error('Error sending signal:', error);
@@ -147,7 +146,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
         (payload) => {
           try {
             const message = payload.new;
-            if (message.user_id !== user?.id && message.content) {
+            if (message.sender_id !== user?.id && message.content) {
               const parsed = JSON.parse(message.content);
               if (parsed.type === 'webrtc_signal' && parsed.signal) {
                 peerInstance.signal(parsed.signal);

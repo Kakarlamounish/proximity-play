@@ -135,17 +135,13 @@ const Settings = () => {
 
   useEffect(() => {
     // Always default to dark mode unless user sets light
-    const savedTheme = localStorage.getItem('theme');
     let isDark = true;
+    const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'light') {
       isDark = false;
     }
-    setDarkMode(isDark);
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    setDarkMode(true); // Force dark mode on initial load
+    document.documentElement.classList.add('dark');
   }, []);
 
   const toggleDarkMode = () => {

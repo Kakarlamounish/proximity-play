@@ -171,10 +171,12 @@ const Map: React.FC<MapProps> = ({
       });
     }
 
-    // Show live user locations with profile avatars and details
+    // Always show current user's live location, even if not connected
+    let shownUserIds = new Set();
     if (liveLocations && liveLocations.length > 0) {
       liveLocations.forEach((loc) => {
         const isCurrentUser = loc.user_id === currentUserId;
+        shownUserIds.add(loc.user_id);
         // Use avatar if available, fallback to initials
         const avatarUrl = loc.avatar_url || '';
         const initials = loc.user_name ? loc.user_name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U';
@@ -196,6 +198,25 @@ const Map: React.FC<MapProps> = ({
           .addTo(mapInstance);
         (mapInstance as any)._customMarkers.push(marker);
       });
+    }
+    // If current user location is available and not already shown, show it
+    if (userLocation && currentUserId && !shownUserIds.has(currentUserId)) {
+      const popupHtml = `
+        <div class="p-2 flex items-center gap-2">
+          <div class="w-10 h-10 rounded-full overflow-hidden border border-gray-300 bg-gray-100 flex items-center justify-center">
+            <span class='font-bold text-lg'>You</span>
+          </div>
+          <div>
+            <h3 class="font-bold">You</h3>
+            <p class="text-xs text-gray-500">Live Location</p>
+          </div>
+        </div>
+      `;
+      const marker = new mapboxgl.Marker({ color: '#8b5cf6' })
+        .setLngLat([userLocation[1], userLocation[0]])
+        .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
+        .addTo(mapInstance);
+      (mapInstance as any)._customMarkers.push(marker);
     }
 
     // Show story markers

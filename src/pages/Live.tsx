@@ -15,6 +15,12 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import Map from '@/components/Map';
+import CreateStoryDialog from '@/components/CreateStoryDialog';
+import CreateEventDialog from '@/components/CreateEventDialog';
+import CreateARPinDialog from '@/components/CreateARPinDialog';
+import EmergencyShareButton from '@/components/EmergencyShareButton';
+import PrivacyScheduleDialog from '@/components/PrivacyScheduleDialog';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 const PROXIMITY_METERS = 100;
 function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -35,6 +41,60 @@ const Live = () => {
   const [profile, setProfile] = useState<any>(null);
   const [userBubbles, setUserBubbles] = useState<any[]>([]);
   const [selectedBubble, setSelectedBubble] = useState<any>(null);
+  // ...existing code...
+  const [privacyDialogOpen, setPrivacyDialogOpen] = useState(false);
+  const [privacySchedule, setPrivacySchedule] = useState<{ start: string; end: string } | null>(null);
+  const [earnedBadges, setEarnedBadges] = useState<any[]>([]);
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const [arPinDialogOpen, setArPinDialogOpen] = useState(false);
+  // Live activity status
+  const [activityStatus, setActivityStatus] = useState<string>('Online');
+  const [bubbleActivity, setBubbleActivity] = useState<any[]>([]);
+
+  // Detect activity using device sensors (demo: use geolocation speed)
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const speed = pos.coords.speed || 0;
+        let status = 'Online';
+        if (speed > 8) status = 'Driving';
+        else if (speed > 1.5) status = 'Walking';
+        else status = 'At Venue';
+        setActivityStatus(status);
+        // Update status in Supabase
+        if (user && selectedBubble) {
+          supabase.from('status_updates').upsert({
+            user_id: user.id,
+            bubble_id: selectedBubble.id,
+            activity_type: status,
+            updated_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+            status_text: status,
+          }, { onConflict: 'user_id,bubble_id' });
+        }
+      },
+      (err) => {},
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [user, selectedBubble]);
+
+  // Fetch activity status for all users in bubble
+  useEffect(() => {
+    if (!selectedBubble) return;
+    const fetchActivity = async () => {
+      const { data } = await supabase
+        .from('status_updates')
+        .select('user_id,activity_type,updated_at,profiles(first_name,profile_photo_url)')
+        .eq('bubble_id', selectedBubble.id)
+        .gte('updated_at', new Date(Date.now() - 10 * 60 * 1000).toISOString()); // last 10 min
+      setBubbleActivity(data || []);
+    };
+    fetchActivity();
+    const interval = setInterval(fetchActivity, 15000);
+    return () => clearInterval(interval);
+  }, [selectedBubble]);
   const [pageLoading, setPageLoading] = useState(true);
   const [liveLocations, setLiveLocations] = useState<any[]>([]);
   const [privacyEnabled, setPrivacyEnabled] = useState(false);
@@ -47,8 +107,36 @@ const Live = () => {
   const [chatMessage, setChatMessage] = useState("");
   const [chatLog, setChatLog] = useState<{user: string, message: string, time: string}[]>([]);
   const locationWatchId = useRef<number | null>(null);
+  const [storyDialogOpen, setStoryDialogOpen] = useState(false);
 
   // Fetch profile and bubbles
+  // Fetch privacy schedule for user
+  useEffect(() => {
+    if (!user) return;
+    const fetchSchedule = async () => {
+      const { data } = await supabase
+        .from('privacy_schedules')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+      if (data) setPrivacySchedule({ start: data.start_time, end: data.end_time });
+    };
+    fetchSchedule();
+  }, [user]);
+  // Fetch earned badges for user
+  useEffect(() => {
+    if (!user) return;
+    const fetchBadges = async () => {
+      const { data } = await supabase
+        .from('user_badges')
+        .select('*,badges(name,icon,description)')
+        .eq('user_id', user.id);
+      setEarnedBadges(data || []);
+    };
+    fetchBadges();
+    const interval = setInterval(fetchBadges, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
@@ -97,6 +185,22 @@ const Live = () => {
       } else {
         setGeofenceAlert(null);
       }
+
+      // Location-based rewards: award badge for visiting new places
+      const { data: badges } = await supabase.from('badges').select('*');
+      const { data: userBadges } = await supabase.from('user_badges').select('badge_id').eq('user_id', user.id);
+      // Example: award "Explorer" badge if user visits a location > 2km from bubble center
+      if (dist > 2000 && badges) {
+        const explorerBadge = badges.find(b => b.name === 'Explorer');
+        const alreadyEarned = userBadges?.some(ub => ub.badge_id === explorerBadge?.id);
+        if (explorerBadge && !alreadyEarned) {
+          await supabase.from('user_badges').insert({
+            user_id: user.id,
+            badge_id: explorerBadge.id,
+            earned_at: new Date().toISOString(),
+          });
+        }
+      }
     };
     if (navigator.geolocation) {
       locationWatchId.current = navigator.geolocation.watchPosition(
@@ -135,7 +239,13 @@ const Live = () => {
     } else {
       setProximityAlert(null);
     }
-  }, [liveLocations, user]);
+  }, [liveLocations, user, proximityRadius]);
+
+  // Push notification for proximity alert
+  usePushNotifications({
+    enabled: !!proximityAlert,
+    message: proximityAlert || ''
+  });
 
   // Subscribe to live_locations for selected bubble
   useEffect(() => {
@@ -176,7 +286,15 @@ const Live = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
       <Navigation profile={profile} />
-      
+      {/* Location-based Story Dialog */}
+      <CreateStoryDialog
+        open={storyDialogOpen}
+        onClose={() => setStoryDialogOpen(false)}
+        userLocation={(() => {
+          const me = liveLocations.find(l => l.user_id === user?.id);
+          return me ? [me.latitude, me.longitude] : null;
+        })()}
+      />
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
@@ -259,6 +377,18 @@ const Live = () => {
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-4">
+                          {/* Post Story & Create Event Buttons */}
+                          <div className="flex justify-end mb-2 gap-2">
+                            <Button variant="default" size="sm" onClick={() => setStoryDialogOpen(true)}>
+                              Post a Story
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => setEventDialogOpen(true)}>
+                              Create Event
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => setArPinDialogOpen(true)}>
+                              Drop AR Pin
+                            </Button>
+                          </div>
                           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                             <div className="bg-primary/10 rounded-lg p-4 flex-1">
                               <p className="text-sm text-muted-foreground mb-2">
@@ -315,7 +445,37 @@ const Live = () => {
                               )}
                             </div>
                           </div>
-                          {/* Location Trail/History */}
+                          {/* Emergency Share & Privacy Scheduling */}
+                          <div className="flex justify-end mb-2 gap-2">
+                            <EmergencyShareButton
+                              userLocation={(() => {
+                                const me = liveLocations.find(l => l.user_id === user?.id);
+                                return me ? [me.latitude, me.longitude] : null;
+                              })()}
+                              userId={user?.id || ''}
+                            />
+                            <Button variant="outline" size="sm" onClick={() => setPrivacyDialogOpen(true)}>
+                              Privacy Schedule
+                            </Button>
+                          </div>
+                          <PrivacyScheduleDialog
+                            open={privacyDialogOpen}
+                            onClose={() => setPrivacyDialogOpen(false)}
+                            userId={user?.id || ''}
+                            initialSchedule={privacySchedule}
+                          />
+                          {earnedBadges.length > 0 && (
+                            <div className="bg-yellow-50 rounded-lg p-2 mt-2 flex flex-wrap gap-2 items-center">
+                              <div className="font-semibold text-xs mb-1">Your Badges:</div>
+                              {earnedBadges.map((ub, idx) => (
+                                <div key={ub.badge_id || idx} className="flex items-center gap-1 px-2 py-1 bg-yellow-100 rounded shadow text-xs">
+                                  {ub.badges?.icon && <span>{ub.badges.icon}</span>}
+                                  <span className="font-bold">{ub.badges?.name}</span>
+                                  {ub.badges?.description && <span className="text-muted-foreground">({ub.badges.description})</span>}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           {locationTrail.length > 1 && (
                             <div className="bg-muted/30 rounded-lg p-2 mt-2">
                               <div className="font-semibold text-xs mb-1">Your Location Trail (last 10):</div>
@@ -375,6 +535,27 @@ const Live = () => {
                             center={[selectedBubble.longitude, selectedBubble.latitude]}
                             liveLocations={liveLocations}
                             currentUserId={user?.id}
+                            showARPins={true}
+                            showStories={true}
+                            storyRadius={1000}
+                          />
+                          <CreateARPinDialog
+                            open={arPinDialogOpen}
+                            onClose={() => setArPinDialogOpen(false)}
+                            userLocation={(() => {
+                              const me = liveLocations.find(l => l.user_id === user?.id);
+                              return me ? [me.latitude, me.longitude] : null;
+                            })()}
+                          />
+                          {/* Event Creation Dialog */}
+                          <CreateEventDialog
+                            open={eventDialogOpen}
+                            onClose={() => setEventDialogOpen(false)}
+                            userLocation={(() => {
+                              const me = liveLocations.find(l => l.user_id === user?.id);
+                              return me ? [me.latitude, me.longitude] : null;
+                            })()}
+                            bubbleId={selectedBubble?.id}
                           />
                         </div>
                       </CardContent>
@@ -420,23 +601,31 @@ const Live = () => {
                         <div className="space-y-4">
                           <div className="bg-primary/10 rounded-lg p-4">
                             <p className="text-sm text-muted-foreground mb-2">
-                              <strong>Live Activity:</strong> See who's online, who's sharing location, and recent activities in real-time.
+                              <strong>Live Activity:</strong> See what friends are doing right now (walking, driving, at a venue).
                             </p>
                           </div>
-                          
                           <div className="space-y-3">
-                            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                              <div>
-                                <p className="font-medium">{profile?.first_name} (You)</p>
-                                <p className="text-sm text-muted-foreground">Online • Last seen now</p>
+                            {bubbleActivity.length === 0 && (
+                              <div className="text-center py-8">
+                                <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                                <p className="text-muted-foreground">No recent activity yet.</p>
                               </div>
-                            </div>
-                            
-                            <div className="text-center py-8">
-                              <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                              <p className="text-muted-foreground">More live activity features coming soon!</p>
-                            </div>
+                            )}
+                            {bubbleActivity.map((act, idx) => (
+                              <div key={act.user_id || idx} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                                <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-300 bg-gray-100 flex items-center justify-center">
+                                  {act.profiles?.profile_photo_url ? (
+                                    <img src={act.profiles.profile_photo_url} alt="avatar" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span className="font-bold text-lg">{act.profiles?.first_name?.[0] || '?'}</span>
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="font-medium">{act.profiles?.first_name || 'User'}{act.user_id === user?.id ? ' (You)' : ''}</p>
+                                  <p className="text-sm text-muted-foreground">{act.activity_type} • Last seen {new Date(act.updated_at).toLocaleTimeString()}</p>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       </CardContent>

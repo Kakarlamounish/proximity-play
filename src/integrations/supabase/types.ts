@@ -14,30 +14,127 @@ export type Database = {
   }
   public: {
     Tables: {
+      privacy_schedules: {
+        Row: {
+          id: string;
+          user_id: string;
+          start_time: string;
+          end_time: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          start_time: string;
+          end_time: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          start_time?: string;
+          end_time?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      },
+      emergency_shares: {
+        Row: {
+          id: string;
+          user_id: string;
+          latitude: number;
+          longitude: number;
+          shared_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          latitude: number;
+          longitude: number;
+          shared_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          latitude?: number;
+          longitude?: number;
+          shared_at?: string;
+        };
+        Relationships: [];
+      },
       badges: {
         Row: {
-          created_at: string | null
-          description: string | null
-          icon: string | null
-          id: string
-          name: string
-        }
+          id: string;
+          name: string;
+          description: string | null;
+          icon: string | null;
+          created_at: string;
+        };
         Insert: {
-          created_at?: string | null
-          description?: string | null
-          icon?: string | null
-          id?: string
-          name: string
-        }
+          id?: string;
+          name: string;
+          description?: string | null;
+          icon?: string | null;
+          created_at?: string;
+        };
         Update: {
-          created_at?: string | null
-          description?: string | null
-          icon?: string | null
-          id?: string
-          name?: string
-        }
-        Relationships: []
-      }
+          id?: string;
+          name?: string;
+          description?: string | null;
+          icon?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      },
+      user_badges: {
+        Row: {
+          id: string;
+          user_id: string;
+          badge_id: string;
+          earned_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          badge_id: string;
+          earned_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          badge_id?: string;
+          earned_at?: string;
+        };
+        Relationships: [];
+      },
+      ar_pins: {
+        Row: {
+          id: string;
+          user_id: string;
+          note: string;
+          latitude: number;
+          longitude: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          note: string;
+          latitude: number;
+          longitude: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          note?: string;
+          latitude?: number;
+          longitude?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      },
+      // ...existing code...
       bubble_memberships: {
         Row: {
           bubble_id: string
@@ -397,35 +494,7 @@ export type Database = {
           },
         ]
       }
-      user_badges: {
-        Row: {
-          badge_id: string
-          earned_at: string | null
-          id: string
-          user_id: string
-        }
-        Insert: {
-          badge_id: string
-          earned_at?: string | null
-          id?: string
-          user_id: string
-        }
-        Update: {
-          badge_id?: string
-          earned_at?: string | null
-          id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_badges_badge_id_fkey"
-            columns: ["badge_id"]
-            isOneToOne: false
-            referencedRelation: "badges"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      // ...existing code...
       user_blocks: {
         Row: {
           blocked_id: string

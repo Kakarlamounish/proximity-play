@@ -71,14 +71,14 @@ const Auth = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary">
+  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary dark:from-secondary-dark dark:via-background dark:to-primary-dark">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary p-4">
+  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary dark:from-secondary-dark dark:via-background dark:to-primary-dark p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">
@@ -87,7 +87,7 @@ const Auth = () => {
           <p className="text-muted-foreground mt-2">Connect with people who share your interests</p>
         </div>
 
-        <Card className="backdrop-blur-sm bg-card/95 shadow-2xl border-0">
+  <Card className="backdrop-blur-sm bg-card/95 dark:bg-card/80 shadow-2xl border-0">
           <CardHeader className="text-center">
             <CardTitle>Welcome</CardTitle>
             <CardDescription>Join your local social bubbles</CardDescription>

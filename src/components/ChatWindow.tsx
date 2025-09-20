@@ -31,11 +31,44 @@ interface ChatWindowProps {
     name: string;
     interest_tag: string;
     member_count: number;
+    latitude?: number;
+    longitude?: number;
+    geofence_radius?: number;
   };
   onCreateMeetup?: () => void;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }) => {
+  // Demo: Bubble geofence center and radius (could be dynamic from DB)
+  const bubbleCenter = [bubble.latitude || 0, bubble.longitude || 0];
+  const bubbleRadius = bubble.geofence_radius || 200; // meters
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [insideGeofence, setInsideGeofence] = useState(true);
+
+  // Get user location and check geofence
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setUserLocation([lat, lng]);
+        // Haversine formula
+        const R = 6371000;
+        const dLat = (lat - bubbleCenter[0]) * Math.PI / 180;
+        const dLon = (lng - bubbleCenter[1]) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(bubbleCenter[0] * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const dist = R * c;
+        setInsideGeofence(dist <= bubbleRadius);
+      },
+      (err) => {},
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [bubbleCenter, bubbleRadius]);
   const { user } = useAuth();
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -216,6 +249,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
 
   return (
     <div className="flex flex-col h-full">
+      {/* Geofence Alert */}
+      {!insideGeofence && (
+        <div className="bg-red-100 text-red-700 text-center py-2 font-semibold">
+          You are outside the group zone. Chat and content are locked until you enter the area.
+        </div>
+      )}
       {/* Chat Header */}
       <div className="flex items-center justify-between p-4 border-b bg-muted/20">
         <div className="flex items-center gap-3">
@@ -322,6 +361,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
             size="icon"
             onClick={() => setShowImageUpload(true)}
             className="flex-shrink-0"
+            disabled={!insideGeofence}
           >
             <ImageIcon className="h-4 w-4" />
           </Button>
@@ -329,12 +369,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message..."
-            disabled={loading}
+            disabled={loading || !insideGeofence}
             className="flex-1"
           />
           <Button
             type="submit"
-            disabled={loading || !newMessage.trim()}
+            disabled={loading || !newMessage.trim() || !insideGeofence}
             className="bg-gradient-to-r from-secondary to-primary flex-shrink-0"
           >
             <Send className="h-4 w-4" />

@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
+
 interface MapProps {
   bubbles?: any[];
   showBubbles?: boolean;
@@ -16,16 +17,31 @@ interface MapProps {
   onLocationSelect?: (lat: number, lng: number) => void;
   liveLocations?: any[];
   currentUserId?: string;
+  showStories?: boolean;
+  storyRadius?: number;
+  showARPins?: boolean;
 }
 
-const Map: React.FC<MapProps> = ({ 
-  bubbles = [], 
-  showBubbles = true, 
+const Map: React.FC<MapProps> = ({
+  bubbles = [],
+  showBubbles = true,
   center,
   onLocationSelect,
   liveLocations = [],
-  currentUserId
+  currentUserId,
+  showStories = true,
+  storyRadius = 1000,
+  showARPins = false
 }) => {
+    const handleTokenSubmit = () => {
+      if (mapboxToken.trim()) {
+        setNeedsToken(false);
+      }
+    };
+
+  const [stories, setStories] = useState<any[]>([]);
+  const [arPins, setARPins] = useState<any[]>([]);
+  const [mapStyle, setMapStyle] = useState<string>('mapbox://styles/mapbox/light-v11');
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [mapboxToken, setMapboxToken] = useState<string>('');
@@ -33,6 +49,49 @@ const Map: React.FC<MapProps> = ({
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Fetch location-based stories from Supabase
+    const fetchStories = async () => {
+      if (!showStories) return;
+      try {
+        // If user location is available, filter by radius
+        let lat = null, lng = null;
+        if (liveLocations && currentUserId) {
+          const me = liveLocations.find(l => l.user_id === currentUserId);
+          if (me) {
+            lat = me.latitude;
+            lng = me.longitude;
+          }
+        }
+        let query = (supabase as any).from('location_stories').select('*').gte('expires_at', new Date().toISOString());
+        if (lat !== null && lng !== null) {
+          // Filter stories within radius (simple bounding box for demo)
+          query = query.gte('latitude', lat - 0.1).lte('latitude', lat + 0.1).gte('longitude', lng - 0.1).lte('longitude', lng + 0.1);
+        }
+        const { data } = await query;
+        setStories(data || []);
+      } catch (err) {
+        console.error('Error fetching stories:', err);
+      }
+    };
+    fetchStories();
+    // Optionally, poll for new stories every minute
+    const interval = setInterval(fetchStories, 60000);
+    return () => clearInterval(interval);
+  }, [showStories, liveLocations, currentUserId]);
+
+  // Fetch AR pins
+  useEffect(() => {
+    if (!showARPins) return;
+    const fetchARPins = async () => {
+      const { data } = await supabase.from('ar_pins').select('*');
+      setARPins(data || []);
+    };
+    fetchARPins();
+    const interval = setInterval(fetchARPins, 60000);
+    return () => clearInterval(interval);
+  }, [showARPins, liveLocations, currentUserId]);
 
   useEffect(() => {
     const initializeMap = async () => {
@@ -46,7 +105,7 @@ const Map: React.FC<MapProps> = ({
         mapboxgl.accessToken = token;
         map.current = new mapboxgl.Map({
           container: mapContainer.current,
-          style: 'mapbox://styles/mapbox/light-v11',
+          style: mapStyle,
           center: center || [0, 0],
           zoom: center ? 12 : 2,
           pitch: 0,
@@ -138,13 +197,59 @@ const Map: React.FC<MapProps> = ({
         (mapInstance as any)._customMarkers.push(marker);
       });
     }
-  }, [bubbles, showBubbles, liveLocations, currentUserId]);
 
-  const handleTokenSubmit = () => {
-    if (mapboxToken.trim()) {
-      setNeedsToken(false);
+    // Show story markers
+    if (showStories && stories.length > 0) {
+      stories.forEach((story) => {
+        // Only show stories within radius of current user
+        let show = true;
+        if (liveLocations && currentUserId) {
+          const me = liveLocations.find(l => l.user_id === currentUserId);
+          if (me) {
+            const dist = Math.sqrt(
+              Math.pow(me.latitude - story.latitude, 2) +
+              Math.pow(me.longitude - story.longitude, 2)
+            ) * 111000; // rough meters
+            if (dist > storyRadius) show = false;
+          }
+        }
+        if (!show) return;
+        const popupHtml = `
+          <div class='p-2 max-w-[220px]'>
+            <h3 class='font-bold mb-1'>Story</h3>
+            <p class='text-sm mb-2'>${story.text_content || ''}</p>
+            ${story.image_url ? `<img src='${story.image_url}' alt='story' class='w-full h-24 object-cover rounded mb-2' />` : ''}
+            <p class='text-xs text-gray-500'>Expires: ${new Date(story.expires_at).toLocaleString()}</p>
+          </div>
+        `;
+        const marker = new mapboxgl.Marker({ color: '#f59e42' })
+          .setLngLat([story.longitude, story.latitude])
+          .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
+          .addTo(mapInstance);
+        (mapInstance as any)._customMarkers.push(marker);
+      });
     }
-  };
+
+    // Show AR pin markers
+    if (showARPins && arPins.length > 0) {
+      arPins.forEach((pin) => {
+        const popupHtml = `
+          <div class='p-2 max-w-[220px]'>
+            <h3 class='font-bold mb-1'>AR Pin</h3>
+            <p class='text-sm mb-2'>${pin.note || ''}</p>
+            <p class='text-xs text-gray-500'>Dropped by: ${pin.user_id}</p>
+            <p class='text-xs text-gray-500'>${new Date(pin.created_at).toLocaleString()}</p>
+          </div>
+        `;
+        const marker = new mapboxgl.Marker({ color: '#6366f1' })
+          .setLngLat([pin.longitude, pin.latitude])
+          .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
+          .addTo(mapInstance);
+        (mapInstance as any)._customMarkers.push(marker);
+      });
+    }
+  }, [bubbles, showBubbles, liveLocations, currentUserId, showStories, stories, showARPins, arPins, storyRadius]);
+  // ...existing code...
 
   if (needsToken) {
     return (
@@ -181,8 +286,14 @@ const Map: React.FC<MapProps> = ({
 
   return (
     <div className="relative w-full h-[400px] rounded-lg overflow-hidden">
+      {/* Map Theme Selector */}
+      <div className="absolute top-4 right-4 z-10 bg-card/90 backdrop-blur-sm rounded-lg p-2 shadow-lg flex gap-2">
+        <button className={`px-2 py-1 rounded text-xs ${mapStyle === 'mapbox://styles/mapbox/light-v11' ? 'bg-primary text-white' : 'bg-muted'}`} onClick={() => setMapStyle('mapbox://styles/mapbox/light-v11')}>Default</button>
+        <button className={`px-2 py-1 rounded text-xs ${mapStyle === 'mapbox://styles/mapbox/dark-v11' ? 'bg-primary text-white' : 'bg-muted'}`} onClick={() => setMapStyle('mapbox://styles/mapbox/dark-v11')}>Night</button>
+        <button className={`px-2 py-1 rounded text-xs ${mapStyle === 'mapbox://styles/mapbox/satellite-streets-v12' ? 'bg-primary text-white' : 'bg-muted'}`} onClick={() => setMapStyle('mapbox://styles/mapbox/satellite-streets-v12')}>Satellite</button>
+        <button className={`px-2 py-1 rounded text-xs ${mapStyle === 'mapbox://styles/mapbox/outdoors-v12' ? 'bg-primary text-white' : 'bg-muted'}`} onClick={() => setMapStyle('mapbox://styles/mapbox/outdoors-v12')}>Terrain</button>
+      </div>
       <div ref={mapContainer} className="absolute inset-0" />
-      
       {/* Map Legend */}
       <div className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
         <div className="space-y-2 text-sm">
@@ -231,6 +342,7 @@ const Map: React.FC<MapProps> = ({
       )}
     </div>
   );
-};
+// ...existing code...
 
+}
 export default Map;

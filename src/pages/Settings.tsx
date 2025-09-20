@@ -134,13 +134,13 @@ const Settings = () => {
   }, [user, loading]);
 
   useEffect(() => {
-    // Check for dark mode preference
+    // Always default to dark mode unless user sets light
     const savedTheme = localStorage.getItem('theme');
-    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const isDark = savedTheme === 'dark' || (!savedTheme && systemTheme);
+    let isDark = true;
+    if (savedTheme === 'light') {
+      isDark = false;
+    }
     setDarkMode(isDark);
-    
-    // Apply theme to document
     document.documentElement.classList.toggle('dark', isDark);
   }, []);
 

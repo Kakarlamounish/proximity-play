@@ -112,20 +112,28 @@ const Map: React.FC<MapProps> = ({
       });
     }
 
-    // Show live user locations
+    // Show live user locations with profile avatars and details
     if (liveLocations && liveLocations.length > 0) {
       liveLocations.forEach((loc) => {
         const isCurrentUser = loc.user_id === currentUserId;
+        // Use avatar if available, fallback to initials
+        const avatarUrl = loc.avatar_url || '';
+        const initials = loc.user_name ? loc.user_name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U';
+        const popupHtml = `
+          <div class="p-2 flex items-center gap-2">
+            <div class="w-10 h-10 rounded-full overflow-hidden border border-gray-300 bg-gray-100 flex items-center justify-center">
+              ${avatarUrl ? `<img src='${avatarUrl}' alt='avatar' class='w-full h-full object-cover' />` : `<span class='font-bold text-lg'>${initials}</span>`}
+            </div>
+            <div>
+              <h3 class="font-bold">${isCurrentUser ? 'You' : (loc.user_name || 'User')}</h3>
+              ${loc.status ? `<p class='text-xs text-blue-600'>${loc.status}</p>` : ''}
+              <p class="text-xs text-gray-500">${new Date(loc.updated_at).toLocaleTimeString()}</p>
+            </div>
+          </div>
+        `;
         const marker = new mapboxgl.Marker({ color: isCurrentUser ? '#8b5cf6' : '#22c55e' })
           .setLngLat([loc.longitude, loc.latitude])
-          .setPopup(
-            new mapboxgl.Popup().setHTML(`
-              <div class="p-2">
-                <h3 class="font-bold">${isCurrentUser ? 'You' : (loc.user_name || 'User')}</h3>
-                <p class="text-xs text-gray-500">${new Date(loc.updated_at).toLocaleTimeString()}</p>
-              </div>
-            `)
-          )
+          .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
           .addTo(mapInstance);
         (mapInstance as any)._customMarkers.push(marker);
       });

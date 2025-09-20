@@ -14,13 +14,17 @@ interface MapProps {
   showBubbles?: boolean;
   center?: [number, number];
   onLocationSelect?: (lat: number, lng: number) => void;
+  liveLocations?: any[];
+  currentUserId?: string;
 }
 
 const Map: React.FC<MapProps> = ({ 
   bubbles = [], 
   showBubbles = true, 
   center,
-  onLocationSelect 
+  onLocationSelect,
+  liveLocations = [],
+  currentUserId
 }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -33,18 +37,13 @@ const Map: React.FC<MapProps> = ({
   useEffect(() => {
     const initializeMap = async () => {
       if (!mapContainer.current) return;
-
-      // Try to get Mapbox token from environment or prompt user
       let token = mapboxToken;
-      
       if (!token) {
         setNeedsToken(true);
         return;
       }
-
       try {
         mapboxgl.accessToken = token;
-        
         map.current = new mapboxgl.Map({
           container: mapContainer.current,
           style: 'mapbox://styles/mapbox/light-v11',
@@ -52,67 +51,20 @@ const Map: React.FC<MapProps> = ({
           zoom: center ? 12 : 2,
           pitch: 0,
         });
-
-        // Add navigation controls
         map.current.addControl(
-          new mapboxgl.NavigationControl({
-            visualizePitch: true,
-          }),
+          new mapboxgl.NavigationControl({ visualizePitch: true }),
           'top-right'
         );
-
-        // Get user's current location
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition((position) => {
-            const { latitude, longitude } = position.coords;
-            setUserLocation([longitude, latitude]);
-            
-            if (!center) {
-              map.current?.flyTo({
-                center: [longitude, latitude],
-                zoom: 12
-              });
-            }
-
-            // Add user location marker
-            new mapboxgl.Marker({ color: '#8b5cf6' })
-              .setLngLat([longitude, latitude])
-              .setPopup(new mapboxgl.Popup().setHTML('<h3>Your Location</h3>'))
-              .addTo(map.current!);
-          });
-        }
-
-        // Add bubble markers if enabled
-        if (showBubbles && bubbles.length > 0) {
-          bubbles.forEach((bubble) => {
-            const marker = new mapboxgl.Marker({ color: '#06b6d4' })
-              .setLngLat([bubble.longitude, bubble.latitude])
-              .setPopup(
-                new mapboxgl.Popup().setHTML(`
-                  <div class="p-2">
-                    <h3 class="font-bold">${bubble.name}</h3>
-                    <p class="text-sm text-gray-600">${bubble.interest_tag}</p>
-                    <p class="text-xs">${bubble.member_count} members</p>
-                  </div>
-                `)
-              )
-              .addTo(map.current!);
-          });
-        }
-
         // Add click handler for location selection
         if (onLocationSelect) {
           map.current.on('click', (e) => {
             const { lng, lat } = e.lngLat;
             onLocationSelect(lat, lng);
-            
-            // Add temporary marker
             new mapboxgl.Marker({ color: '#ef4444' })
               .setLngLat([lng, lat])
               .addTo(map.current!);
           });
         }
-
       } catch (error) {
         console.error('Error initializing map:', error);
         toast({
@@ -122,15 +74,63 @@ const Map: React.FC<MapProps> = ({
         });
       }
     };
-
     if (mapboxToken && !needsToken) {
       initializeMap();
     }
-
     return () => {
       map.current?.remove();
     };
-  }, [mapboxToken, needsToken, bubbles, center, onLocationSelect, showBubbles]);
+  }, [mapboxToken, needsToken, center, onLocationSelect]);
+
+  // Add/refresh markers for bubbles and live locations
+  useEffect(() => {
+    if (!map.current) return;
+    // Remove all existing markers except mapbox controls
+    const mapInstance = map.current;
+    // Remove previous markers by tracking them
+    if ((mapInstance as any)._customMarkers) {
+      (mapInstance as any)._customMarkers.forEach((m: any) => m.remove());
+    }
+    (mapInstance as any)._customMarkers = [];
+
+    // Show bubble markers
+    if (showBubbles && bubbles.length > 0) {
+      bubbles.forEach((bubble) => {
+        const marker = new mapboxgl.Marker({ color: '#06b6d4' })
+          .setLngLat([bubble.longitude, bubble.latitude])
+          .setPopup(
+            new mapboxgl.Popup().setHTML(`
+              <div class="p-2">
+                <h3 class="font-bold">${bubble.name}</h3>
+                <p class="text-sm text-gray-600">${bubble.interest_tag}</p>
+                <p class="text-xs">${bubble.member_count} members</p>
+              </div>
+            `)
+          )
+          .addTo(mapInstance);
+        (mapInstance as any)._customMarkers.push(marker);
+      });
+    }
+
+    // Show live user locations
+    if (liveLocations && liveLocations.length > 0) {
+      liveLocations.forEach((loc) => {
+        const isCurrentUser = loc.user_id === currentUserId;
+        const marker = new mapboxgl.Marker({ color: isCurrentUser ? '#8b5cf6' : '#22c55e' })
+          .setLngLat([loc.longitude, loc.latitude])
+          .setPopup(
+            new mapboxgl.Popup().setHTML(`
+              <div class="p-2">
+                <h3 class="font-bold">${isCurrentUser ? 'You' : (loc.user_name || 'User')}</h3>
+                <p class="text-xs text-gray-500">${new Date(loc.updated_at).toLocaleTimeString()}</p>
+              </div>
+            `)
+          )
+          .addTo(mapInstance);
+        (mapInstance as any)._customMarkers.push(marker);
+      });
+    }
+  }, [bubbles, showBubbles, liveLocations, currentUserId]);
 
   const handleTokenSubmit = () => {
     if (mapboxToken.trim()) {
@@ -181,6 +181,10 @@ const Map: React.FC<MapProps> = ({
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-purple-500"></div>
             <span>Your Location</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+            <span>Other Users</span>
           </div>
           {showBubbles && (
             <div className="flex items-center gap-2">

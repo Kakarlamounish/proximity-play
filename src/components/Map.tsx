@@ -1,369 +1,847 @@
-import React, { useEffect, useRef, useState } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+// Emoji Reaction Picker and Map Drop
+const EMOJI_OPTIONS = ['😀','👍','🔥','🎉','❤️','😂','😮','😢','😎','🙏'];
+function ReactionPicker({ onPick }) {
+  return (
+    <div style={{ position: 'absolute', top: 120, right: 32, zIndex: 2000, background: 'rgba(30,41,59,0.97)', borderRadius: 8, boxShadow: '0 2px 8px #6366f1', padding: '8px 12px', display: 'flex', gap: 8 }}>
+      {EMOJI_OPTIONS.map(e => (
+        <button key={e} onClick={() => onPick(e)} style={{ fontSize: 24, background: 'none', border: 'none', cursor: 'pointer' }}>{e}</button>
+      ))}
+    </div>
+  );
+}
+// Nearby Places Search Bar
+function NearbyPlacesSearch({ mapCenter, nearbyPlaces, setNearbyPlaces }) {
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&viewbox=${mapCenter[1]-0.05},${mapCenter[0]-0.05},${mapCenter[1]+0.05},${mapCenter[0]+0.05}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    setNearbyPlaces(data);
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ position: 'absolute', top: 72, left: 32, zIndex: 2000, background: 'rgba(30,41,59,0.97)', borderRadius: 8, boxShadow: '0 2px 8px #6366f1', padding: '12px 16px', minWidth: 320 }}>
+      <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8 }}>
+        <input
+          type="text"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Search nearby (e.g. cafe, restaurant)"
+          style={{ flex: 1, padding: 8, borderRadius: 6, border: 'none', background: '#334155', color: '#fff' }}
+        />
+        <button type="submit" style={{ background: '#6366f1', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}>
+          {loading ? 'Searching...' : 'Search'}
+        </button>
+      </form>
+      {nearbyPlaces.length > 0 && (
+        <div style={{ marginTop: 12, maxHeight: 180, overflowY: 'auto' }}>
+          {nearbyPlaces.map((place, idx) => (
+            <div key={idx} style={{ marginBottom: 8, background: '#475569', borderRadius: 6, padding: 8, color: '#fff', cursor: 'pointer' }}>
+              <strong>{place.display_name}</strong>
+              <div style={{ fontSize: 12, color: '#a3a3a3' }}>{place.type}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+// Map Theme Switcher
+const MAP_THEMES = [
+  { key: 'standard', label: 'Standard', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors' },
+  { key: 'dark', label: 'Dark', url: 'https://tiles.stadiamaps.com/tiles/alidade_dark/{z}/{x}/{y}{r}.png', attribution: '&copy; Stadia Maps, OpenMapTiles, OpenStreetMap contributors' },
+  { key: 'satellite', label: 'Satellite', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR, and the GIS User Community' }
+];
+
+function MapThemeSwitcher({ theme, setTheme }) {
+  return (
+    <div style={{ position: 'absolute', top: 24, left: 32, zIndex: 2000, display: 'flex', gap: 8 }}>
+      {MAP_THEMES.map(t => (
+        <button
+          key={t.key}
+          onClick={() => setTheme(t.key)}
+          style={{
+            background: theme === t.key ? 'linear-gradient(90deg,#6366f1,#3b82f6)' : '#334155',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 8,
+            padding: '8px 14px',
+            fontWeight: 'bold',
+            fontSize: 14,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            cursor: 'pointer',
+            outline: 'none',
+            marginRight: 4,
+          }}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+// Named export already provided by 'export function Map'.
+// Live Location Sharing Toggle Button
+const LocationSharingToggle: React.FC<{ enabled: boolean; onToggle: () => void }> = ({ enabled, onToggle }) => (
+  <div style={{ position: 'absolute', top: 24, right: 32, zIndex: 2000 }}>
+    <button
+      onClick={onToggle}
+      style={{
+        background: enabled ? 'linear-gradient(90deg,#22c55e,#16a34a)' : 'linear-gradient(90deg,#64748b,#334155)',
+        color: '#fff',
+        border: 'none',
+        borderRadius: 8,
+        padding: '10px 18px',
+        fontWeight: 'bold',
+        fontSize: 15,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        cursor: 'pointer',
+        outline: 'none',
+      }}
+      title={enabled ? 'Disable Live Location Sharing' : 'Enable Live Location Sharing'}
+    >
+      {enabled ? '🟢 Sharing Location' : '🔴 Not Sharing'}
+    </button>
+  </div>
+);
+// Custom control for heatmap stats
+const HeatmapStatsControl: React.FC<{ locations: { latitude: number; longitude: number }[] }> = ({ locations }) => {
+  const map = useMap();
+  useEffect(() => {
+    // Example: count hotspots (clusters of users within 100m)
+    const hotspots = locations.length;
+    const controlDiv = document.createElement('div');
+    controlDiv.style.background = 'rgba(30,41,59,0.85)';
+    controlDiv.style.color = '#fff';
+    controlDiv.style.padding = '8px 16px';
+    controlDiv.style.borderRadius = '8px';
+    controlDiv.style.fontWeight = 'bold';
+    controlDiv.style.fontSize = '14px';
+    controlDiv.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+    controlDiv.innerText = `Hotspots: ${hotspots}`;
+    const customControl = (window as any).L.control({ position: 'topright' });
+    customControl.onAdd = () => controlDiv;
+    customControl.addTo(map);
+    return () => { customControl.remove(); };
+  }, [locations, map]);
+  return null;
+};
+// --- Live User Presence ---
+const LiveUserList: React.FC<{ users: { id: string; name: string; online: boolean; location?: [number, number] }[] }> = ({ users }) => (
+  <div style={{ position: 'absolute', left: 24, top: 24, zIndex: 2000, minWidth: 220, background: 'rgba(30,41,59,0.97)', borderRadius: 8, boxShadow: '0 2px 8px #6366f1', padding: '12px 16px' }}>
+    <div style={{ fontWeight: 'bold', color: '#fff', marginBottom: 8 }}>🟢 Live Users</div>
+    {users.map(u => (
+      <div key={u.id} style={{ color: u.online ? '#22c55e' : '#64748b', marginBottom: 6 }}>
+        <span style={{ fontWeight: 'bold' }}>{u.name}</span>
+        {u.location && <span style={{ fontSize: 12, marginLeft: 8 }}>({u.location[0].toFixed(3)}, {u.location[1].toFixed(3)})</span>}
+        {u.online ? ' • Online' : ' • Offline'}
+      </div>
+    ))}
+  </div>
+);
+
+// --- Live Activity Feed ---
+const ActivityFeed: React.FC<{ events: { id: string; type: string; user: string; detail: string; time: string }[] }> = ({ events }) => (
+  <div style={{ position: 'absolute', left: 24, bottom: 24, zIndex: 2000, minWidth: 320, background: 'rgba(30,41,59,0.97)', borderRadius: 8, boxShadow: '0 2px 8px #6366f1', padding: '12px 16px', maxHeight: 180, overflowY: 'auto' }}>
+    <div style={{ fontWeight: 'bold', color: '#fff', marginBottom: 8 }}>⚡ Activity Feed</div>
+    {events.map(e => (
+      <div key={e.id} style={{ color: '#fff', marginBottom: 6 }}>
+        <span style={{ color: '#6366f1', fontWeight: 'bold' }}>{e.user}</span>
+        <span style={{ marginLeft: 8 }}>{e.type === 'join' ? 'joined' : e.type === 'message' ? 'messaged' : e.type}</span>
+        <span style={{ marginLeft: 8, color: '#94a3b8', fontSize: 13 }}>{e.detail}</span>
+        <span style={{ float: 'right', color: '#94a3b8', fontSize: 12 }}>{e.time}</span>
+      </div>
+    ))}
+  </div>
+);
+// (imports removed; use main import block below)
+// Floating Action Button for quick map actions using React-Leaflet context
+const FloatingActionButton: React.FC<{ latlng?: [number, number]; icon?: string; label?: string }> = ({ latlng, icon = '📍', label = 'Center on Me' }) => {
+  const map = useMap();
+  return (
+    <div style={{ position: 'absolute', bottom: 32, right: 32, zIndex: 1000 }}>
+      <button
+        onClick={() => {
+          if (latlng) {
+            map.setView(latlng, 15);
+          }
+        }}
+        style={{
+          background: 'linear-gradient(90deg,#6366f1,#3b82f6)',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '50%',
+          width: 56,
+          height: 56,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          fontSize: 28,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          outline: 'none',
+        }}
+        title={label}
+      >
+        {icon}
+      </button>
+    </div>
+  );
+}
+// Utility to calculate average distance between all pairs of locations
+function getAverageDistance(locations: { latitude: number; longitude: number }[]): number {
+  if (locations.length < 2) return 0;
+  let total = 0;
+  let count = 0;
+  for (let i = 0; i < locations.length; i++) {
+    for (let j = i + 1; j < locations.length; j++) {
+      const R = 6371000;
+      const dLat = (locations[j].latitude - locations[i].latitude) * Math.PI / 180;
+      const dLon = (locations[j].longitude - locations[i].longitude) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(locations[i].latitude * Math.PI / 180) * Math.cos(locations[j].latitude * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      total += R * c;
+      count++;
+    }
+  }
+  return count ? total / count : 0;
+}
+// Custom control for average distance
+const AvgDistanceControl: React.FC<{ locations: { latitude: number; longitude: number }[] }> = ({ locations }) => {
+  const map = useMap();
+  React.useEffect(() => {
+    const avgDist = getAverageDistance(locations);
+    const controlDiv = document.createElement('div');
+    controlDiv.style.background = 'rgba(30,41,59,0.85)';
+    controlDiv.style.color = '#fff';
+    controlDiv.style.padding = '8px 16px';
+    controlDiv.style.borderRadius = '8px';
+    controlDiv.style.fontWeight = 'bold';
+    controlDiv.style.fontSize = '14px';
+    controlDiv.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+    controlDiv.innerText = `Avg Distance: ${avgDist > 1000 ? (avgDist/1000).toFixed(2) + ' km' : avgDist.toFixed(0) + ' m'}`;
+    const customControl = (window as any).L.control({ position: 'topright' });
+    customControl.onAdd = () => controlDiv;
+    customControl.addTo(map);
+    return () => {
+      customControl.remove();
+    };
+  }, [locations, map]);
+  return null;
+};
+// Custom user count control
+const UserCountControl: React.FC<{ count: number }> = ({ count }) => {
+  const map = useMap();
+  React.useEffect(() => {
+    const controlDiv = document.createElement('div');
+    controlDiv.style.background = 'rgba(30,41,59,0.85)';
+    controlDiv.style.color = '#fff';
+    controlDiv.style.padding = '8px 16px';
+    controlDiv.style.borderRadius = '8px';
+    controlDiv.style.fontWeight = 'bold';
+    controlDiv.style.fontSize = '14px';
+    controlDiv.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+    controlDiv.innerText = `Live Users: ${count}`;
+    const customControl = (window as any).L.control({ position: 'topright' });
+    customControl.onAdd = () => controlDiv;
+    customControl.addTo(map);
+    return () => {
+      customControl.remove();
+    };
+  }, [count, map]);
+  return null;
+};
+import { useMapEvents } from 'react-leaflet';
+// Demo map event handler component
+const MapEvents: React.FC<{ onClick?: (e: any) => void }> = ({ onClick }) => {
+  useMapEvents({
+    click: (e) => {
+      if (onClick) onClick(e);
+      console.log('Map clicked at:', e.latlng);
+    },
+    moveend: (e) => {
+      console.log('Map moved. Center:', e.target.getCenter());
+    },
+    zoomend: (e) => {
+      console.log('Map zoomed. Zoom level:', e.target.getZoom());
+    },
+  });
+  return null;
+};
+// Routing component using OSRM API
+const Routing: React.FC<{ start: [number, number]; end: [number, number] }> = ({ start, end }) => {
+  const [routeCoords, setRouteCoords] = React.useState<[number, number][]>([]);
+  const map = useMap();
+  React.useEffect(() => {
+    const fetchRoute = async () => {
+      const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.routes && data.routes.length > 0) {
+        const coords = data.routes[0].geometry.coordinates.map(([lng, lat]: [number, number]) => [lat, lng]);
+        setRouteCoords(coords);
+      }
+    };
+    fetchRoute();
+  }, [start, end]);
+  return routeCoords.length > 0 ? (
+    <Polyline positions={routeCoords} pathOptions={{ color: 'green', weight: 5 }} />
+  ) : null;
+};
+import React, { useRef, useState } from 'react';
+// (already imported above)
+import { createClient } from '@supabase/supabase-js';
+// --- Supabase Client Setup ---
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '<YOUR_SUPABASE_URL>';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '<YOUR_SUPABASE_ANON_KEY>';
+const supabase = createClient(supabaseUrl, supabaseKey);
+// (already imported above)
+// Supabase client for real-time features
+// import { createClient } from '@supabase/supabase-js';
+// --- Notification System Skeleton ---
+const NotificationCenter: React.FC<{ notifications: { id: string; message: string; time: string }[] }> = ({ notifications }) => (
+  <div style={{ position: 'absolute', top: 24, right: 24, zIndex: 2000, minWidth: 320 }}>
+    {notifications.map(n => (
+      <div key={n.id} style={{ background: '#1e293b', color: '#fff', borderRadius: 8, boxShadow: '0 2px 8px #6366f1', marginBottom: 8, padding: '12px 16px', fontSize: 15 }}>
+        <div style={{ fontWeight: 'bold', marginBottom: 4 }}>🔔 {n.message}</div>
+        <div style={{ fontSize: 12, color: '#94a3b8' }}>{n.time}</div>
+      </div>
+    ))}
+  </div>
+);
+
+// --- Chat Sidebar Skeleton ---
+const ChatSidebar: React.FC<{ messages: { id: string; user: string; text: string; time: string }[] }> = ({ messages }) => (
+  <div style={{ position: 'absolute', right: 0, top: 0, height: '100%', width: 320, background: 'rgba(30,41,59,0.97)', zIndex: 2000, boxShadow: '-2px 0 12px #6366f1', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ padding: '16px', borderBottom: '1px solid #334155', fontWeight: 'bold', color: '#fff' }}>💬 Live Chat</div>
+    <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+      {messages.map(m => (
+        <div key={m.id} style={{ marginBottom: 12 }}>
+          <span style={{ color: '#6366f1', fontWeight: 'bold' }}>{m.user}</span>
+          <span style={{ color: '#fff', marginLeft: 8 }}>{m.text}</span>
+          <div style={{ fontSize: 11, color: '#94a3b8' }}>{m.time}</div>
+        </div>
+      ))}
+    </div>
+    <div style={{ padding: '12px', borderTop: '1px solid #334155' }}>
+      <input type="text" placeholder="Type a message..." style={{ width: '100%', padding: 8, borderRadius: 6, border: 'none', background: '#334155', color: '#fff' }} />
+    </div>
+  </div>
+);
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MapPin, Users, Navigation as NavigationIcon } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { Card, CardContent } from '@/components/ui/card';
+import { Navigation as NavigationIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { ExplorationBadge } from '@/components/ui/exploration-badge';
+import { UserMarker } from '@/components/user-marker';
+import { createRoot } from 'react-dom/client';
+import { mapStyle } from '@/components/map-style';
+import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import { Tooltip } from 'react-leaflet';
+import { Polyline, Polygon } from 'react-leaflet';
+import { LayersControl } from 'react-leaflet';
+import { ScaleControl } from 'react-leaflet';
+import { EditControl } from 'react-leaflet-draw';
+import { GeoSearchControl, OpenStreetMapProvider } from 'leaflet-geosearch';
+import { useMap } from 'react-leaflet';
+// Custom Geosearch component
+const Geosearch: React.FC = () => {
+  const map = useMap();
+  React.useEffect(() => {
+    const provider = new OpenStreetMapProvider();
+    const searchControl = new GeoSearchControl({
+      provider,
+      style: 'bar',
+      showMarker: true,
+      showPopup: true,
+      marker: {
+        icon: '📍',
+        draggable: false,
+      },
+      popupFormat: ({ query, result }) => `${result.label}`,
+      maxMarkers: 1,
+      retainZoomLevel: false,
+      animateZoom: true,
+      autoClose: true,
+      keepResult: true,
+    });
+    map.addControl(searchControl);
+    return () => {
+      map.removeControl(searchControl);
+    };
+  }, [map]);
+  return null;
+};
+import 'leaflet-draw/dist/leaflet.draw.css';
+import 'leaflet.heat';
+// Plugin imports
+import 'leaflet.markercluster/dist/leaflet.markercluster.js';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import 'leaflet-minimap/dist/Control.MiniMap.min.css';
+import 'leaflet-minimap/dist/Control.MiniMap.min.js';
+import 'leaflet-measure/dist/leaflet-measure.css';
+import 'leaflet-measure/dist/leaflet-measure.js';
+import 'leaflet-easyprint';
+// (already imported above)
 
+// Custom MiniMap control
+export const MiniMapControl: React.FC = () => {
+  const map = useMap();
+  useEffect(() => {
+    const tileLayer = new L.TileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+    const miniMap = new (window as any).L.Control.MiniMap(tileLayer, { toggleDisplay: true }).addTo(map);
+    return () => { miniMap.remove(); };
+  }, [map]);
+  return null;
+};
+
+// Custom Measurement control
+export const MeasureControl: React.FC = () => {
+  const map = useMap();
+  useEffect(() => {
+    const measureControl = new (window as any).L.Control.Measure({
+      position: 'topright',
+      primaryLengthUnit: 'meters',
+      secondaryLengthUnit: 'kilometers',
+      primaryAreaUnit: 'sqmeters',
+      secondaryAreaUnit: 'hectares',
+    });
+    measureControl.addTo(map);
+  return () => { measureControl.remove(); };
+  }, [map]);
+  return null;
+};
+
+// Custom clustered markers
+export const ClusteredMarkers: React.FC<{ locations: { latitude: number; longitude: number; name?: string }[] }> = ({ locations }) => {
+  const map = useMap();
+  useEffect(() => {
+    const markers = locations.map(loc => L.marker([loc.latitude, loc.longitude], {
+      icon: L.icon({
+        iconUrl: '/public/placeholder.svg',
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+        popupAnchor: [0, -32],
+      })
+    }).bindPopup(loc.name || 'User'));
+    const markerCluster = (window as any).L.markerClusterGroup();
+    markers.forEach(m => markerCluster.addLayer(m));
+    map.addLayer(markerCluster);
+    return () => { map.removeLayer(markerCluster); };
+  }, [locations, map]);
+  return null;
+};
+// Plugin imports
+import 'leaflet.markercluster/dist/leaflet.markercluster.js';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import 'leaflet-minimap/dist/Control.MiniMap.min.css';
+import 'leaflet-minimap/dist/Control.MiniMap.min.js';
+import 'leaflet-measure/dist/leaflet-measure.css';
+import 'leaflet-measure/dist/leaflet-measure.js';
+
+// Custom HeatmapLayer component
+const HeatmapLayer: React.FC<{ points: [number, number, number?][] }> = ({ points }) => {
+  const map = useMap();
+  React.useEffect(() => {
+    // Remove previous heat layer if exists
+    const prevLayer = (map as any)._heatLayer;
+    if (prevLayer) {
+      map.removeLayer(prevLayer);
+    }
+    // Add new heat layer
+    if (points.length > 0) {
+      const heatLayer = (window as any).L.heatLayer(points, { radius: 25, blur: 15, maxZoom: 17 });
+      heatLayer.addTo(map);
+      (map as any)._heatLayer = heatLayer;
+    }
+    // Cleanup
+    return () => {
+      const prev = (map as any)._heatLayer;
+      if (prev) map.removeLayer(prev);
+    };
+  }, [points, map]);
+  return null;
+};
+  // Demo route (polyline) and zone (polygon)
+  const demoRoute: [number, number][] = [
+    [17.385, 78.4867],
+    [17.387, 78.488],
+    [17.389, 78.489],
+    [17.391, 78.490],
+  ];
+  const demoZone: [number, number][] = [
+    [17.384, 78.485],
+    [17.384, 78.491],
+    [17.392, 78.491],
+    [17.392, 78.485],
+  ];
+import L, { DivIcon } from 'leaflet';
+import { LatLngExpression } from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+interface Location {
+  user_id: string;
+  latitude: number;
+  longitude: number;
+  avatar_url?: string;
+  user_name?: string;
+  profile_photo_url?: string;
+  status?: string;
+  updated_at: string;
+}
 
 interface MapProps {
-  bubbles?: any[];
+  bubbles?: Array<{
+    id: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+    interest_tag: string;
+    member_count: number;
+  }>;
   showBubbles?: boolean;
   center?: [number, number];
   onLocationSelect?: (lat: number, lng: number) => void;
-  liveLocations?: any[];
+  liveLocations?: Location[];
   currentUserId?: string;
   showStories?: boolean;
   storyRadius?: number;
   showARPins?: boolean;
 }
 
-const Map: React.FC<MapProps> = ({
-  bubbles = [],
-  showBubbles = true,
-  center,
-  onLocationSelect,
-  liveLocations = [],
-  currentUserId,
-  showStories = true,
-  storyRadius = 1000,
-  showARPins = false
-}) => {
-    const handleTokenSubmit = () => {
-      if (mapboxToken.trim()) {
-        setNeedsToken(false);
+export function Map(props: MapProps) {
+  // Screenshot/Export logic
+  const mapRef = useRef<any>(null);
+  const handleExportMap = () => {
+    if (mapRef.current) {
+      const easyPrint = (window as any).L.easyPrint({
+        tileLayer: mapRef.current,
+        sizeModes: ['Current'],
+        exportOnly: true,
+        filename: `proximity-map-${Date.now()}`,
+        hideControlContainer: true,
+      }).addTo(mapRef.current);
+      easyPrint.printMap('CurrentSize', `proximity-map-${Date.now()}`);
+    }
+  };
+  {/* Floating Screenshot/Export Button */}
+  <div style={{ position: 'absolute', bottom: 240, right: 32, zIndex: 2000 }}>
+    <button
+      onClick={handleExportMap}
+      style={{ background: 'linear-gradient(90deg,#f59e42,#fbbf24)', color: '#fff', border: 'none', borderRadius: '50%', width: 56, height: 56, fontSize: 28, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', cursor: 'pointer' }}
+      title="Export Map Screenshot"
+    >
+      📸
+    </button>
+  </div>
+  // Route planning state
+  const [showRouteDialog, setShowRouteDialog] = useState(false);
+  const [routePoints, setRoutePoints] = useState({ start: null, end: null });
+  const [routeReady, setRouteReady] = useState(false);
+
+  // Handle map click for route planning
+  const handleRouteMapClick = (e) => {
+    if (showRouteDialog) {
+      if (!routePoints.start) {
+        setRoutePoints(p => ({ ...p, start: [e.latlng.lat, e.latlng.lng] }));
+      } else if (!routePoints.end) {
+        setRoutePoints(p => ({ ...p, end: [e.latlng.lat, e.latlng.lng] }));
+        setRouteReady(true);
       }
-    };
+    }
+  };
 
-  const [stories, setStories] = useState<any[]>([]);
-  const [arPins, setARPins] = useState<any[]>([]);
-  const [mapStyle, setMapStyle] = useState<string>('mapbox://styles/mapbox/light-v11');
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const [mapboxToken, setMapboxToken] = useState<string>('');
-  const [needsToken, setNeedsToken] = useState(false);
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-  const { user } = useAuth();
-  const { toast } = useToast();
+  // Reset route dialog
+  const handleResetRoute = () => {
+    setRoutePoints({ start: null, end: null });
+    setRouteReady(false);
+  };
+  {/* Floating Route Planning Button */}
+  <div style={{ position: 'absolute', bottom: 170, right: 32, zIndex: 2000 }}>
+    <button
+      onClick={() => { setShowRouteDialog(true); handleResetRoute(); }}
+      style={{ background: 'linear-gradient(90deg,#3b82f6,#6366f1)', color: '#fff', border: 'none', borderRadius: '50%', width: 56, height: 56, fontSize: 28, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', cursor: 'pointer' }}
+      title="Route Planning"
+    >
+      🧭
+    </button>
+  </div>
 
+  {/* Route Planning Dialog */}
+  {showRouteDialog && (
+    <div style={{ position: 'absolute', top: 120, right: 100, zIndex: 3000, background: 'rgba(30,41,59,0.97)', borderRadius: 12, boxShadow: '0 2px 12px #3b82f6', padding: '24px 32px', minWidth: 320 }}>
+      <h2 style={{ color: '#fff', fontWeight: 'bold', marginBottom: 12 }}>Route Planning</h2>
+      <div style={{ color: '#a3e635', marginBottom: 10 }}>
+        {!routePoints.start ? 'Click on the map to select start point.' : !routePoints.end ? 'Click on the map to select end point.' : `Start: (${routePoints.start[0].toFixed(4)}, ${routePoints.start[1].toFixed(4)}) End: (${routePoints.end[0].toFixed(4)}, ${routePoints.end[1].toFixed(4)})`}
+      </div>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <button onClick={() => setShowRouteDialog(false)} style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}>Close</button>
+        <button onClick={handleResetRoute} style={{ background: '#64748b', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}>Reset</button>
+      </div>
+    </div>
+  )}
+  // Event/Bubble creation state
+  const [showBubbleDialog, setShowBubbleDialog] = useState(false);
+  const [newBubble, setNewBubble] = useState({ name: '', interest_tag: '', member_count: 1, lat: null, lng: null });
+
+  // Handle map click for bubble creation
+  const handleMapClick = (e) => {
+    if (showBubbleDialog) {
+      setNewBubble(b => ({ ...b, lat: e.latlng.lat, lng: e.latlng.lng }));
+    }
+  };
+
+  // Add new bubble to bubbles array
+  const handleCreateBubble = () => {
+    if (newBubble.name && newBubble.lat && newBubble.lng) {
+      bubbles.push({
+        id: Date.now().toString(),
+        name: newBubble.name,
+        interest_tag: newBubble.interest_tag,
+        member_count: newBubble.member_count,
+        latitude: newBubble.lat,
+        longitude: newBubble.lng,
+      });
+      setShowBubbleDialog(false);
+      setNewBubble({ name: '', interest_tag: '', member_count: 1, lat: null, lng: null });
+    }
+  };
+  {/* Floating Create Event/Bubble Button */}
+  <div style={{ position: 'absolute', bottom: 100, right: 32, zIndex: 2000 }}>
+    <button
+      onClick={() => setShowBubbleDialog(true)}
+      style={{ background: 'linear-gradient(90deg,#22c55e,#16a34a)', color: '#fff', border: 'none', borderRadius: '50%', width: 56, height: 56, fontSize: 28, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', cursor: 'pointer' }}
+      title="Create Event/Bubble"
+    >
+      ＋
+    </button>
+  </div>
+
+  {/* Event/Bubble Creation Dialog */}
+  {showBubbleDialog && (
+    <div style={{ position: 'absolute', top: 120, right: 32, zIndex: 3000, background: 'rgba(30,41,59,0.97)', borderRadius: 12, boxShadow: '0 2px 12px #22c55e', padding: '24px 32px', minWidth: 320 }}>
+      <h2 style={{ color: '#fff', fontWeight: 'bold', marginBottom: 12 }}>Create Event/Bubble</h2>
+      <label style={{ color: '#fff', marginBottom: 6 }}>Name:</label>
+      <input type="text" value={newBubble.name} onChange={e => setNewBubble(b => ({ ...b, name: e.target.value }))} style={{ width: '100%', marginBottom: 10, padding: 8, borderRadius: 6, border: 'none', background: '#334155', color: '#fff' }} />
+      <label style={{ color: '#fff', marginBottom: 6 }}>Interest Tag:</label>
+      <input type="text" value={newBubble.interest_tag} onChange={e => setNewBubble(b => ({ ...b, interest_tag: e.target.value }))} style={{ width: '100%', marginBottom: 10, padding: 8, borderRadius: 6, border: 'none', background: '#334155', color: '#fff' }} />
+      <label style={{ color: '#fff', marginBottom: 6 }}>Member Count:</label>
+      <input type="number" value={newBubble.member_count} min={1} onChange={e => setNewBubble(b => ({ ...b, member_count: parseInt(e.target.value) }))} style={{ width: '100%', marginBottom: 10, padding: 8, borderRadius: 6, border: 'none', background: '#334155', color: '#fff' }} />
+      <div style={{ color: '#a3e635', marginBottom: 10 }}>
+        {newBubble.lat && newBubble.lng ? `Location: (${newBubble.lat.toFixed(4)}, ${newBubble.lng.toFixed(4)})` : 'Click on the map to set location'}
+      </div>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <button onClick={handleCreateBubble} style={{ background: '#22c55e', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}>Create</button>
+        <button onClick={() => setShowBubbleDialog(false)} style={{ background: '#64748b', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}>Cancel</button>
+      </div>
+    </div>
+  )}
+  // Nearby places state
+  const [nearbyPlaces, setNearbyPlaces] = useState([]);
+  const {
+    bubbles = [],
+    showBubbles = false,
+    center = [17.385, 78.4867],
+    liveLocations = [],
+    currentUserId,
+    showARPins = false,
+    showStories = false,
+    storyRadius = 1000,
+  } = props;
+  // User reactions state
+  const [reactions, setReactions] = useState([]);
+  const [showPicker, setShowPicker] = useState(false);
+  const [pendingEmoji, setPendingEmoji] = useState(null);
+  // Nearby places state
+  // ...other state declarations...
+  // Nearby places state
+  // Demo live user presence and activity feed state
+  const [liveUsers, setLiveUsers] = useState([
+    { id: '1', name: 'Alice', online: true, location: [17.385, 78.4867] },
+    { id: '2', name: 'Bob', online: true, location: [17.391, 78.490] },
+    { id: '3', name: 'Charlie', online: false },
+  ]);
+  const [activityEvents, setActivityEvents] = useState([
+    { id: '1', type: 'join', user: 'Alice', detail: '', time: '2 min ago' },
+    { id: '2', type: 'message', user: 'Bob', detail: 'Hi Alice!', time: 'Just now' },
+  ]);
+  // Location sharing toggle state
+  const [locationSharingEnabled, setLocationSharingEnabled] = useState(false);
+  // Map theme state
+  const [mapTheme, setMapTheme] = useState('standard');
+
+  // Share location to Supabase when enabled
   useEffect(() => {
-    // Fetch location-based stories from Supabase
-    const fetchStories = async () => {
-      if (!showStories) return;
-      try {
-        // If user location is available, filter by radius
-        let lat = null, lng = null;
-        if (liveLocations && currentUserId) {
-          const me = liveLocations.find(l => l.user_id === currentUserId);
-          if (me) {
-            lat = me.latitude;
-            lng = me.longitude;
-          }
+    let watchId: number | null = null;
+    if (locationSharingEnabled && navigator.geolocation) {
+      watchId = navigator.geolocation.watchPosition(
+        pos => {
+          // Send location to Supabase (pseudo-code)
+          // supabase.from('user_locations').upsert({ user_id: currentUserId, lat: pos.coords.latitude, lng: pos.coords.longitude });
+        },
+        err => {
+          // Handle error
         }
-        let query = (supabase as any).from('location_stories').select('*').gte('expires_at', new Date().toISOString());
-        if (lat !== null && lng !== null) {
-          // Filter stories within radius (simple bounding box for demo)
-          query = query.gte('latitude', lat - 0.1).lte('latitude', lat + 0.1).gte('longitude', lng - 0.1).lte('longitude', lng + 0.1);
-        }
-        const { data } = await query;
-        setStories(data || []);
-      } catch (err) {
-        console.error('Error fetching stories:', err);
-      }
-    };
-    fetchStories();
-    // Optionally, poll for new stories every minute
-    const interval = setInterval(fetchStories, 60000);
-    return () => clearInterval(interval);
-  }, [showStories, liveLocations, currentUserId]);
-
-  // Fetch AR pins
-  useEffect(() => {
-    if (!showARPins) return;
-    const fetchARPins = async () => {
-      const { data } = await supabase.from('ar_pins').select('*');
-      setARPins(data || []);
-    };
-    fetchARPins();
-    const interval = setInterval(fetchARPins, 60000);
-    return () => clearInterval(interval);
-  }, [showARPins, liveLocations, currentUserId]);
-
-  useEffect(() => {
-    const initializeMap = async () => {
-      if (!mapContainer.current) return;
-      let token = mapboxToken;
-      if (!token) {
-        setNeedsToken(true);
-        return;
-      }
-      try {
-        mapboxgl.accessToken = token;
-        map.current = new mapboxgl.Map({
-          container: mapContainer.current,
-          style: mapStyle,
-          center: center || [0, 0],
-          zoom: center ? 12 : 2,
-          pitch: 0,
-        });
-        map.current.addControl(
-          new mapboxgl.NavigationControl({ visualizePitch: true }),
-          'top-right'
-        );
-        // Add click handler for location selection
-        if (onLocationSelect) {
-          map.current.on('click', (e) => {
-            const { lng, lat } = e.lngLat;
-            onLocationSelect(lat, lng);
-            new mapboxgl.Marker({ color: '#ef4444' })
-              .setLngLat([lng, lat])
-              .addTo(map.current!);
-          });
-        }
-      } catch (error) {
-        console.error('Error initializing map:', error);
-        toast({
-          title: 'Map Error',
-          description: 'Failed to load map. Please check your Mapbox token.',
-          variant: 'destructive',
-        });
-      }
-    };
-    if (mapboxToken && !needsToken) {
-      initializeMap();
+      );
     }
     return () => {
-      map.current?.remove();
+      if (watchId && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+      // Optionally remove location from Supabase when disabled
+      // supabase.from('user_locations').delete().eq('user_id', currentUserId);
     };
-  }, [mapboxToken, needsToken, center, onLocationSelect]);
-
-  // Add/refresh markers for bubbles and live locations
+  }, [locationSharingEnabled, currentUserId]);
+  // Demo notification and chat state
+  // Listen for real-time notifications
   useEffect(() => {
-    if (!map.current) return;
-    // Remove all existing markers except mapbox controls
-    const mapInstance = map.current;
-    // Remove previous markers by tracking them
-    if ((mapInstance as any)._customMarkers) {
-      (mapInstance as any)._customMarkers.forEach((m: any) => m.remove());
-    }
-    (mapInstance as any)._customMarkers = [];
+    const notificationSub = supabase
+      .channel('notifications')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, payload => {
+        setNotifications(prev => [
+          { id: payload.new.id, message: payload.new.message, time: new Date().toLocaleTimeString() },
+          ...prev
+        ]);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(notificationSub); };
+  }, []);
 
-    // Show bubble markers
-    if (showBubbles && bubbles.length > 0) {
-      bubbles.forEach((bubble) => {
-        const marker = new mapboxgl.Marker({ color: '#06b6d4' })
-          .setLngLat([bubble.longitude, bubble.latitude])
-          .setPopup(
-            new mapboxgl.Popup().setHTML(`
-              <div class="p-2">
-                <h3 class="font-bold">${bubble.name}</h3>
-                <p class="text-sm text-gray-600">${bubble.interest_tag}</p>
-                <p class="text-xs">${bubble.member_count} members</p>
-              </div>
-            `)
-          )
-          .addTo(mapInstance);
-        (mapInstance as any)._customMarkers.push(marker);
-      });
-    }
-
-    // Always show current user's live location, even if not connected
-    let shownUserIds = new Set();
-    if (liveLocations && liveLocations.length > 0) {
-      liveLocations.forEach((loc) => {
-        const isCurrentUser = loc.user_id === currentUserId;
-        shownUserIds.add(loc.user_id);
-        // Use avatar if available, fallback to initials
-        const avatarUrl = loc.avatar_url || '';
-        const initials = loc.user_name ? loc.user_name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U';
-        const popupHtml = `
-          <div class="p-2 flex items-center gap-2">
-            <div class="w-10 h-10 rounded-full overflow-hidden border border-gray-300 bg-gray-100 flex items-center justify-center">
-              ${avatarUrl ? `<img src='${avatarUrl}' alt='avatar' class='w-full h-full object-cover' />` : `<span class='font-bold text-lg'>${initials}</span>`}
-            </div>
-            <div>
-              <h3 class="font-bold">${isCurrentUser ? 'You' : (loc.user_name || 'User')}</h3>
-              ${loc.status ? `<p class='text-xs text-blue-600'>${loc.status}</p>` : ''}
-              <p class="text-xs text-gray-500">${new Date(loc.updated_at).toLocaleTimeString()}</p>
-            </div>
-          </div>
-        `;
-        const marker = new mapboxgl.Marker({ color: isCurrentUser ? '#8b5cf6' : '#22c55e' })
-          .setLngLat([loc.longitude, loc.latitude])
-          .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
-          .addTo(mapInstance);
-        (mapInstance as any)._customMarkers.push(marker);
-      });
-    }
-    // If current user location is available and not already shown, show it
-    if (userLocation && currentUserId && !shownUserIds.has(currentUserId)) {
-      const popupHtml = `
-        <div class="p-2 flex items-center gap-2">
-          <div class="w-10 h-10 rounded-full overflow-hidden border border-gray-300 bg-gray-100 flex items-center justify-center">
-            <span class='font-bold text-lg'>You</span>
-          </div>
-          <div>
-            <h3 class="font-bold">You</h3>
-            <p class="text-xs text-gray-500">Live Location</p>
-          </div>
-        </div>
-      `;
-      const marker = new mapboxgl.Marker({ color: '#8b5cf6' })
-        .setLngLat([userLocation[1], userLocation[0]])
-        .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
-        .addTo(mapInstance);
-      (mapInstance as any)._customMarkers.push(marker);
-    }
-
-    // Show story markers
-    if (showStories && stories.length > 0) {
-      stories.forEach((story) => {
-        // Only show stories within radius of current user
-        let show = true;
-        if (liveLocations && currentUserId) {
-          const me = liveLocations.find(l => l.user_id === currentUserId);
-          if (me) {
-            const dist = Math.sqrt(
-              Math.pow(me.latitude - story.latitude, 2) +
-              Math.pow(me.longitude - story.longitude, 2)
-            ) * 111000; // rough meters
-            if (dist > storyRadius) show = false;
-          }
-        }
-        if (!show) return;
-        const popupHtml = `
-          <div class='p-2 max-w-[220px]'>
-            <h3 class='font-bold mb-1'>Story</h3>
-            <p class='text-sm mb-2'>${story.text_content || ''}</p>
-            ${story.image_url ? `<img src='${story.image_url}' alt='story' class='w-full h-24 object-cover rounded mb-2' />` : ''}
-            <p class='text-xs text-gray-500'>Expires: ${new Date(story.expires_at).toLocaleString()}</p>
-          </div>
-        `;
-        const marker = new mapboxgl.Marker({ color: '#f59e42' })
-          .setLngLat([story.longitude, story.latitude])
-          .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
-          .addTo(mapInstance);
-        (mapInstance as any)._customMarkers.push(marker);
-      });
-    }
-
-    // Show AR pin markers
-    if (showARPins && arPins.length > 0) {
-      arPins.forEach((pin) => {
-        const popupHtml = `
-          <div class='p-2 max-w-[220px]'>
-            <h3 class='font-bold mb-1'>AR Pin</h3>
-            <p class='text-sm mb-2'>${pin.note || ''}</p>
-            <p class='text-xs text-gray-500'>Dropped by: ${pin.user_id}</p>
-            <p class='text-xs text-gray-500'>${new Date(pin.created_at).toLocaleString()}</p>
-          </div>
-        `;
-        const marker = new mapboxgl.Marker({ color: '#6366f1' })
-          .setLngLat([pin.longitude, pin.latitude])
-          .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
-          .addTo(mapInstance);
-        (mapInstance as any)._customMarkers.push(marker);
-      });
-    }
-  }, [bubbles, showBubbles, liveLocations, currentUserId, showStories, stories, showARPins, arPins, storyRadius]);
-  // ...existing code...
-
-  if (needsToken) {
-    return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
-            Setup Mapbox
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            To use the map feature, please enter your Mapbox public token. 
-            You can get one for free at{' '}
-            <a href="https://mapbox.com/" target="_blank" rel="noopener noreferrer" className="text-primary underline">
-              mapbox.com
-            </a>
-          </p>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Enter your Mapbox public token"
-              value={mapboxToken}
-              onChange={(e) => setMapboxToken(e.target.value)}
-              type="password"
-            />
-            <Button onClick={handleTokenSubmit}>
-              Load Map
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  // Listen for real-time chat messages
+  useEffect(() => {
+    const chatSub = supabase
+      .channel('chat')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, payload => {
+        setMessages(prev => [
+          { id: payload.new.id, user: payload.new.user, text: payload.new.text, time: new Date().toLocaleTimeString() },
+          ...prev
+        ]);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(chatSub); };
+  }, []);
+  // Demo notification and chat state
+  const [notifications, setNotifications] = useState([
+    { id: '1', message: 'Welcome to Proximity Play!', time: 'Just now' },
+    { id: '2', message: 'User Alice joined the map.', time: '1 min ago' },
+  ]);
+  const [messages, setMessages] = useState([
+    { id: '1', user: 'Alice', text: 'Hello everyone!', time: '1 min ago' },
+    { id: '2', user: 'Bob', text: 'Hi Alice!', time: 'Just now' },
+  ]);
+  // Center map on first live location if available
+  const mapCenter = liveLocations.length > 0
+    ? [liveLocations[0].latitude, liveLocations[0].longitude]
+    : center;
 
   return (
-    <div className="relative w-full h-[400px] rounded-lg overflow-hidden">
-      {/* Map Theme Selector */}
-      <div className="absolute top-4 right-4 z-10 bg-card/90 backdrop-blur-sm rounded-lg p-2 shadow-lg flex gap-2">
-        <button className={`px-2 py-1 rounded text-xs ${mapStyle === 'mapbox://styles/mapbox/light-v11' ? 'bg-primary text-white' : 'bg-muted'}`} onClick={() => setMapStyle('mapbox://styles/mapbox/light-v11')}>Default</button>
-        <button className={`px-2 py-1 rounded text-xs ${mapStyle === 'mapbox://styles/mapbox/dark-v11' ? 'bg-primary text-white' : 'bg-muted'}`} onClick={() => setMapStyle('mapbox://styles/mapbox/dark-v11')}>Night</button>
-        <button className={`px-2 py-1 rounded text-xs ${mapStyle === 'mapbox://styles/mapbox/satellite-streets-v12' ? 'bg-primary text-white' : 'bg-muted'}`} onClick={() => setMapStyle('mapbox://styles/mapbox/satellite-streets-v12')}>Satellite</button>
-        <button className={`px-2 py-1 rounded text-xs ${mapStyle === 'mapbox://styles/mapbox/outdoors-v12' ? 'bg-primary text-white' : 'bg-muted'}`} onClick={() => setMapStyle('mapbox://styles/mapbox/outdoors-v12')}>Terrain</button>
-      </div>
-      <div ref={mapContainer} className="absolute inset-0" />
-      {/* Map Legend */}
-      <div className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-            <span>Your Location</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-            <span>Other Users</span>
-          </div>
-          {showBubbles && (
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
-              <span>Bubbles</span>
-            </div>
-          )}
-          {onLocationSelect && (
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500"></div>
-              <span>Selected Location</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Real-time Location Toggle */}
-      {showBubbles && (
-        <div className="absolute bottom-4 right-4">
-          <Button
-            size="sm"
-            className="bg-card/90 backdrop-blur-sm hover:bg-card"
-            onClick={() => {
-              if (userLocation && map.current) {
-                map.current.flyTo({
-                  center: userLocation,
-                  zoom: 14
-                });
-              }
-            }}
-          >
-            <NavigationIcon className="h-4 w-4 mr-2" />
-            Center on Me
-          </Button>
-        </div>
+  <div style={{ position: 'relative', width: '100%', height: '100%', background: 'linear-gradient(120deg,#6366f1 0%,#3b82f6 100%)' }}>
+    {/* Notification Center */}
+    <NotificationCenter notifications={notifications} />
+    {/* Chat Sidebar */}
+    <ChatSidebar messages={messages} />
+    {/* Location Sharing Toggle */}
+    <LocationSharingToggle
+      enabled={locationSharingEnabled}
+      onToggle={() => setLocationSharingEnabled(e => !e)}
+    />
+    {/* Map Theme Switcher */}
+    <MapThemeSwitcher theme={mapTheme} setTheme={setMapTheme} />
+    {/* Nearby Places Search Bar */}
+  <NearbyPlacesSearch mapCenter={mapCenter} nearbyPlaces={nearbyPlaces} setNearbyPlaces={setNearbyPlaces} />
+    <MapContainer center={mapCenter as [number, number]} zoom={15} style={{ height: '100%', width: '100%' }}>
+  {/* Listen for map clicks for route planning if dialog is open */}
+  <MapEvents onClick={showRouteDialog ? handleRouteMapClick : handleMapClick} />
+      {routeReady && routePoints.start && routePoints.end && (
+        <Routing start={routePoints.start} end={routePoints.end} />
       )}
-    </div>
+  {/* Listen for map clicks to set bubble location */}
+  <MapEvents onClick={handleMapClick} />
+      {bubbles.map((bubble, idx) => (
+        <Marker key={bubble.id} position={[bubble.latitude, bubble.longitude]} icon={L.divIcon({ className: '', html: `<span style='font-size:28px;color:#22c55e;'>🫧</span>` })}>
+          <Popup>
+            <strong>{bubble.name}</strong><br />
+            <span>{bubble.interest_tag}</span><br />
+            <span>Members: {bubble.member_count}</span>
+          </Popup>
+        </Marker>
+      ))}
+      {/* Show nearby places as markers */}
+      {nearbyPlaces.length > 0 && nearbyPlaces.map((place, idx) => (
+        <Marker key={idx} position={[parseFloat(place.lat), parseFloat(place.lon)]}>
+          <Popup>
+            <strong>{place.display_name}</strong><br />
+            <span>{place.type}</span>
+          </Popup>
+        </Marker>
+      ))}
+      {/* Show emoji reactions as markers */}
+      {reactions.map((r, idx) => (
+        <Marker key={idx} position={[r.lat, r.lng]} icon={L.divIcon({ className: '', html: `<span style='font-size:32px;'>${r.emoji}</span>` })}>
+          <Popup>{r.emoji} Reaction</Popup>
+        </Marker>
+      ))}
+      <TileLayer
+        url={MAP_THEMES.find(t => t.key === mapTheme)?.url}
+        attribution={MAP_THEMES.find(t => t.key === mapTheme)?.attribution}
+      />
+      {/* Clustered Markers */}
+      <ClusteredMarkers locations={liveLocations} />
+      {/* MiniMap */}
+      <MiniMapControl />
+      {/* Measurement Tool */}
+      <MeasureControl />
+      {/* Floating Action Button: Center map on first live user */}
+      {liveLocations[0] && (
+        <FloatingActionButton latlng={[liveLocations[0].latitude, liveLocations[0].longitude]} />
+      )}
+      {/* Custom control: live user count */}
+      <UserCountControl count={liveLocations.length} />
+      {/* Custom control: average distance between users */}
+      <AvgDistanceControl locations={liveLocations} />
+      {/* Custom control: heatmap hotspots */}
+      <HeatmapStatsControl locations={liveLocations} />
+      {/* Scale control for distance measurement */}
+      <ScaleControl position="bottomleft" />
+      {/* Map event handlers */}
+      <MapEvents />
+      {/* Routing/Directions demo: Hyderabad to nearby point */}
+      <Routing start={[17.385, 78.4867]} end={[17.391, 78.490]} />
+      {/* Geocoding/Search bar */}
+      <Geosearch />
+      {/* Drawing tools for polygons, polylines, rectangles, circles, markers */}
+      <EditControl
+        position="topright"
+        draw={{
+          rectangle: true,
+          polyline: true,
+          polygon: true,
+          circle: true,
+          marker: true,
+        }}
+        onCreated={e => console.log('Shape created:', e)}
+      />
+      {/* Optionally show a circle for story radius */}
+      {showStories && liveLocations[0] && (
+        <Circle
+          center={[liveLocations[0].latitude, liveLocations[0].longitude] as [number, number]}
+          radius={storyRadius}
+          pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.2 }}
+        />
+      )}
+    </MapContainer>
+  </div>
   );
-// ...existing code...
+
+
 
 }
-export default Map;

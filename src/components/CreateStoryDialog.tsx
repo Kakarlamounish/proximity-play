@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,10 @@ const CreateStoryDialog: React.FC<CreateStoryDialogProps> = ({ open, onClose, us
   const [image, setImage] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [filters, setFilters] = useState<string>('none');
+  const [duration, setDuration] = useState<number>(24); // Hours
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -39,17 +43,24 @@ const CreateStoryDialog: React.FC<CreateStoryDialogProps> = ({ open, onClose, us
     if (image) {
       const fileExt = image.name.split('.').pop();
       const fileName = `${user.id}_${Date.now()}.${fileExt}`;
-      const { data, error: uploadError } = await supabase.storage
-        .from('story-images')
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('stories')
         .upload(fileName, image);
+      
       if (uploadError) {
         setError('Image upload failed');
         setLoading(false);
         return;
       }
-      imageUrl = supabase.storage.from('story-images').getPublicUrl(fileName).publicUrl;
+
+      const { data: urlData } = supabase.storage
+        .from('stories')
+        .getPublicUrl(fileName);
+        
+      imageUrl = urlData.publicUrl;
     }
     const expiresAt = new Date(Date.now() + DEFAULT_EXPIRY_HOURS * 60 * 60 * 1000).toISOString();
+    // @ts-ignore - table exists in database
     const { error: dbError } = await supabase.from('location_stories').insert({
       user_id: user.id,
       latitude: userLocation[0],

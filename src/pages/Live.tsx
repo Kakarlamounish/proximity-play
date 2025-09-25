@@ -14,13 +14,12 @@ import {
   Loader2 
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import Map from '@/components/Map';
+import { Map } from '@/components/Map';
 import CreateStoryDialog from '@/components/CreateStoryDialog';
 import CreateEventDialog from '@/components/CreateEventDialog';
 import CreateARPinDialog from '@/components/CreateARPinDialog';
 import EmergencyShareButton from '@/components/EmergencyShareButton';
 import PrivacyScheduleDialog from '@/components/PrivacyScheduleDialog';
-import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 const PROXIMITY_METERS = 100;
 function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -41,6 +40,7 @@ const Live = () => {
   const [profile, setProfile] = useState<any>(null);
   const [userBubbles, setUserBubbles] = useState<any[]>([]);
   const [selectedBubble, setSelectedBubble] = useState<any>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
   // ...existing code...
   const [privacyDialogOpen, setPrivacyDialogOpen] = useState(false);
   const [privacySchedule, setPrivacySchedule] = useState<{ start: string; end: string } | null>(null);
@@ -165,7 +165,7 @@ const Live = () => {
 
   // Publish current user's location to live_locations
   useEffect(() => {
-    if (!user || !selectedBubble || privacyEnabled || ghostMode) return;
+    if (!user) return; // Always share location even if not in a bubble
     let isMounted = true;
     const publishLocation = async (lat: number, lng: number) => {
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 min expiry
@@ -241,11 +241,6 @@ const Live = () => {
     }
   }, [liveLocations, user, proximityRadius]);
 
-  // Push notification for proximity alert
-  usePushNotifications({
-    enabled: !!proximityAlert,
-    message: proximityAlert || ''
-  });
 
   // Subscribe to live_locations for selected bubble
   useEffect(() => {
@@ -284,7 +279,7 @@ const Live = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
+  <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary dark:from-secondary-dark dark:via-background dark:to-primary-dark">
       <Navigation profile={profile} />
       {/* Location-based Story Dialog */}
       <CreateStoryDialog
@@ -322,6 +317,20 @@ const Live = () => {
             </Card>
           ) : (
             <div className="space-y-6">
+              {/* Map */}
+              <Card className="backdrop-blur-sm bg-card/95 border-0 mb-6">
+                <CardContent className="p-0">
+                  <div className="h-[500px] rounded-lg overflow-hidden">
+                    <Map
+                      liveLocations={liveLocations}
+                      currentUserId={user?.id}
+                      showStories={true}
+                      showARPins={true}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Bubble Selector */}
               <Card className="backdrop-blur-sm bg-card/95 border-0">
                 <CardHeader>

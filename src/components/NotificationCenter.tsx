@@ -34,72 +34,11 @@ export const NotificationCenter: React.FC = () => {
   useEffect(() => {
     if (!user) return;
 
-    // Generate some mock notifications for demo
-    const mockNotifications: Notification[] = [
-      {
-        id: '1',
-        type: 'message',
-        title: 'New message in Tech Enthusiasts',
-        content: 'Sarah shared an exciting AI article!',
-        created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(), // 15 minutes ago
-        read: false,
-        actor_id: 'user1',
-        actor: {
-          first_name: 'Sarah',
-          profile_photo_url: undefined
-        }
-      },
-      {
-        id: '2',
-        type: 'meetup',
-        title: 'New meetup created',
-        content: 'Weekend Photography Walk in Central Park',
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-        read: false,
-        actor_id: 'user2',
-        actor: {
-          first_name: 'Mike',
-          profile_photo_url: undefined
-        }
-      },
-      {
-        id: '3',
-        type: 'join',
-        title: 'New member joined',
-        content: 'Alex joined Fitness Buddies',
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(), // 4 hours ago
-        read: true,
-        actor_id: 'user3',
-        actor: {
-          first_name: 'Alex',
-          profile_photo_url: undefined
-        }
-      },
-      {
-        id: '4',
-        type: 'like',
-        title: 'Message liked',
-        content: 'Emma liked your message about sustainable living',
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
-        read: true,
-        actor_id: 'user4',
-        actor: {
-          first_name: 'Emma',
-          profile_photo_url: undefined
-        }
-      },
-      {
-        id: '5',
-        type: 'system',
-        title: 'Welcome to Social Bubble!',
-        content: 'Start by joining bubbles that match your interests.',
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(), // 2 days ago
-        read: true
-      }
-    ];
-
-    setNotifications(mockNotifications);
-    setUnreadCount(mockNotifications.filter(n => !n.read).length);
+    // Initialize with empty notifications array
+    const realNotifications: Notification[] = [];
+    
+    setNotifications(realNotifications);
+    setUnreadCount(0);
   }, [user]);
 
   const markAsRead = (notificationId: string) => {

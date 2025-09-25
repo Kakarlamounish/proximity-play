@@ -519,30 +519,40 @@ interface MapProps {
 }
 
 export function Map(props: MapProps) {
-  // Screenshot/Export logic
-  const mapRef = useRef<any>(null);
-  const handleExportMap = () => {
-    if (mapRef.current) {
-      const easyPrint = (window as any).L.easyPrint({
-        tileLayer: mapRef.current,
-        sizeModes: ['Current'],
-        exportOnly: true,
-        filename: `proximity-map-${Date.now()}`,
-        hideControlContainer: true,
-      }).addTo(mapRef.current);
-      easyPrint.printMap('CurrentSize', `proximity-map-${Date.now()}`);
-    }
-  };
-  {/* Floating Screenshot/Export Button */}
-  <div style={{ position: 'absolute', bottom: 240, right: 32, zIndex: 2000 }}>
-    <button
-      onClick={handleExportMap}
-      style={{ background: 'linear-gradient(90deg,#f59e42,#fbbf24)', color: '#fff', border: 'none', borderRadius: '50%', width: 56, height: 56, fontSize: 28, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', cursor: 'pointer' }}
-      title="Export Map Screenshot"
-    >
-      📸
-    </button>
-  </div>
+  // ...existing code...
+  // ...existing code...
+  // Props destructuring
+  const {
+  bubbles = [],
+  showBubbles = false,
+  center = [17.385, 78.4867],
+  liveLocations = [],
+  currentUserId,
+  showARPins = false,
+  showStories = false,
+  storyRadius = 1000,
+  } = props;
+  // Center map on first live location if available
+  const mapCenter = liveLocations.length > 0
+    ? [liveLocations[0].latitude, liveLocations[0].longitude]
+    : center;
+
+  // Weather overlay state
+  const [weatherData, setWeatherData] = useState<any>(null);
+  const [showWeather, setShowWeather] = useState(false);
+
+  // Fetch weather for current map center
+  useEffect(() => {
+    if (!showWeather) return;
+    const [lat, lon] = mapCenter;
+    const apiKey = '<YOUR_OPENWEATHERMAP_API_KEY>';
+    fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}`)
+      .then(res => res.json())
+      .then(data => setWeatherData(data));
+  }, [showWeather, mapCenter]);
+
+  // Weather overlay tile layer URL (OpenWeatherMap clouds)
+  const weatherTileUrl = 'https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=<YOUR_OPENWEATHERMAP_API_KEY>';
   // Route planning state
   const [showRouteDialog, setShowRouteDialog] = useState(false);
   const [routePoints, setRoutePoints] = useState({ start: null, end: null });
@@ -565,30 +575,7 @@ export function Map(props: MapProps) {
     setRoutePoints({ start: null, end: null });
     setRouteReady(false);
   };
-  {/* Floating Route Planning Button */}
-  <div style={{ position: 'absolute', bottom: 170, right: 32, zIndex: 2000 }}>
-    <button
-      onClick={() => { setShowRouteDialog(true); handleResetRoute(); }}
-      style={{ background: 'linear-gradient(90deg,#3b82f6,#6366f1)', color: '#fff', border: 'none', borderRadius: '50%', width: 56, height: 56, fontSize: 28, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', cursor: 'pointer' }}
-      title="Route Planning"
-    >
-      🧭
-    </button>
-  </div>
 
-  {/* Route Planning Dialog */}
-  {showRouteDialog && (
-    <div style={{ position: 'absolute', top: 120, right: 100, zIndex: 3000, background: 'rgba(30,41,59,0.97)', borderRadius: 12, boxShadow: '0 2px 12px #3b82f6', padding: '24px 32px', minWidth: 320 }}>
-      <h2 style={{ color: '#fff', fontWeight: 'bold', marginBottom: 12 }}>Route Planning</h2>
-      <div style={{ color: '#a3e635', marginBottom: 10 }}>
-        {!routePoints.start ? 'Click on the map to select start point.' : !routePoints.end ? 'Click on the map to select end point.' : `Start: (${routePoints.start[0].toFixed(4)}, ${routePoints.start[1].toFixed(4)}) End: (${routePoints.end[0].toFixed(4)}, ${routePoints.end[1].toFixed(4)})`}
-      </div>
-      <div style={{ display: 'flex', gap: 12 }}>
-        <button onClick={() => setShowRouteDialog(false)} style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}>Close</button>
-        <button onClick={handleResetRoute} style={{ background: '#64748b', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}>Reset</button>
-      </div>
-    </div>
-  )}
   // Event/Bubble creation state
   const [showBubbleDialog, setShowBubbleDialog] = useState(false);
   const [newBubble, setNewBubble] = useState({ name: '', interest_tag: '', member_count: 1, lat: null, lng: null });
@@ -615,6 +602,157 @@ export function Map(props: MapProps) {
       setNewBubble({ name: '', interest_tag: '', member_count: 1, lat: null, lng: null });
     }
   };
+
+  // Annotation state
+  const [annotations, setAnnotations] = useState<Array<{ id: string; lat: number; lng: number; text: string }>>([]);
+  const [showAnnotationDialog, setShowAnnotationDialog] = useState(false);
+  const [pendingAnnotation, setPendingAnnotation] = useState<{ lat: number; lng: number } | null>(null);
+  const [annotationText, setAnnotationText] = useState('');
+
+  // Handle map click for annotation
+  const handleAnnotationMapClick = (e) => {
+    if (showAnnotationDialog) {
+      setPendingAnnotation({ lat: e.latlng.lat, lng: e.latlng.lng });
+    }
+  };
+
+  // Add annotation
+  const handleAddAnnotation = () => {
+    if (pendingAnnotation && annotationText) {
+      setAnnotations(a => [...a, { id: Date.now().toString(), lat: pendingAnnotation.lat, lng: pendingAnnotation.lng, text: annotationText }]);
+      setShowAnnotationDialog(false);
+      setPendingAnnotation(null);
+      setAnnotationText('');
+    }
+  };
+  {/* Floating Annotation Button */}
+  <div style={{ position: 'absolute', bottom: 310, right: 32, zIndex: 2000 }}>
+    <button
+      onClick={() => setShowAnnotationDialog(true)}
+      style={{ background: 'linear-gradient(90deg,#6366f1,#f59e42)', color: '#fff', border: 'none', borderRadius: '50%', width: 56, height: 56, fontSize: 28, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', cursor: 'pointer' }}
+      title="Add Annotation"
+    >
+      📝
+    </button>
+  </div>
+
+  {/* Annotation Dialog */}
+  {showAnnotationDialog && (
+    <div style={{ position: 'absolute', top: 120, right: 170, zIndex: 3000, background: 'rgba(30,41,59,0.97)', borderRadius: 12, boxShadow: '0 2px 12px #6366f1', padding: '24px 32px', minWidth: 320 }}>
+      <h2 style={{ color: '#fff', fontWeight: 'bold', marginBottom: 12 }}>Add Annotation</h2>
+      <div style={{ color: '#a3e635', marginBottom: 10 }}>
+        {pendingAnnotation ? `Location: (${pendingAnnotation.lat.toFixed(4)}, ${pendingAnnotation.lng.toFixed(4)})` : 'Click on the map to set annotation location'}
+      </div>
+      <input type="text" value={annotationText} onChange={e => setAnnotationText(e.target.value)} placeholder="Annotation text" style={{ width: '100%', marginBottom: 10, padding: 8, borderRadius: 6, border: 'none', background: '#334155', color: '#fff' }} />
+      <div style={{ display: 'flex', gap: 12 }}>
+        <button onClick={handleAddAnnotation} style={{ background: '#6366f1', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}>Add</button>
+        <button onClick={() => setShowAnnotationDialog(false)} style={{ background: '#64748b', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}>Cancel</button>
+      </div>
+    </div>
+  )}
+  {/* Listen for map clicks for annotation if dialog is open */}
+  <MapEvents onClick={showAnnotationDialog ? handleAnnotationMapClick : showRouteDialog ? handleRouteMapClick : handleMapClick} />
+      {annotations.map(a => (
+        <Marker key={a.id} position={[a.lat, a.lng]} icon={L.divIcon({ className: '', html: `<span style='font-size:18px;background:#6366f1;color:#fff;padding:4px 8px;border-radius:6px;'>${a.text}</span>` })} />
+      ))}
+  // Demo live user presence and activity feed state
+  const [liveUsers, setLiveUsers] = useState([
+    { id: '1', name: 'Alice', online: true, location: [17.385, 78.4867] },
+    { id: '2', name: 'Bob', online: true, location: [17.391, 78.490] },
+    { id: '3', name: 'Charlie', online: false },
+  ]);
+  // Geofencing state
+  const [geofences, setGeofences] = useState<Array<{ id: string; type: 'circle' | 'polygon'; center?: [number, number]; radius?: number; points?: [number, number][] }>>([]);
+  const [enteredGeofences, setEnteredGeofences] = useState<{ [userId: string]: string[] }>({});
+
+  // Geofence entry/exit detection
+  useEffect(() => {
+    liveUsers.forEach(user => {
+      if (!user.location) return;
+      geofences.forEach(fence => {
+        let inside = false;
+        if (fence.type === 'circle' && fence.center && fence.radius) {
+          const dx = user.location[0] - fence.center[0];
+          const dy = user.location[1] - fence.center[1];
+          const dist = Math.sqrt(dx*dx + dy*dy) * 111000; // deg to meters
+          inside = dist <= fence.radius;
+        } else if (fence.type === 'polygon' && fence.points) {
+          // Simple point-in-polygon
+          const x = user.location[1], y = user.location[0];
+          let insidePoly = false;
+          for (let i = 0, j = fence.points.length - 1; i < fence.points.length; j = i++) {
+            const xi = fence.points[i][1], yi = fence.points[i][0];
+            const xj = fence.points[j][1], yj = fence.points[j][0];
+            const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi + 0.00001) + xi);
+            if (intersect) insidePoly = !insidePoly;
+          }
+          inside = insidePoly;
+        }
+        const prev = enteredGeofences[user.id] || [];
+        if (inside && !prev.includes(fence.id)) {
+          setEnteredGeofences(e => ({ ...e, [user.id]: [...(e[user.id] || []), fence.id] }));
+          setNotifications(n => [{ id: Date.now().toString(), message: `${user.name} entered geofence`, time: new Date().toLocaleTimeString() }, ...n]);
+        } else if (!inside && prev.includes(fence.id)) {
+          setEnteredGeofences(e => ({ ...e, [user.id]: (e[user.id] || []).filter(id => id !== fence.id) }));
+          setNotifications(n => [{ id: Date.now().toString(), message: `${user.name} exited geofence`, time: new Date().toLocaleTimeString() }, ...n]);
+        }
+      });
+    });
+  }, [liveUsers, geofences]);
+
+  // Handle geofence drawing
+  const handleGeofenceCreated = (e) => {
+    if (e.layerType === 'circle') {
+      const layer = e.layer;
+      setGeofences(prev => [...prev, {
+        id: Date.now().toString(),
+        type: 'circle',
+        center: [layer.getLatLng().lat, layer.getLatLng().lng],
+        radius: layer.getRadius(),
+      }]);
+    } else if (e.layerType === 'polygon') {
+      const layer = e.layer;
+      const latlngs = layer.getLatLngs()[0].map((pt: any) => [pt.lat, pt.lng]);
+      setGeofences(prev => [...prev, {
+        id: Date.now().toString(),
+        type: 'polygon',
+        points: latlngs,
+      }]);
+    }
+  };
+
+      {/* Render geofences */}
+      {geofences.map(fence => (
+        fence.type === 'circle' ? (
+          <Circle key={fence.id} center={fence.center!} radius={fence.radius!} pathOptions={{ color: 'red', fillColor: 'red', fillOpacity: 0.2 }} />
+        ) : (
+          <Polygon key={fence.id} positions={fence.points!} pathOptions={{ color: 'red', fillColor: 'red', fillOpacity: 0.2 }} />
+        )
+      ))}
+  // Screenshot/Export logic
+  const mapRef = useRef<any>(null);
+  const handleExportMap = () => {
+    if (mapRef.current) {
+      const easyPrint = (window as any).L.easyPrint({
+        tileLayer: mapRef.current,
+        sizeModes: ['Current'],
+        exportOnly: true,
+        filename: `proximity-map-${Date.now()}`,
+        hideControlContainer: true,
+      }).addTo(mapRef.current);
+      easyPrint.printMap('CurrentSize', `proximity-map-${Date.now()}`);
+    }
+  };
+  {/* Floating Screenshot/Export Button */}
+  <div style={{ position: 'absolute', bottom: 240, right: 32, zIndex: 2000 }}>
+    <button
+      onClick={handleExportMap}
+      style={{ background: 'linear-gradient(90deg,#f59e42,#fbbf24)', color: '#fff', border: 'none', borderRadius: '50%', width: 56, height: 56, fontSize: 28, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', cursor: 'pointer' }}
+      title="Export Map Screenshot"
+    >
+      📸
+    </button>
+  </div>
   {/* Floating Create Event/Bubble Button */}
   <div style={{ position: 'absolute', bottom: 100, right: 32, zIndex: 2000 }}>
     <button
@@ -648,28 +786,82 @@ export function Map(props: MapProps) {
   // Nearby places state
   const [nearbyPlaces, setNearbyPlaces] = useState([]);
   const {
-    bubbles = [],
-    showBubbles = false,
-    center = [17.385, 78.4867],
-    liveLocations = [],
-    currentUserId,
-    showARPins = false,
-    showStories = false,
-    storyRadius = 1000,
+  // ...existing code...
   } = props;
+  // Center map on first live location if available
   // User reactions state
   const [reactions, setReactions] = useState([]);
   const [showPicker, setShowPicker] = useState(false);
   const [pendingEmoji, setPendingEmoji] = useState(null);
-  // Nearby places state
   // ...other state declarations...
-  // Nearby places state
+  useEffect(() => {
+    liveUsers.forEach(user => {
+      if (!user.location) return;
+      geofences.forEach(fence => {
+        let inside = false;
+        if (fence.type === 'circle' && fence.center && fence.radius) {
+          const dx = user.location[0] - fence.center[0];
+          const dy = user.location[1] - fence.center[1];
+          const dist = Math.sqrt(dx*dx + dy*dy) * 111000; // deg to meters
+          inside = dist <= fence.radius;
+        } else if (fence.type === 'polygon' && fence.points) {
+          // Simple point-in-polygon
+          const x = user.location[1], y = user.location[0];
+          let insidePoly = false;
+          for (let i = 0, j = fence.points.length - 1; i < fence.points.length; j = i++) {
+            const xi = fence.points[i][1], yi = fence.points[i][0];
+            const xj = fence.points[j][1], yj = fence.points[j][0];
+            const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi + 0.00001) + xi);
+            if (intersect) insidePoly = !insidePoly;
+          }
+          inside = insidePoly;
+        }
+        const prev = enteredGeofences[user.id] || [];
+        if (inside && !prev.includes(fence.id)) {
+          setEnteredGeofences(e => ({ ...e, [user.id]: [...(e[user.id] || []), fence.id] }));
+          setNotifications(n => [{ id: Date.now().toString(), message: `${user.name} entered geofence`, time: new Date().toLocaleTimeString() }, ...n]);
+        } else if (!inside && prev.includes(fence.id)) {
+          setEnteredGeofences(e => ({ ...e, [user.id]: (e[user.id] || []).filter(id => id !== fence.id) }));
+          setNotifications(n => [{ id: Date.now().toString(), message: `${user.name} exited geofence`, time: new Date().toLocaleTimeString() }, ...n]);
+        }
+      });
+    });
+  }, [liveUsers, geofences]);
+  useEffect(() => {
+    liveUsers.forEach(user => {
+      if (!user.location) return;
+      geofences.forEach(fence => {
+        let inside = false;
+        if (fence.type === 'circle' && fence.center && fence.radius) {
+          const dx = user.location[0] - fence.center[0];
+          const dy = user.location[1] - fence.center[1];
+          const dist = Math.sqrt(dx*dx + dy*dy) * 111000; // deg to meters
+          inside = dist <= fence.radius;
+        } else if (fence.type === 'polygon' && fence.points) {
+          // Simple point-in-polygon
+          const x = user.location[1], y = user.location[0];
+          let insidePoly = false;
+          for (let i = 0, j = fence.points.length - 1; i < fence.points.length; j = i++) {
+            const xi = fence.points[i][1], yi = fence.points[i][0];
+            const xj = fence.points[j][1], yj = fence.points[j][0];
+            const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi + 0.00001) + xi);
+            if (intersect) insidePoly = !insidePoly;
+          }
+          inside = insidePoly;
+        }
+        const prev = enteredGeofences[user.id] || [];
+        if (inside && !prev.includes(fence.id)) {
+          setEnteredGeofences(e => ({ ...e, [user.id]: [...(e[user.id] || []), fence.id] }));
+          setNotifications(n => [{ id: Date.now().toString(), message: `${user.name} entered geofence`, time: new Date().toLocaleTimeString() }, ...n]);
+        } else if (!inside && prev.includes(fence.id)) {
+          setEnteredGeofences(e => ({ ...e, [user.id]: (e[user.id] || []).filter(id => id !== fence.id) }));
+          setNotifications(n => [{ id: Date.now().toString(), message: `${user.name} exited geofence`, time: new Date().toLocaleTimeString() }, ...n]);
+        }
+      });
+    });
+  }, [liveUsers, geofences]);
   // Demo live user presence and activity feed state
-  const [liveUsers, setLiveUsers] = useState([
-    { id: '1', name: 'Alice', online: true, location: [17.385, 78.4867] },
-    { id: '2', name: 'Bob', online: true, location: [17.391, 78.490] },
-    { id: '3', name: 'Charlie', online: false },
-  ]);
+
   const [activityEvents, setActivityEvents] = useState([
     { id: '1', type: 'join', user: 'Alice', detail: '', time: '2 min ago' },
     { id: '2', type: 'message', user: 'Bob', detail: 'Hi Alice!', time: 'Just now' },
@@ -739,12 +931,31 @@ export function Map(props: MapProps) {
     { id: '2', user: 'Bob', text: 'Hi Alice!', time: 'Just now' },
   ]);
   // Center map on first live location if available
-  const mapCenter = liveLocations.length > 0
-    ? [liveLocations[0].latitude, liveLocations[0].longitude]
-    : center;
+  // ...existing code...
 
   return (
   <div style={{ position: 'relative', width: '100%', height: '100%', background: 'linear-gradient(120deg,#6366f1 0%,#3b82f6 100%)' }}>
+    {/* Floating Weather Overlay Button */}
+    <div style={{ position: 'absolute', bottom: 32, left: 32, zIndex: 2000 }}>
+      <button
+        onClick={() => setShowWeather(w => !w)}
+        style={{ background: 'linear-gradient(90deg,#38bdf8,#6366f1)', color: '#fff', border: 'none', borderRadius: '50%', width: 56, height: 56, fontSize: 28, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', cursor: 'pointer' }}
+        title="Toggle Weather Overlay"
+      >
+        🌦️
+      </button>
+    </div>
+
+    {/* Weather Info Panel */}
+    {showWeather && weatherData && (
+      <div style={{ position: 'absolute', top: 24, left: 100, zIndex: 3000, background: 'rgba(30,41,59,0.97)', borderRadius: 12, boxShadow: '0 2px 12px #38bdf8', padding: '18px 28px', minWidth: 260 }}>
+        <h2 style={{ color: '#fff', fontWeight: 'bold', marginBottom: 8 }}>Weather</h2>
+        <div style={{ color: '#38bdf8', fontSize: 18, marginBottom: 6 }}>{weatherData.weather[0].main} ({weatherData.weather[0].description})</div>
+        <div style={{ color: '#fff', fontSize: 15 }}>🌡️ Temp: {weatherData.main.temp}°C</div>
+        <div style={{ color: '#fff', fontSize: 15 }}>💧 Humidity: {weatherData.main.humidity}%</div>
+        <div style={{ color: '#fff', fontSize: 15 }}>🌬️ Wind: {weatherData.wind.speed} m/s</div>
+      </div>
+    )}
     {/* Notification Center */}
     <NotificationCenter notifications={notifications} />
     {/* Chat Sidebar */}
@@ -759,6 +970,10 @@ export function Map(props: MapProps) {
     {/* Nearby Places Search Bar */}
   <NearbyPlacesSearch mapCenter={mapCenter} nearbyPlaces={nearbyPlaces} setNearbyPlaces={setNearbyPlaces} />
     <MapContainer center={mapCenter as [number, number]} zoom={15} style={{ height: '100%', width: '100%' }}>
+      {/* Weather overlay tile layer */}
+      {showWeather && (
+        <TileLayer url={weatherTileUrl} opacity={0.5} />
+      )}
   {/* Listen for map clicks for route planning if dialog is open */}
   <MapEvents onClick={showRouteDialog ? handleRouteMapClick : handleMapClick} />
       {routeReady && routePoints.start && routePoints.end && (
@@ -828,7 +1043,7 @@ export function Map(props: MapProps) {
           circle: true,
           marker: true,
         }}
-        onCreated={e => console.log('Shape created:', e)}
+  onCreated={handleGeofenceCreated}
       />
       {/* Optionally show a circle for story radius */}
       {showStories && liveLocations[0] && (

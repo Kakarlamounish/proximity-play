@@ -6,6 +6,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
+import type { FileObject } from '@supabase/storage-js';
+import type { PostgrestError } from '@supabase/supabase-js';
+
 interface ImageUploadProps {
   currentImageUrl?: string;
   onImageUploaded: (url: string) => void;
@@ -68,7 +71,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
       // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError }: { data: FileObject | null; error: PostgrestError | null } = await supabase.storage
         .from('profile-photos')
         .upload(fileName, file, {
           cacheControl: '3600',
@@ -78,11 +81,11 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
       if (uploadError) throw uploadError;
 
       // Get public URL
-      const { data } = supabase.storage
+      const { data: urlData }: { data: { publicUrl: string } } = supabase.storage
         .from('profile-photos')
         .getPublicUrl(fileName);
 
-      const publicUrl = data.publicUrl;
+      const publicUrl = urlData.publicUrl;
 
       // Update profile with new photo URL
       const { error: updateError } = await supabase
@@ -99,10 +102,11 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
         title: 'Photo uploaded!',
         description: 'Your profile photo has been updated',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       toast({
         title: 'Upload failed',
-        description: error.message,
+        description: errorMessage,
         variant: 'destructive',
       });
       setPreviewUrl(null);

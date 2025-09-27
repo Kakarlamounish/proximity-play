@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import type { User } from '@supabase/supabase-js';
 
 interface CreateARPinDialogProps {
   open: boolean;
@@ -17,8 +18,8 @@ const CreateARPinDialog: React.FC<CreateARPinDialogProps> = ({ open, onClose, us
   const [error, setError] = useState<string | null>(null);
 
   // Get user_id from Supabase auth
-  const [user, setUser] = useState<any>(null);
-  React.useEffect(() => {
+  const [user, setUser] = useState<User | null>(null);
+  useEffect(() => {
     const fetchUser = async () => {
       const { data } = await supabase.auth.getUser();
       setUser(data?.user || null);

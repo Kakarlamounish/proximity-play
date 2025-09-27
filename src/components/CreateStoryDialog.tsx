@@ -60,7 +60,7 @@ const CreateStoryDialog: React.FC<CreateStoryDialogProps> = ({ open, onClose, us
       imageUrl = urlData.publicUrl;
     }
     const expiresAt = new Date(Date.now() + DEFAULT_EXPIRY_HOURS * 60 * 60 * 1000).toISOString();
-    // @ts-ignore - table exists in database
+    // @ts-expect-error - location_stories table exists in database but not in generated types
     const { error: dbError } = await supabase.from('location_stories').insert({
       user_id: user.id,
       latitude: userLocation[0],

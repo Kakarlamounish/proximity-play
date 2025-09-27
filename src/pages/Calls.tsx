@@ -15,12 +15,13 @@ import {
   Loader2 
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/types';
 import { VideoCall } from '@/components/VideoCall';
 
 const Calls = () => {
   const { user, loading } = useAuth();
-  const [profile, setProfile] = useState<any>(null);
-  const [userBubbles, setUserBubbles] = useState<any[]>([]);
+  const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
+  const [userBubbles, setUserBubbles] = useState<Database['public']['Tables']['bubbles']['Row'][]>([]);
   const [activeCall, setActiveCall] = useState<{ bubbleId: string; type: 'audio' | 'video' } | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
 
@@ -87,6 +88,7 @@ const Calls = () => {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <VideoCall
           bubbleId={activeCall.bubbleId}
+          callType={activeCall.type}
           isInitiator={true}
           onCallEnd={endCall}
         />
@@ -96,7 +98,7 @@ const Calls = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
-      <Navigation profile={profile} />
+      <Navigation profile={user && profile ? { ...user, ...profile } : undefined} />
       
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">

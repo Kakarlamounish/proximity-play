@@ -11,10 +11,13 @@ import { Edit2, Plus, X, Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from './ImageUpload';
+import type { Database } from '@/integrations/supabase/types';
+
+type ProfilesRow = Database['public']['Tables']['profiles']['Row'];
 
 interface EditProfileDialogProps {
-  profile: any;
-  onProfileUpdate: (updatedProfile: any) => void;
+  profile: ProfilesRow;
+  onProfileUpdate: (updatedProfile: ProfilesRow) => void;
 }
 
 const INTERESTS_OPTIONS = [
@@ -124,6 +127,25 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ profile, o
                 userName={formData.first_name}
                 className="flex flex-col items-center"
               />
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-2"
+                onClick={async () => {
+                  // Start Supabase OAuth sign-in with Google
+                  const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+                  if (error) {
+                    toast({ title: 'Google import failed', description: error.message, variant: 'destructive' });
+                  } else {
+                    toast({ title: 'Google sign-in', description: 'Complete sign-in and your Google profile photo will be imported.' });
+                  }
+                }}
+              >
+                Import from Google
+              </Button>
+              <div className="mt-2 text-xs text-muted-foreground text-center">
+                You can update your profile photo or import from Google.
+              </div>
             </div>
 
           {/* Basic Info */}

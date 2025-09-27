@@ -8,14 +8,15 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MapPin, Users, Calendar, Award } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/types';
 import { Loader2 } from 'lucide-react';
 import { EditProfileDialog } from '@/components/EditProfileDialog';
 
 const Profile = () => {
   const { user, loading } = useAuth();
-  const [profile, setProfile] = useState<any>(null);
-  const [bubbles, setBubbles] = useState<any[]>([]);
-  const [badges, setBadges] = useState<any[]>([]);
+  const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
+  const [bubbles, setBubbles] = useState<Array<{ bubble_id: string; created_at: string; bubbles: Database['public']['Tables']['bubbles']['Row'] }>>([]);
+  const [badges, setBadges] = useState<Array<{ earned_at: string; badges: { name: string; description: string; icon: string } }>>([]);
   const [profileLoading, setProfileLoading] = useState(true);
 
   // Redirect unauthenticated users
@@ -52,7 +53,26 @@ const Profile = () => {
           `)
           .eq('user_id', user.id);
 
-        setBubbles(userBubbles || []);
+          // Map bubbles to expected type
+          const mappedBubbles = (userBubbles || []).map(bm => ({
+            bubble_id: bm.bubble_id,
+            created_at: bm.created_at,
+            bubbles: {
+              id: bm.bubbles?.id ?? '',
+              name: bm.bubbles?.name ?? '',
+              interest_tag: bm.bubbles?.interest_tag ?? '',
+              member_count: bm.bubbles?.member_count ?? 0,
+              // Fill missing fields with defaults
+              created_at: '',
+              creator_id: '',
+              description: '',
+              is_private: false,
+              latitude: 0,
+              longitude: 0,
+              updated_at: '',
+            }
+          }));
+          setBubbles(mappedBubbles);
 
         // Fetch user's badges
         const { data: userBadges } = await supabase
@@ -67,7 +87,18 @@ const Profile = () => {
           `)
           .eq('user_id', user.id);
 
-        setBadges(userBadges || []);
+          // Map badges to expected type
+          const mappedBadges = (userBadges || []).map(ub => ({
+            earned_at: ub.earned_at,
+            badges: (ub.badges && typeof ub.badges === 'object' && 'name' in (ub.badges as object))
+              ? {
+                  name: (ub.badges as any).name ?? '',
+                  description: (ub.badges as any).description ?? '',
+                  icon: (ub.badges as any).icon ?? '',
+                }
+              : { name: '', description: '', icon: '' }
+          }));
+          setBadges(mappedBadges);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -94,7 +125,7 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
-      <Navigation profile={profile} />
+      <Navigation profile={user && profile ? { ...user, ...profile } : undefined} />
       
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">

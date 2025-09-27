@@ -58,15 +58,15 @@ const Auth = () => {
           variant: 'destructive',
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       toast({
         title: 'Google sign in failed',
-        description: error.message,
+        description: errorMessage,
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   };
 
   if (loading) {

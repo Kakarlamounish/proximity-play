@@ -12,6 +12,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useLocation } from '@/hooks/useLocation';
 
+import type { Database } from '@/integrations/supabase/types';
+
 const INTEREST_OPTIONS = [
   'Technology', 'Fitness', 'Food', 'Music', 'Photography', 'Art', 'Books', 
   'Movies', 'Gaming', 'Sports', 'Travel', 'Nature', 'Fashion', 'Business',
@@ -22,18 +24,27 @@ interface CreateBubbleDialogProps {
   onBubbleCreated?: () => void;
 }
 
+interface FormData {
+  name: string;
+  description: string;
+  interest_tag: string;
+  privacy: 'public' | 'private';
+  custom_interests: string[];
+  custom_interest_input: string;
+}
+
 export const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({ onBubbleCreated }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { latitude, longitude } = useLocation();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
     interest_tag: '',
-    privacy: 'public' as 'public' | 'private',
-    custom_interests: [] as string[],
+    privacy: 'public',
+    custom_interests: [],
     custom_interest_input: ''
   });
 
@@ -50,20 +61,23 @@ export const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({ onBubble
 
     setLoading(true);
     try {
+      const bubbleInsert: Database['public']['Tables']['bubbles']['Insert'] = {
+        name: formData.name,
+        description: formData.description,
+        interest_tag: formData.interest_tag,
+        latitude,
+        longitude,
+        creator_id: user.id,
+        is_private: formData.privacy === 'private',
+        member_count: 1
+      };
+
       const { data: bubble, error } = await supabase
         .from('bubbles')
-        .insert({
-          name: formData.name,
-          description: formData.description,
-          interest_tag: formData.interest_tag,
-          latitude,
-          longitude,
-          creator_id: user.id,
-          is_private: formData.privacy === 'private',
-          member_count: 1
-        })
+        .insert(bubbleInsert)
         .select()
-        .single();
+        .single()
+        .then(({ data, error }) => ({ data, error }));
 
       if (error) throw error;
 
@@ -72,7 +86,7 @@ export const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({ onBubble
         .from('bubble_memberships')
         .insert({
           user_id: user.id,
-          bubble_id: bubble.id,
+          bubble_id: bubble!.id,
           role: 'admin'
         });
 
@@ -92,10 +106,11 @@ export const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({ onBubble
       });
       
       onBubbleCreated?.();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       toast({
         title: 'Error creating bubble',
-        description: error.message,
+        description: errorMessage,
         variant: 'destructive'
       });
     } finally {

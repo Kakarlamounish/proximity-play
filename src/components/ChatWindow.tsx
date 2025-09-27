@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,18 +12,22 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 
-interface Message {
-  id: string;
-  content: string;
-  created_at: string;
-  sender_id: string;
-  message_type?: 'text' | 'image';
-  image_url?: string;
+import type { Database } from '@/integrations/supabase/types';
+
+type Message = Database['public']['Tables']['messages']['Row'] & {
   sender?: {
-    first_name: string;
-    profile_photo_url?: string;
+    first_name: string | null;
+    profile_photo_url: string | null;
   };
-}
+};
+
+type Member = {
+  user_id: string;
+  profiles: {
+    first_name: string | null;
+    profile_photo_url: string | null;
+  };
+};
 
 interface ChatWindowProps {
   bubble: {
@@ -40,7 +44,7 @@ interface ChatWindowProps {
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }) => {
   // Demo: Bubble geofence center and radius (could be dynamic from DB)
-  const bubbleCenter = [bubble.latitude || 0, bubble.longitude || 0];
+  const bubbleCenter = useMemo(() => [bubble.latitude || 0, bubble.longitude || 0], [bubble.latitude, bubble.longitude]);
   const bubbleRadius = bubble.geofence_radius || 200; // meters
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [insideGeofence, setInsideGeofence] = useState(true);
@@ -74,7 +78,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [members, setMembers] = useState<any[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [showImageUpload, setShowImageUpload] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -202,10 +206,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
       if (error) throw error;
 
       setNewMessage('');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       toast({
         title: 'Error sending message',
-        description: error.message,
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -234,10 +239,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
         title: 'Image shared!',
         description: 'Your image has been sent to the chat.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       toast({
         title: 'Error sharing image',
-        description: error.message,
+        description: errorMessage,
         variant: 'destructive',
       });
     }

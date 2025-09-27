@@ -6,20 +6,49 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  MapPin, 
-  Activity, 
-  Users, 
+import {
+  MapPin,
+  Activity,
+  Users,
   Clock,
-  Loader2 
+  Loader2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/types';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import { Map } from '@/components/Map';
 import CreateStoryDialog from '@/components/CreateStoryDialog';
 import CreateEventDialog from '@/components/CreateEventDialog';
 import CreateARPinDialog from '@/components/CreateARPinDialog';
 import EmergencyShareButton from '@/components/EmergencyShareButton';
 import PrivacyScheduleDialog from '@/components/PrivacyScheduleDialog';
+
+type UserBadgeRow = {
+  id: string;
+  user_id: string;
+  badge_id: string;
+  earned_at: string;
+};
+
+type BadgeRow = {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  created_at: string;
+};
+
+type UserBadgeWithBadge = UserBadgeRow & {
+  badges: BadgeRow;
+};
+
+type Location = Database['public']['Tables']['live_locations']['Row'];
+
+type ActivityUpdate = {
+  user_id: string;
+  activity_type: string;
+  updated_at: string;
+};
 
 const PROXIMITY_METERS = 100;
 function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -37,19 +66,33 @@ function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 const Live = () => {
   const { user, loading } = useAuth();
-  const [profile, setProfile] = useState<any>(null);
-  const [userBubbles, setUserBubbles] = useState<any[]>([]);
-  const [selectedBubble, setSelectedBubble] = useState<any>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
-  // ...existing code...
+
+  // State declarations
+  const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
+  const [userBubbles, setUserBubbles] = useState<Database['public']['Tables']['bubbles']['Row'][]>([]);
+  const [selectedBubble, setSelectedBubble] = useState<Database['public']['Tables']['bubbles']['Row'] | null>(null);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [liveLocations, setLiveLocations] = useState<Location[]>([]);
+  const [bubbleActivity, setBubbleActivity] = useState<ActivityUpdate[]>([]);
+  const [activityStatus, setActivityStatus] = useState<string>('Online');
+  const [privacyEnabled, setPrivacyEnabled] = useState(false);
+  const [ghostMode, setGhostMode] = useState(false);
+  const [heatmapEnabled, setHeatmapEnabled] = useState(false);
+  const [geofenceAlert, setGeofenceAlert] = useState<string | null>(null);
+  const [proximityAlert, setProximityAlert] = useState<string | null>(null);
+  const [proximityRadius, setProximityRadius] = useState(PROXIMITY_METERS);
+  const [locationTrail, setLocationTrail] = useState<{lat: number, lng: number, time: string}[]>([]);
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatLog, setChatLog] = useState<{user: string, message: string, time: string}[]>([]);
   const [privacyDialogOpen, setPrivacyDialogOpen] = useState(false);
   const [privacySchedule, setPrivacySchedule] = useState<{ start: string; end: string } | null>(null);
-  const [earnedBadges, setEarnedBadges] = useState<any[]>([]);
+  const [earnedBadges, setEarnedBadges] = useState<UserBadgeWithBadge[]>([]);
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [arPinDialogOpen, setArPinDialogOpen] = useState(false);
-  // Live activity status
-  const [activityStatus, setActivityStatus] = useState<string>('Online');
-  const [bubbleActivity, setBubbleActivity] = useState<any[]>([]);
+  const [storyDialogOpen, setStoryDialogOpen] = useState(false);
+
+  // Refs
+  const locationWatchId = useRef<number | null>(null);
 
   // Detect activity using device sensors (demo: use geolocation speed)
   useEffect(() => {
@@ -86,7 +129,7 @@ const Live = () => {
     const fetchActivity = async () => {
       const { data } = await supabase
         .from('status_updates')
-        .select('user_id,activity_type,updated_at,profiles(first_name,profile_photo_url)')
+        .select('user_id,activity_type,updated_at')
         .eq('bubble_id', selectedBubble.id)
         .gte('updated_at', new Date(Date.now() - 10 * 60 * 1000).toISOString()); // last 10 min
       setBubbleActivity(data || []);
@@ -95,19 +138,6 @@ const Live = () => {
     const interval = setInterval(fetchActivity, 15000);
     return () => clearInterval(interval);
   }, [selectedBubble]);
-  const [pageLoading, setPageLoading] = useState(true);
-  const [liveLocations, setLiveLocations] = useState<any[]>([]);
-  const [privacyEnabled, setPrivacyEnabled] = useState(false);
-  const [ghostMode, setGhostMode] = useState(false);
-  const [heatmapEnabled, setHeatmapEnabled] = useState(false);
-  const [geofenceAlert, setGeofenceAlert] = useState<string | null>(null);
-  const [proximityAlert, setProximityAlert] = useState<string | null>(null);
-  const [proximityRadius, setProximityRadius] = useState(PROXIMITY_METERS);
-  const [locationTrail, setLocationTrail] = useState<{lat: number, lng: number, time: string}[]>([]);
-  const [chatMessage, setChatMessage] = useState("");
-  const [chatLog, setChatLog] = useState<{user: string, message: string, time: string}[]>([]);
-  const locationWatchId = useRef<number | null>(null);
-  const [storyDialogOpen, setStoryDialogOpen] = useState(false);
 
   // Fetch profile and bubbles
   // Fetch privacy schedule for user
@@ -127,11 +157,39 @@ const Live = () => {
   useEffect(() => {
     if (!user) return;
     const fetchBadges = async () => {
-      const { data } = await supabase
+      // Fetch user_badges
+      const { data: userBadgesData } = await supabase
         .from('user_badges')
-        .select('*,badges(name,icon,description)')
+        .select('*')
         .eq('user_id', user.id);
-      setEarnedBadges(data || []);
+
+      if (!userBadgesData || userBadgesData.length === 0) {
+        setEarnedBadges([]);
+        return;
+      }
+
+      // Extract badge_ids
+      const badgeIds = userBadgesData.map(ub => ub.badge_id);
+
+      // Fetch corresponding badges
+      const { data: badgesData } = await supabase
+        .from('badges')
+        .select('*')
+        .in('id', badgeIds);
+
+      // Create map of badge_id to badge
+      const badgesMap: Record<string, BadgeRow> = {};
+      badgesData?.forEach(badge => {
+        badgesMap[badge.id] = badge;
+      });
+
+      // Map user_badges with badges
+      const enrichedBadges: UserBadgeWithBadge[] = userBadgesData.map(ub => ({
+        ...ub,
+        badges: badgesMap[ub.badge_id] || { id: '', name: 'Unknown', icon: '', description: '', created_at: '' }
+      }));
+
+      setEarnedBadges(enrichedBadges);
     };
     fetchBadges();
     const interval = setInterval(fetchBadges, 30000);
@@ -165,7 +223,7 @@ const Live = () => {
 
   // Publish current user's location to live_locations
   useEffect(() => {
-    if (!user) return; // Always share location even if not in a bubble
+    if (!user || !selectedBubble) return;
     let isMounted = true;
     const publishLocation = async (lat: number, lng: number) => {
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 min expiry
@@ -235,7 +293,7 @@ const Live = () => {
       }
     }
     if (found) {
-      setProximityAlert(`User nearby: ${found.user_name || found.user_id} is within ${proximityRadius} meters!`);
+      setProximityAlert(`User nearby: User is within ${proximityRadius} meters!`);
     } else {
       setProximityAlert(null);
     }
@@ -245,7 +303,6 @@ const Live = () => {
   // Subscribe to live_locations for selected bubble
   useEffect(() => {
     if (!selectedBubble) return;
-    let subscription: any;
     const fetchLiveLocations = async () => {
       const { data } = await supabase
         .from('live_locations')
@@ -255,14 +312,14 @@ const Live = () => {
       setLiveLocations(data || []);
     };
     fetchLiveLocations();
-    subscription = supabase
+    const subscription = supabase
       .channel('live_locations')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'live_locations', filter: `bubble_id=eq.${selectedBubble.id}` },
         (payload) => { fetchLiveLocations(); }
       )
       .subscribe();
     return () => {
-      if (subscription) supabase.removeChannel(subscription);
+      supabase.removeChannel(subscription);
     };
   }, [selectedBubble]);
 
@@ -280,7 +337,7 @@ const Live = () => {
 
   return (
   <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary dark:from-secondary-dark dark:via-background dark:to-primary-dark">
-      <Navigation profile={profile} />
+      <Navigation profile={user && profile ? { ...user, ...profile } : undefined} />
       {/* Location-based Story Dialog */}
       <CreateStoryDialog
         open={storyDialogOpen}
@@ -317,20 +374,6 @@ const Live = () => {
             </Card>
           ) : (
             <div className="space-y-6">
-              {/* Map */}
-              <Card className="backdrop-blur-sm bg-card/95 border-0 mb-6">
-                <CardContent className="p-0">
-                  <div className="h-[500px] rounded-lg overflow-hidden">
-                    <Map
-                      liveLocations={liveLocations}
-                      currentUserId={user?.id}
-                      showStories={true}
-                      showARPins={true}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
               {/* Bubble Selector */}
               <Card className="backdrop-blur-sm bg-card/95 border-0">
                 <CardHeader>
@@ -525,23 +568,11 @@ const Live = () => {
                               <Button type="submit" size="sm" variant="secondary">Send</Button>
                             </form>
                           </div>
-                          {/* Location Trail/History */}
-                          {locationTrail.length > 1 && (
-                            <div className="bg-muted/30 rounded-lg p-2 mt-2">
-                              <div className="font-semibold text-xs mb-1">Your Location Trail (last 10):</div>
-                              <ol className="text-xs list-decimal ml-4">
-                                {locationTrail.slice(-10).map((pt, idx) => (
-                                  <li key={idx}>
-                                    {pt.lat.toFixed(5)}, {pt.lng.toFixed(5)} <span className="text-muted-foreground">({new Date(pt.time).toLocaleTimeString()})</span>
-                                  </li>
-                                ))}
-                              </ol>
-                            </div>
-                          )}
+
                           <Map
                             bubbles={[selectedBubble]}
                             showBubbles={true}
-                            center={[selectedBubble.longitude, selectedBubble.latitude]}
+                            center={[selectedBubble.latitude, selectedBubble.longitude]}
                             liveLocations={liveLocations}
                             currentUserId={user?.id}
                             showARPins={true}
@@ -621,16 +652,9 @@ const Live = () => {
                               </div>
                             )}
                             {bubbleActivity.map((act, idx) => (
-                              <div key={act.user_id || idx} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                                <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-300 bg-gray-100 flex items-center justify-center">
-                                  {act.profiles?.profile_photo_url ? (
-                                    <img src={act.profiles.profile_photo_url} alt="avatar" className="w-full h-full object-cover" />
-                                  ) : (
-                                    <span className="font-bold text-lg">{act.profiles?.first_name?.[0] || '?'}</span>
-                                  )}
-                                </div>
+                              <div key={act.user_id || idx} className="flex items-center p-3 bg-muted/50 rounded-lg">
                                 <div>
-                                  <p className="font-medium">{act.profiles?.first_name || 'User'}{act.user_id === user?.id ? ' (You)' : ''}</p>
+                                  <p className="font-medium">User{act.user_id === user?.id ? ' (You)' : ''}</p>
                                   <p className="text-sm text-muted-foreground">{act.activity_type} • Last seen {new Date(act.updated_at).toLocaleTimeString()}</p>
                                 </div>
                               </div>

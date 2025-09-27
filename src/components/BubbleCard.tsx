@@ -8,16 +8,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
-interface Bubble {
-  id: string;
-  name: string;
-  interest_tag: string;
-  member_count: number;
-  latitude: number;
-  longitude: number;
+import type { Database } from '@/integrations/supabase/types';
+
+type Bubble = Database['public']['Tables']['bubbles']['Row'] & {
   distance?: number;
   is_member?: boolean;
-}
+};
 
 interface BubbleCardProps {
   bubble: Bubble;
@@ -78,10 +74,11 @@ export const BubbleCard: React.FC<BubbleCardProps> = ({
           description: `Welcome to ${bubble.name}`,
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       toast({
         title: 'Error',
-        description: error.message,
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {

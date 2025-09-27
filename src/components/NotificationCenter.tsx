@@ -22,7 +22,7 @@ interface Notification {
     first_name: string;
     profile_photo_url?: string;
   };
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 export const NotificationCenter: React.FC = () => {

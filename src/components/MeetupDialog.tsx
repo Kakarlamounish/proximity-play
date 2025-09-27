@@ -13,6 +13,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
+import type { Database } from '@/integrations/supabase/types';
+
+type MeetupsRow = Database['public']['Tables']['meetups']['Row'];
+
 interface MeetupDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;

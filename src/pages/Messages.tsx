@@ -9,13 +9,14 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/types';
 import { Loader2 } from 'lucide-react';
 
 const Messages = () => {
   const { user, loading } = useAuth();
-  const [profile, setProfile] = useState<any>(null);
-  const [bubbles, setBubbles] = useState<any[]>([]);
-  const [selectedBubble, setSelectedBubble] = useState<any>(null);
+  const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
+  const [bubbles, setBubbles] = useState<Database['public']['Tables']['bubbles']['Row'][]>([]);
+  const [selectedBubble, setSelectedBubble] = useState<Database['public']['Tables']['bubbles']['Row'] | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [meetupDialogOpen, setMeetupDialogOpen] = useState(false);
 
@@ -52,13 +53,27 @@ const Messages = () => {
           `)
           .eq('user_id', user.id);
 
-        const bubblesData = userBubbles?.map(ub => ub.bubbles) || [];
-        setBubbles(bubblesData);
+          // Map bubbles to expected type
+          const bubblesData = (userBubbles || []).map(bm => ({
+            id: bm.bubbles?.id ?? '',
+            name: bm.bubbles?.name ?? '',
+            interest_tag: bm.bubbles?.interest_tag ?? '',
+            member_count: bm.bubbles?.member_count ?? 0,
+            // Fill missing fields with defaults
+            created_at: '',
+            creator_id: '',
+            description: '',
+            is_private: false,
+            latitude: 0,
+            longitude: 0,
+            updated_at: '',
+          }));
+          setBubbles(bubblesData);
 
-        // Auto-select first bubble if none selected
-        if (bubblesData.length > 0 && !selectedBubble) {
-          setSelectedBubble(bubblesData[0]);
-        }
+          // Auto-select first bubble if none selected
+          if (bubblesData.length > 0 && !selectedBubble) {
+            setSelectedBubble(bubblesData[0]);
+          }
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -69,7 +84,7 @@ const Messages = () => {
     if (user && !loading) {
       fetchData();
     }
-  }, [user, loading, selectedBubble]);
+  }, [user, loading]);
 
   if (loading || profileLoading) {
     return (
@@ -81,7 +96,7 @@ const Messages = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
-      <Navigation profile={profile} />
+      <Navigation profile={user && profile ? { ...user, ...profile } : undefined} />
       
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">

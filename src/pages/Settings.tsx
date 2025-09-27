@@ -10,14 +10,19 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Settings as SettingsIcon, Moon, Sun, Bell, Shield, MapPin, Trash2, Download, HelpCircle, UserX, Globe, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/types';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UpdateLocationDialog } from '@/components/UpdateLocationDialog';
 
+type ProfilesRow = Database['public']['Tables']['profiles']['Row'];
+type MergedProfile = SupabaseUser & ProfilesRow;
+
 const Settings = () => {
   const { user, loading, signOut } = useAuth();
   const { toast } = useToast();
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState({
@@ -27,7 +32,7 @@ const Settings = () => {
     push: true,
     email: false,
   });
-  const [blockedUsers, setBlockedUsers] = useState([]);
+  const [blockedUsers, setBlockedUsers] = useState<Array<{ blocked_id: string; profiles?: { id: string; first_name: string; profile_photo_url: string } }>>([]);
   const [language, setLanguage] = useState('en');
   const [timezone, setTimezone] = useState('UTC');
   const [storageUsed, setStorageUsed] = useState(0);
@@ -266,7 +271,7 @@ const Settings = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
-      <Navigation profile={profile} />
+      <Navigation profile={user && profile ? ({ ...user, ...profile } as MergedProfile) : undefined} />
       
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">

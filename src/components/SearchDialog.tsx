@@ -11,6 +11,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
+import type { Database } from '@/integrations/supabase/types';
+
+type ProfilesRow = Database['public']['Tables']['profiles']['Row'];
+type BubblesRow = Database['public']['Tables']['bubbles']['Row'];
+type MeetupsRow = Database['public']['Tables']['meetups']['Row'];
+
 interface SearchResult {
   id: string;
   type: 'user' | 'bubble' | 'meetup';
@@ -21,7 +27,7 @@ interface SearchResult {
   location?: string;
   memberCount?: number;
   distance?: number;
-  metadata?: any;
+  metadata?: ProfilesRow | BubblesRow | MeetupsRow;
 }
 
 interface SearchDialogProps {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -20,7 +20,7 @@ export const useLocation = () => {
     error: null,
   });
 
-  const requestLocation = async () => {
+  const requestLocation = useCallback(async () => {
     if (!navigator.geolocation) {
       setLocation(prev => ({
         ...prev,
@@ -92,11 +92,11 @@ export const useLocation = () => {
         maximumAge: 300000, // 5 minutes
       }
     );
-  };
+  }, [user, toast]);
 
   useEffect(() => {
     requestLocation();
-  }, [user]);
+  }, [requestLocation]);
 
   return {
     ...location,

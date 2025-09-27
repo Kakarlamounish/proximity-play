@@ -8,6 +8,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
+interface Location {
+  latitude: string;
+  longitude: string;
+}
+
 interface UpdateLocationDialogProps {
   onLocationUpdate?: () => void;
 }
@@ -18,7 +23,7 @@ export const UpdateLocationDialog: React.FC<UpdateLocationDialogProps> = ({ onLo
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
-  const [location, setLocation] = useState({
+  const [location, setLocation] = useState<Location>({
     latitude: '',
     longitude: ''
   });

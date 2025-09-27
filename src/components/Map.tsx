@@ -296,12 +296,8 @@ const Routing: React.FC<{ start: [number, number]; end: [number, number] }> = ({
   ) : null;
 };
 import React, { useRef, useState } from 'react';
-// (already imported above)
 import { createClient } from '@supabase/supabase-js';
-// --- Supabase Client Setup ---
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '<YOUR_SUPABASE_URL>';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '<YOUR_SUPABASE_ANON_KEY>';
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { Database } from '@/integrations/supabase/types';
 // (already imported above)
 // Supabase client for real-time features
 // import { createClient } from '@supabase/supabase-js';

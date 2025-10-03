@@ -37,29 +37,29 @@ export const Navigation: React.FC<NavigationProps> = ({ profile }) => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <img
               src="/logo.png"
               alt="App Logo"
-              className="w-10 h-10 rounded-xl object-cover"
+              className="w-8 h-8 rounded-lg object-cover"
             />
-            <h1 className="text-xl font-bold bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">
+            <h1 className="text-lg font-bold bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent hidden sm:block">
               Social Bubble
             </h1>
           </div>
 
           {/* Navigation */}
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-1">
             {navItems.map(({ path, icon: Icon, label }) => (
               <Button
                 key={path}
                 variant={isActive(path) ? "default" : "ghost"}
                 size="sm"
                 onClick={() => navigate(path)}
-                className={isActive(path) ? "bg-gradient-to-r from-secondary to-primary" : ""}
+                className={`h-8 px-2 ${isActive(path) ? "bg-gradient-to-r from-secondary to-primary" : ""}`}
               >
-                <Icon className="h-4 w-4 mr-2" />
-                {label}
+                <Icon className="h-3.5 w-3.5 mr-1.5" />
+                <span className="text-xs">{label}</span>
               </Button>
             ))}
           </div>

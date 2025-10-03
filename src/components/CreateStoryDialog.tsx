@@ -82,10 +82,10 @@ const CreateStoryDialog: React.FC<CreateStoryDialogProps> = ({ open, onClose, us
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogHeader>
-        <DialogTitle>Post a Story</DialogTitle>
-      </DialogHeader>
       <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create Story</DialogTitle>
+        </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Textarea
             placeholder="What's happening?"

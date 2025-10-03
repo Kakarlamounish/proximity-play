@@ -30,7 +30,14 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ profile, o
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    first_name: string;
+    bio: string;
+    age: number;
+    gender: 'male' | 'female' | 'non_binary' | 'prefer_not_to_say' | '';
+    interests: string[];
+    profile_photo_url: string;
+  }>({
     first_name: profile?.first_name || '',
     bio: profile?.bio || '',
     age: profile?.age || 18,
@@ -45,17 +52,22 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ profile, o
     setLoading(true);
 
     try {
+      const updateData: any = {
+        first_name: formData.first_name,
+        bio: formData.bio,
+        age: formData.age,
+        interests: formData.interests,
+        profile_photo_url: formData.profile_photo_url,
+        updated_at: new Date().toISOString()
+      };
+
+      if (formData.gender) {
+        updateData.gender = formData.gender;
+      }
+
       const { data, error } = await supabase
         .from('profiles')
-        .update({
-          first_name: formData.first_name,
-          bio: formData.bio,
-          age: formData.age,
-          gender: formData.gender,
-          interests: formData.interests,
-          profile_photo_url: formData.profile_photo_url,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', profile.id)
         .select()
         .single();
@@ -178,7 +190,7 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ profile, o
             <Label htmlFor="gender">Gender</Label>
             <Select 
               value={formData.gender} 
-              onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
+              onValueChange={(value: 'male' | 'female' | 'non_binary' | 'prefer_not_to_say') => setFormData(prev => ({ ...prev, gender: value }))}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select gender" />

@@ -44,105 +44,6 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const initializeCall = useCallback(async () => {
-    try {
-      // Get user media based on call type
-      const constraints = {
-        video: callType === 'video',
-        audio: true
-      };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      
-      setLocalStream(stream);
-      
-      if (callType === 'video' && localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
-
-      // Create peer connection
-      const newPeer = new SimplePeer({
-        initiator: isInitiator,
-        trickle: false,
-        stream: stream
-      });
-
-      newPeer.on('signal', (data: SimplePeer.SignalData) => {
-        // Send signal through Supabase realtime
-        sendSignal(data);
-      });
-
-      newPeer.on('connect', () => {
-        setCallStatus('connected');
-        toast({
-          title: 'Call Connected',
-          description: 'You are now connected to the call.',
-        });
-      });
-
-      newPeer.on('stream', (remoteStream) => {
-        setRemoteStream(remoteStream);
-        if (callType === 'video' && remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = remoteStream;
-        }
-      });
-
-      newPeer.on('error', (err) => {
-        console.error('Peer error:', err);
-        toast({
-          title: 'Call Error',
-          description: 'There was an error with the call connection.',
-          variant: 'destructive',
-        });
-      });
-
-      newPeer.on('close', () => {
-        setCallStatus('ended');
-        onCallEnd?.();
-      });
-
-      setPeer(newPeer);
-
-      // Listen for signals from other participants
-      listenForSignals(newPeer);
-
-    } catch (error) {
-      console.error('Error initializing call:', error);
-      toast({
-        title: 'Call Error',
-        description: 'Could not access camera/microphone.',
-        variant: 'destructive',
-      });
-    }
-  }, [callType, isInitiator, user?.id, bubbleId, onCallEnd, toast, sendSignal, listenForSignals]);
-
-  const endCall = useCallback(() => {
-    if (peer) {
-      peer.destroy();
-      setPeer(null);
-    }
-    
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
-      setLocalStream(null);
-    }
-
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
-    
-    setCallStatus('ended');
-    onCallEnd?.();
-  }, [peer, localStream, onCallEnd]);
-
-  useEffect(() => {
-    initializeCall();
-    
-    return () => {
-      endCall();
-    };
-  }, [initializeCall, endCall]);
-
   const sendSignal = useCallback(async (signal: SimplePeer.SignalData) => {
     try {
       await supabase
@@ -189,8 +90,102 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       .subscribe();
   }, [bubbleId, user?.id]);
 
+  const initializeCall = useCallback(async () => {
+    try {
+      const constraints = {
+        video: callType === 'video',
+        audio: true
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      setLocalStream(stream);
+      
+      if (callType === 'video' && localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+
+      const newPeer = new SimplePeer({
+        initiator: isInitiator,
+        trickle: false,
+        stream: stream
+      });
+
+      newPeer.on('signal', (data: SimplePeer.SignalData) => {
+        sendSignal(data);
+      });
+
+      newPeer.on('connect', () => {
+        setCallStatus('connected');
+        toast({
+          title: 'Call Connected',
+          description: 'You are now connected to the call.',
+        });
+      });
+
+      newPeer.on('stream', (remoteStream) => {
+        setRemoteStream(remoteStream);
+        if (callType === 'video' && remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStream;
+        }
+      });
+
+      newPeer.on('error', (err) => {
+        console.error('Peer error:', err);
+        toast({
+          title: 'Call Error',
+          description: 'There was an error with the call connection.',
+          variant: 'destructive',
+        });
+      });
+
+      newPeer.on('close', () => {
+        setCallStatus('ended');
+        onCallEnd?.();
+      });
+
+      setPeer(newPeer);
+      listenForSignals(newPeer);
+
+    } catch (error) {
+      console.error('Error initializing call:', error);
+      toast({
+        title: 'Call Error',
+        description: 'Could not access camera/microphone.',
+        variant: 'destructive',
+      });
+    }
+  }, [callType, isInitiator, user?.id, bubbleId, onCallEnd, toast, sendSignal, listenForSignals]);
+
+  const endCall = useCallback(() => {
+    if (peer) {
+      peer.destroy();
+      setPeer(null);
+    }
+    
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+      setLocalStream(null);
+    }
+
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+    
+    setCallStatus('ended');
+    onCallEnd?.();
+  }, [peer, localStream, onCallEnd]);
+
+  useEffect(() => {
+    initializeCall();
+    
+    return () => {
+      endCall();
+    };
+  }, [initializeCall, endCall]);
+
   const toggleVideo = useCallback(() => {
-    if (callType !== 'video') return; // No video for audio calls
+    if (callType !== 'video') return;
     if (localStream) {
       localStream.getVideoTracks().forEach(track => {
         track.enabled = !isVideoEnabled;
@@ -210,7 +205,6 @@ export const VideoCall: React.FC<VideoCallProps> = ({
 
   const toggleSpeaker = useCallback(() => {
     setIsSpeakerEnabled(!isSpeakerEnabled);
-    // Note: Speaker control is limited in browsers, this is mostly UI feedback
   }, [isSpeakerEnabled]);
 
   return (

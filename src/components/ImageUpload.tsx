@@ -71,7 +71,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
       // Upload to Supabase Storage
-      const { error: uploadError }: { data: FileObject | null; error: PostgrestError | null } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('profile-photos')
         .upload(fileName, file, {
           cacheControl: '3600',

@@ -69,8 +69,7 @@ export const SearchDialog: React.FC<SearchDialogProps> = ({ trigger }) => {
           title: userData.first_name,
           subtitle: userData.bio || 'No bio available',
           avatar: userData.profile_photo_url,
-          badge: userData.interests?.[0] || 'User',
-          metadata: userData
+          badge: userData.interests?.[0] || 'User'
         });
       });
 
@@ -88,8 +87,7 @@ export const SearchDialog: React.FC<SearchDialogProps> = ({ trigger }) => {
           title: bubbleData.name,
           subtitle: `A ${bubbleData.interest_tag} community`,
           badge: bubbleData.interest_tag,
-          memberCount: bubbleData.member_count || 0,
-          metadata: bubbleData
+          memberCount: bubbleData.member_count || 0
         });
       });
 
@@ -119,8 +117,7 @@ export const SearchDialog: React.FC<SearchDialogProps> = ({ trigger }) => {
             title: meetupData.title,
             subtitle: meetupData.description || 'No description',
             location: meetupData.location_name || undefined,
-            badge: bubble?.interest_tag || 'Meetup',
-            metadata: { ...meetupData, bubble }
+            badge: bubble?.interest_tag || 'Meetup'
           });
         });
       }
@@ -159,16 +156,17 @@ export const SearchDialog: React.FC<SearchDialogProps> = ({ trigger }) => {
       case 'bubble':
         try {
           // Check if user is already a member
+          const bubbleId = result.id.replace('bubble-', '');
           const { data: membership } = await supabase
             .from('bubble_memberships')
             .select('id')
             .eq('user_id', user!.id)
-            .eq('bubble_id', result.metadata.id)
+            .eq('bubble_id', bubbleId)
             .maybeSingle();
 
           if (membership) {
             // Already a member, go to chat
-            navigate('/messages', { state: { selectedBubbleId: result.metadata.id } });
+            navigate('/messages', { state: { selectedBubbleId: bubbleId } });
           } else {
             // Not a member, show join option
             toast({

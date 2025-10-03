@@ -39,9 +39,9 @@ export const Navigation: React.FC<NavigationProps> = ({ profile }) => {
           {/* Logo */}
           <div className="flex items-center gap-3">
             <img
-              src="/logo.svg"
+              src="/logo.png"
               alt="App Logo"
-              className="w-12 h-12"
+              className="w-10 h-10 rounded-xl object-cover"
             />
             <h1 className="text-xl font-bold bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">
               Social Bubble

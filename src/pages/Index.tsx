@@ -23,6 +23,11 @@ interface Bubble {
   longitude: number;
   distance?: number;
   is_member?: boolean;
+  created_at?: string;
+  creator_id?: string;
+  description?: string;
+  is_private?: boolean;
+  updated_at?: string;
 }
 
 const Index = () => {

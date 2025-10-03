@@ -890,33 +890,6 @@ export function Map(props: MapProps) {
     };
   }, [locationSharingEnabled, currentUserId]);
   // Demo notification and chat state
-  // Listen for real-time notifications
-  useEffect(() => {
-    const notificationSub = supabase
-      .channel('notifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, payload => {
-        setNotifications(prev => [
-          { id: payload.new.id, message: payload.new.message, time: new Date().toLocaleTimeString() },
-          ...prev
-        ]);
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(notificationSub); };
-  }, []);
-
-  // Listen for real-time chat messages
-  useEffect(() => {
-    const chatSub = supabase
-      .channel('chat')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, payload => {
-        setMessages(prev => [
-          { id: payload.new.id, user: payload.new.user, text: payload.new.text, time: new Date().toLocaleTimeString() },
-          ...prev
-        ]);
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(chatSub); };
-  }, []);
   // Demo notification and chat state
   const [notifications, setNotifications] = useState([
     { id: '1', message: 'Welcome to Proximity Play!', time: 'Just now' },

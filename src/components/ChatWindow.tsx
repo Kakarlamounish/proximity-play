@@ -26,7 +26,7 @@ type Member = {
   profiles: {
     first_name: string | null;
     profile_photo_url: string | null;
-  };
+  } | null;
 };
 
 interface ChatWindowProps {
@@ -125,19 +125,36 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
           setMessages([]);
         }
 
-        // Fetch bubble members
-        const { data: membersData } = await supabase
+        // Fetch bubble members - simplified to avoid relation issues
+        const { data: membershipData } = await supabase
           .from('bubble_memberships')
-          .select(`
-            user_id,
-            profiles (
-              first_name,
-              profile_photo_url
-            )
-          `)
+          .select('user_id')
           .eq('bubble_id', bubble.id);
 
-        setMembers(membersData || []);
+        if (membershipData && membershipData.length > 0) {
+          const userIds = membershipData.map(m => m.user_id);
+          const { data: profilesData } = await supabase
+            .from('profiles')
+            .select('id, first_name, profile_photo_url')
+            .in('id', userIds);
+
+          if (profilesData) {
+            const membersWithProfiles: Member[] = membershipData
+              .map(m => {
+                const profile = profilesData.find(p => p.id === m.user_id);
+                return profile ? {
+                  user_id: m.user_id,
+                  profiles: {
+                    first_name: profile.first_name,
+                    profile_photo_url: profile.profile_photo_url
+                  }
+                } : null;
+              })
+              .filter((m): m is Member => m !== null);
+            
+            setMembers(membersWithProfiles);
+          }
+        }
       } catch (error) {
         console.error('Error fetching chat data:', error);
       }
@@ -199,8 +216,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
         .insert({
           content: newMessage.trim(),
           sender_id: user.id,
-          bubble_id: bubble.id,
-          message_type: 'text'
+          bubble_id: bubble.id
         });
 
       if (error) throw error;
@@ -227,9 +243,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
         .insert({
           content: 'Shared an image',
           sender_id: user.id,
-          bubble_id: bubble.id,
-          message_type: 'image',
-          image_url: imageUrl
+          bubble_id: bubble.id
         });
 
       if (error) throw error;
@@ -331,19 +345,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
                         : 'bg-muted'
                     }`}
                   >
-                    {message.message_type === 'image' && message.image_url ? (
-                      <div className="max-w-xs">
-                        <img 
-                          src={message.image_url} 
-                          alt="Shared image" 
-                          className="rounded-lg w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => window.open(message.image_url, '_blank')}
-                        />
-                        <p className="text-sm mt-2">{message.content}</p>
-                      </div>
-                    ) : (
-                      <p className="text-sm">{message.content}</p>
-                    )}
+                    <p className="text-sm">{message.content}</p>
                   </div>
                   <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                     {message.sender_id !== user?.id && (

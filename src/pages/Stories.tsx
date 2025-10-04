@@ -80,6 +80,7 @@ const Stories = () => {
         created_at: '',
         first_name: user?.user_metadata?.first_name ?? 'User',
         gender: 'prefer_not_to_say',
+        ghost_mode: false,
         id: user?.id ?? '',
         interests: [],
         latitude: 0,

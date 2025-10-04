@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Home, MessageSquare, User as UserIcon, Settings, LogOut, Activity, Phone, BookOpen } from 'lucide-react';
+import { Home, MessageSquare, User as UserIcon, Settings, LogOut, Activity, Phone, BookOpen, MapIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { NotificationCenter } from '@/components/NotificationCenter';
@@ -25,6 +25,7 @@ export const Navigation: React.FC<NavigationProps> = ({ profile }) => {
   const navItems = [
     { path: '/', icon: Home, label: 'Home' },
     { path: '/messages', icon: MessageSquare, label: 'Messages' },
+    { path: '/maps', icon: MapIcon, label: 'Maps' },
     { path: '/live', icon: Activity, label: 'Live' },
     { path: '/calls', icon: Phone, label: 'Calls' },
     { path: '/stories', icon: BookOpen, label: 'Stories' },

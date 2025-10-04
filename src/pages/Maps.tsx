@@ -91,7 +91,7 @@ const Maps = () => {
             .select('user_id')
             .in('bubble_id', bubbleIds);
 
-          const friendIds = [...new Set(allMembers?.map(m => m.user_id))] || [];
+          const friendIds = allMembers ? [...new Set(allMembers.map(m => m.user_id))] : [];
 
           // Get their profiles with locations (excluding ghost mode users)
           const { data: profiles, error: profilesError } = await supabase

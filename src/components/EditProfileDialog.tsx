@@ -144,12 +144,25 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ profile, o
                 variant="outline"
                 className="mt-2"
                 onClick={async () => {
-                  // Start Supabase OAuth sign-in with Google
-                  const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
-                  if (error) {
-                    toast({ title: 'Google import failed', description: error.message, variant: 'destructive' });
+                  const { data: { user } } = await supabase.auth.getUser();
+                  
+                  if (!user) {
+                    toast({ title: 'Not signed in', description: 'Please sign in to import from Google.', variant: 'destructive' });
+                    return;
+                  }
+
+                  // Check if user has Google profile photo in metadata
+                  const googlePhoto = user.user_metadata?.avatar_url || user.user_metadata?.picture;
+                  
+                  if (googlePhoto) {
+                    handlePhotoUpload(googlePhoto);
+                    toast({ title: 'Photo imported', description: 'Your Google profile photo has been imported successfully.' });
                   } else {
-                    toast({ title: 'Google sign-in', description: 'Complete sign-in and your Google profile photo will be imported.' });
+                    toast({ 
+                      title: 'No Google photo found', 
+                      description: 'Please sign in with Google to import your profile photo.', 
+                      variant: 'destructive' 
+                    });
                   }
                 }}
               >

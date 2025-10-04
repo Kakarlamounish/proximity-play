@@ -288,8 +288,8 @@ const Maps = () => {
           <Card className="backdrop-blur-sm bg-card/95 border-0 overflow-hidden">
             <div className="h-[600px]">
               {needsToken ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center max-w-md p-6">
+                <div className="flex items-center justify-center h-full bg-background">
+                  <div className="text-center max-w-md p-6 bg-card rounded-lg border">
                     <h3 className="text-lg font-semibold mb-2">Mapbox Token Required</h3>
                     <p className="text-sm text-muted-foreground mb-4">
                       Enter your Mapbox public token to view the map. 
@@ -300,21 +300,33 @@ const Maps = () => {
                       placeholder="pk.ey..."
                       value={mapboxToken}
                       onChange={(e) => setMapboxToken(e.target.value)}
-                      className="w-full px-3 py-2 border rounded mb-3"
+                      className="w-full px-3 py-2 border rounded mb-3 bg-background text-foreground"
                     />
-                    <Button onClick={() => setNeedsToken(false)}>
+                    <Button 
+                      onClick={() => {
+                        if (mapboxToken.trim()) {
+                          setNeedsToken(false);
+                        }
+                      }}
+                      disabled={!mapboxToken.trim()}
+                    >
                       Load Map
                     </Button>
                   </div>
                 </div>
-              ) : (
+              ) : mapboxToken ? (
                 <Map
                   bubbles={bubbles}
                   showBubbles={true}
                   center={centerLocation}
                   liveLocations={allLocations}
                   currentUserId={user?.id}
+                  mapboxToken={mapboxToken}
                 />
+              ) : (
+                <div className="flex items-center justify-center h-full bg-background">
+                  <p className="text-muted-foreground">Please enter a Mapbox token to load the map</p>
+                </div>
               )}
             </div>
           </Card>

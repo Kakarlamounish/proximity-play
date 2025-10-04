@@ -40,6 +40,7 @@ interface MapProps {
   showStories?: boolean;
   storyRadius?: number;
   showARPins?: boolean;
+  mapboxToken?: string;
 }
 
 export function Map({
@@ -51,16 +52,25 @@ export function Map({
   currentUserId,
   showStories = true,
   storyRadius = 1000,
-  showARPins = false
+  showARPins = false,
+  mapboxToken: propMapboxToken = ''
 }: MapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<MapGL | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
-  const [mapboxToken, setMapboxToken] = useState('');
-  const [needsToken, setNeedsToken] = useState(false);
+  const [mapboxToken, setMapboxToken] = useState(propMapboxToken);
+  const [needsToken, setNeedsToken] = useState(!propMapboxToken);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const { toast } = useToast();
   const [exploredPercentage] = useState(0.0035);
+
+  // Update token when prop changes
+  useEffect(() => {
+    if (propMapboxToken) {
+      setMapboxToken(propMapboxToken);
+      setNeedsToken(false);
+    }
+  }, [propMapboxToken]);
 
   const clearMarkers = () => {
     markersRef.current.forEach(marker => marker.remove());
@@ -239,31 +249,6 @@ export function Map({
       });
     }
   }, [bubbles, showBubbles, liveLocations]);
-
-  const handleTokenSubmit = () => {
-    if (mapboxToken.trim()) {
-      setNeedsToken(false);
-    }
-  };
-
-  if (needsToken) {
-    return (
-      <Card className="w-[350px] mx-auto mt-8">
-        <CardContent className="pt-6">
-          <div className="flex flex-col gap-4">
-            <Input
-              placeholder="Enter your Mapbox token"
-              value={mapboxToken}
-              onChange={(e) => setMapboxToken(e.target.value)}
-            />
-            <Button onClick={handleTokenSubmit}>
-              Set Token
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <div className="relative w-full h-full">

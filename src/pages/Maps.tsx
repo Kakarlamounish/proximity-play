@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Eye, EyeOff, MapPin } from 'lucide-react';
+import { ImageUpload } from '@/components/ImageUpload';
 
 interface Profile {
   id: string;
@@ -235,11 +236,19 @@ const Maps = () => {
       
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
-          {/* Header with Ghost Mode Toggle */}
+          {/* Header with Profile Picture and Ghost Mode Toggle */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Friend Finder Map</h1>
-              <p className="text-muted-foreground">See your friends' locations and bubbles on the map</p>
+            <div className="flex items-center gap-4">
+              <ImageUpload
+                currentImageUrl={profile?.profile_photo_url || undefined}
+                onImageUploaded={(url) => setProfile(prev => prev ? {...prev, profile_photo_url: url} : null)}
+                userName={profile?.first_name || 'User'}
+                className="flex-shrink-0"
+              />
+              <div>
+                <h1 className="text-3xl font-bold mb-2">{profile?.first_name || 'Friend Finder Map'}</h1>
+                <p className="text-muted-foreground">See your friends' locations and bubbles on the map</p>
+              </div>
             </div>
             
             <Card className="backdrop-blur-sm bg-card/95 border-0">

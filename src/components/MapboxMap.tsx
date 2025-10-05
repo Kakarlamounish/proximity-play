@@ -165,8 +165,8 @@ export function Map({
         zoomControl={false}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         />
         
         <MapController onLocationSelect={onLocationSelect} />
@@ -182,10 +182,10 @@ export function Map({
               icon={createUserIcon(groupUsers.length)}
             >
               <Popup>
-                <div className="p-2">
+                <div className="p-2 bg-card text-card-foreground rounded-lg">
                   {groupUsers.map((user, userIdx) => (
-                    <div key={userIdx} className="mb-2">
-                      <p className="font-semibold">{user.user_name || 'User'}</p>
+                    <div key={userIdx} className="mb-2 last:mb-0">
+                      <p className="font-semibold text-foreground">{user.user_name || 'User'}</p>
                       {user.status && <p className="text-sm text-muted-foreground">{user.status}</p>}
                     </div>
                   ))}
@@ -203,10 +203,10 @@ export function Map({
             icon={bubbleIcon}
           >
             <Popup>
-              <div className="p-2">
-                <h3 className="font-bold">{bubble.name}</h3>
+              <div className="p-2 bg-card text-card-foreground rounded-lg">
+                <h3 className="font-bold text-foreground">{bubble.name}</h3>
                 <p className="text-sm text-muted-foreground">{bubble.interest_tag}</p>
-                <p className="text-xs">{bubble.member_count} members</p>
+                <p className="text-xs text-muted-foreground">{bubble.member_count} members</p>
               </div>
             </Popup>
           </Marker>

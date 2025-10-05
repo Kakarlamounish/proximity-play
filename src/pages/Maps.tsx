@@ -26,7 +26,7 @@ interface LiveLocation {
   latitude: number;
   longitude: number;
   avatar_url?: string;
-  username?: string;
+  user_name?: string;
   updated_at: string;
 }
 
@@ -108,7 +108,7 @@ const Maps = () => {
             latitude: p.latitude!,
             longitude: p.longitude!,
             avatar_url: p.profile_photo_url || undefined,
-            username: p.first_name,
+            user_name: p.first_name,
             updated_at: new Date().toISOString(),
           })) || [];
 
@@ -225,7 +225,7 @@ const Maps = () => {
       latitude: profile.latitude,
       longitude: profile.longitude,
       avatar_url: profile.profile_photo_url || undefined,
-      username: profile.first_name,
+      user_name: profile.first_name,
       updated_at: new Date().toISOString(),
     });
   }

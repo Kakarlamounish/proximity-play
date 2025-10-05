@@ -140,7 +140,14 @@ export function Map({
   });
 
   // Custom icon for user groups
-  const createUserIcon = (count: number) => {
+  const createUserIcon = (count: number, avatarUrl?: string) => {
+    if (count === 1 && avatarUrl) {
+      return L.divIcon({
+        html: `<div class="flex items-center justify-center w-10 h-10 rounded-full border-2 border-primary shadow-lg overflow-hidden"><img src="${avatarUrl}" class="w-full h-full object-cover" /></div>`,
+        className: '',
+        iconSize: [40, 40],
+      });
+    }
     return L.divIcon({
       html: `<div class="flex items-center justify-center w-10 h-10 bg-primary text-primary-foreground rounded-full border-2 border-background shadow-lg font-bold">${count}</div>`,
       className: '',
@@ -179,7 +186,7 @@ export function Map({
             <Marker
               key={`user-group-${idx}`}
               position={[firstUser.latitude, firstUser.longitude]}
-              icon={createUserIcon(groupUsers.length)}
+              icon={createUserIcon(groupUsers.length, groupUsers.length === 1 ? firstUser.avatar_url : undefined)}
             >
               <Popup>
                 <div className="p-2 bg-card text-card-foreground rounded-lg">

@@ -1,17 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
-import mapboxgl, { Map as MapGL } from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import 'leaflet.heat';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MapPin, Navigation as NavigationIcon } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { Navigation as NavigationIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ExplorationBadge } from '@/components/ui/exploration-badge';
-import { UserMarker } from '@/components/user-marker';
-import ReactDOM from 'react-dom';
-import { mapStyle, heatmapLayer } from '@/components/map-style';
+
+// Fix Leaflet default marker icon issue
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
 
 interface Location {
   user_id: string;
@@ -40,7 +43,62 @@ interface MapProps {
   showStories?: boolean;
   storyRadius?: number;
   showARPins?: boolean;
-  mapboxToken?: string;
+}
+
+// Component to handle map interactions
+function MapController({ onLocationSelect }: { onLocationSelect?: (lat: number, lng: number) => void }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (!onLocationSelect) return;
+    
+    const handleClick = (e: L.LeafletMouseEvent) => {
+      onLocationSelect(e.latlng.lat, e.latlng.lng);
+    };
+    
+    map.on('click', handleClick);
+    return () => {
+      map.off('click', handleClick);
+    };
+  }, [map, onLocationSelect]);
+  
+  return null;
+}
+
+// Component to handle heatmap
+function HeatmapLayer({ locations }: { locations: Location[] }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (!locations.length) return;
+    
+    const points: [number, number, number][] = locations.map(loc => [
+      loc.latitude,
+      loc.longitude,
+      0.5 // intensity
+    ]);
+    
+    const heat = (L as any).heatLayer(points, {
+      radius: 25,
+      blur: 15,
+      maxZoom: 17,
+      max: 1.0,
+      gradient: {
+        0.0: 'rgba(33,196,235,0)',
+        0.2: 'rgb(33,196,235)',
+        0.4: 'rgb(38,242,203)',
+        0.6: 'rgb(233,253,47)',
+        0.8: 'rgb(255,190,11)',
+        1.0: 'rgb(255,102,0)'
+      }
+    }).addTo(map);
+    
+    return () => {
+      map.removeLayer(heat);
+    };
+  }, [map, locations]);
+  
+  return null;
 }
 
 export function Map({
@@ -53,244 +111,121 @@ export function Map({
   showStories = true,
   storyRadius = 1000,
   showARPins = false,
-  mapboxToken: propMapboxToken = ''
 }: MapProps) {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<MapGL | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
-  const [mapboxToken, setMapboxToken] = useState(propMapboxToken);
-  const [needsToken, setNeedsToken] = useState(!propMapboxToken);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const { toast } = useToast();
   const [exploredPercentage] = useState(0.0035);
-
-  // Update token when prop changes
-  useEffect(() => {
-    if (propMapboxToken) {
-      setMapboxToken(propMapboxToken);
-      setNeedsToken(false);
+  const mapCenter: [number, number] = center ? [center[1], center[0]] : [0, 0];
+  
+  // Group nearby users
+  const groupedUsers: { [key: string]: Location[] } = {};
+  liveLocations.forEach(loc => {
+    let assigned = false;
+    Object.entries(groupedUsers).some(([key, group]) => {
+      const [groupLat, groupLng] = key.split(',').map(Number);
+      const distance = Math.sqrt(
+        Math.pow(loc.latitude - groupLat, 2) + 
+        Math.pow(loc.longitude - groupLng, 2)
+      );
+      if (distance < 0.01) { // ~1km radius
+        group.push(loc);
+        assigned = true;
+        return true;
+      }
+      return false;
+    });
+    if (!assigned) {
+      groupedUsers[`${loc.latitude},${loc.longitude}`] = [loc];
     }
-  }, [propMapboxToken]);
+  });
 
-  const clearMarkers = () => {
-    markersRef.current.forEach(marker => marker.remove());
-    markersRef.current = [];
+  // Custom icon for user groups
+  const createUserIcon = (count: number) => {
+    return L.divIcon({
+      html: `<div class="flex items-center justify-center w-10 h-10 bg-primary text-primary-foreground rounded-full border-2 border-background shadow-lg font-bold">${count}</div>`,
+      className: '',
+      iconSize: [40, 40],
+    });
   };
 
-  // Initialize map
-  useEffect(() => {
-    if (!mapContainer.current || !mapboxToken) return;
-
-    try {
-      mapboxgl.accessToken = mapboxToken;
-      map.current = new mapboxgl.Map({
-        container: mapContainer.current,
-        ...mapStyle,
-        center: center || [0, 0],
-        zoom: center ? 12 : 2,
-        pitch: 0,
-      });
-
-      map.current.addControl(
-        new mapboxgl.NavigationControl({ visualizePitch: true }),
-        'top-right'
-      );
-
-      if (onLocationSelect) {
-        map.current.on('click', (e) => {
-          const { lng, lat } = e.lngLat;
-          onLocationSelect(lat, lng);
-          const marker = new mapboxgl.Marker({ color: '#ef4444' })
-            .setLngLat([lng, lat])
-            .addTo(map.current!);
-          markersRef.current.push(marker);
-        });
-      }
-
-      return () => {
-        map.current?.remove();
-      };
-    } catch (error) {
-      console.error('Error initializing map:', error);
-      toast({
-        title: 'Map Error',
-        description: 'Failed to load map. Please check your Mapbox token.',
-        variant: 'destructive',
-      });
-    }
-  }, [mapboxToken, center, onLocationSelect]);
-
-  // Update markers and heat map
-  useEffect(() => {
-    if (!map.current) return;
-    clearMarkers();
-
-    // Add heat map layer
-    const points = liveLocations.map(loc => ({
-      type: 'Feature' as const,
-      properties: {
-        magnitude: 1
-      },
-      geometry: {
-        type: 'Point' as const,
-        coordinates: [loc.longitude, loc.latitude]
-      }
-    }));
-
-    if (!map.current.getSource('locations')) {
-      map.current.addSource('locations', {
-        type: 'geojson',
-        data: {
-          type: 'FeatureCollection',
-          features: points
-        }
-      });
-      map.current.addLayer({
-        id: 'location-heat',
-        type: 'heatmap',
-        source: 'locations',
-        maxzoom: 15,
-        paint: {
-          'heatmap-weight': [
-            'interpolate',
-            ['linear'],
-            ['get', 'magnitude'],
-            0, 0,
-            6, 1
-          ],
-          'heatmap-intensity': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            0, 1,
-            15, 3
-          ],
-          'heatmap-color': [
-            'interpolate',
-            ['linear'],
-            ['heatmap-density'],
-            0, 'rgba(33,196,235,0)',
-            0.2, 'rgb(33,196,235)',
-            0.4, 'rgb(38,242,203)',
-            0.6, 'rgb(233,253,47)',
-            0.8, 'rgb(255,190,11)',
-            1, 'rgb(255,102,0)'
-          ],
-          'heatmap-radius': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            0, 2,
-            9, 20
-          ],
-          'heatmap-opacity': 0.8
-        }
-      } as any);
-    } else {
-      (map.current.getSource('locations') as mapboxgl.GeoJSONSource).setData({
-        type: 'FeatureCollection',
-        features: points
-      });
-    }
-
-    // Group nearby users
-    const groups: { [key: string]: Location[] } = {};
-    liveLocations.forEach(loc => {
-      let assigned = false;
-      Object.entries(groups).some(([key, group]) => {
-        const [groupLat, groupLng] = key.split(',').map(Number);
-        const distance = Math.sqrt(
-          Math.pow(loc.latitude - groupLat, 2) + 
-          Math.pow(loc.longitude - groupLng, 2)
-        );
-        if (distance < 0.01) { // ~1km radius
-          group.push(loc);
-          assigned = true;
-          return true;
-        }
-        return false;
-      });
-      if (!assigned) {
-        groups[`${loc.latitude},${loc.longitude}`] = [loc];
-      }
-    });
-
-    // Create markers for each group
-    Object.values(groups).forEach(groupUsers => {
-      const firstUser = groupUsers[0];
-      const el = document.createElement('div');
-      ReactDOM.render(
-        <UserMarker users={groupUsers} />,
-        el
-      );
-      
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([firstUser.longitude, firstUser.latitude])
-        .addTo(map.current!);
-      markersRef.current.push(marker);
-    });
-
-    // Add bubble markers
-    if (showBubbles) {
-      bubbles.forEach(bubble => {
-        const marker = new mapboxgl.Marker({ color: '#06b6d4' })
-          .setLngLat([bubble.longitude, bubble.latitude])
-          .setPopup(
-            new mapboxgl.Popup().setHTML(`
-              <div class="p-2">
-                <h3 class="font-bold">${bubble.name}</h3>
-                <p class="text-sm text-gray-600">${bubble.interest_tag}</p>
-                <p class="text-xs">${bubble.member_count} members</p>
-              </div>
-            `)
-          )
-          .addTo(map.current);
-        markersRef.current.push(marker);
-      });
-    }
-  }, [bubbles, showBubbles, liveLocations]);
+  // Custom icon for bubbles
+  const bubbleIcon = L.divIcon({
+    html: '<div class="flex items-center justify-center w-8 h-8 bg-cyan-500 text-white rounded-full border-2 border-background shadow-lg">🫧</div>',
+    className: '',
+    iconSize: [32, 32],
+  });
 
   return (
     <div className="relative w-full h-full">
       <ExplorationBadge percentage={exploredPercentage} />
-      <div ref={mapContainer} className="w-full h-full" />
+      <MapContainer
+        center={mapCenter}
+        zoom={center ? 12 : 2}
+        className="w-full h-full z-0"
+        zoomControl={false}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        
+        <MapController onLocationSelect={onLocationSelect} />
+        <HeatmapLayer locations={liveLocations} />
+        
+        {/* User group markers */}
+        {Object.values(groupedUsers).map((groupUsers, idx) => {
+          const firstUser = groupUsers[0];
+          return (
+            <Marker
+              key={`user-group-${idx}`}
+              position={[firstUser.latitude, firstUser.longitude]}
+              icon={createUserIcon(groupUsers.length)}
+            >
+              <Popup>
+                <div className="p-2">
+                  {groupUsers.map((user, userIdx) => (
+                    <div key={userIdx} className="mb-2">
+                      <p className="font-semibold">{user.user_name || 'User'}</p>
+                      {user.status && <p className="text-sm text-muted-foreground">{user.status}</p>}
+                    </div>
+                  ))}
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
+        
+        {/* Bubble markers */}
+        {showBubbles && bubbles.map((bubble) => (
+          <Marker
+            key={bubble.id}
+            position={[bubble.latitude, bubble.longitude]}
+            icon={bubbleIcon}
+          >
+            <Popup>
+              <div className="p-2">
+                <h3 className="font-bold">{bubble.name}</h3>
+                <p className="text-sm text-muted-foreground">{bubble.interest_tag}</p>
+                <p className="text-xs">{bubble.member_count} members</p>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+      </MapContainer>
       
       {/* Legend */}
-      <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur-sm p-4 rounded-lg shadow-lg">
-        <div className="flex flex-col gap-2">
+      <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur-sm p-4 rounded-lg shadow-lg z-[1000]">
+        <div className="flex flex-col gap-2 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
             <span>Bubble</span>
           </div>
-          {onLocationSelect && (
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500"></div>
-              <span>Selected Location</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-primary"></div>
+            <span>Users</span>
+          </div>
         </div>
       </div>
-
-      {/* Center on user button */}
-      {userLocation && (
-        <div className="absolute bottom-4 right-4">
-          <Button
-            size="sm"
-            className="bg-card/90 backdrop-blur-sm hover:bg-card"
-            onClick={() => {
-              if (userLocation && map.current) {
-                map.current.flyTo({
-                  center: userLocation,
-                  zoom: 14
-                });
-              }
-            }}
-          >
-            <NavigationIcon className="h-4 w-4 mr-2" />
-            Center on Me
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

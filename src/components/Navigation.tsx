@@ -31,6 +31,8 @@ export const Navigation: React.FC<NavigationProps> = ({ profile }) => {
 
   const navItems = [
     { path: '/', icon: Home, label: 'Home' },
+    { path: '/discover', icon: Activity, label: 'Discover' },
+    { path: '/friends', icon: UserIcon, label: 'Friends' },
     { path: '/messages', icon: MessageSquare, label: 'Messages' },
     { path: '/maps', icon: MapIcon, label: 'Maps' },
     { path: '/live', icon: Activity, label: 'Live' },

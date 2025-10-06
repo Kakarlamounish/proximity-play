@@ -15,6 +15,8 @@ import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import Stories from "./pages/Stories";
 import Maps from "./pages/Maps";
+import Discover from "./pages/Discover";
+import Friends from "./pages/Friends";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +39,8 @@ const App = () => {
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/profile-setup" element={<ProfileSetup />} />
+            <Route path="/discover" element={<Discover />} />
+            <Route path="/friends" element={<Friends />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/live" element={<Live />} />
             <Route path="/calls" element={<Calls />} />

@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 import { Loader2 } from 'lucide-react';
 import { EditProfileDialog } from '@/components/EditProfileDialog';
+import { UserBadges } from '@/components/UserBadges';
 
 const Profile = () => {
   const { user, loading } = useAuth();
@@ -198,23 +199,9 @@ const Profile = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {badges.length === 0 ? (
+                {user && <UserBadges userId={user.id} />}
+                {badges.length === 0 && (
                   <p className="text-muted-foreground">No badges earned yet</p>
-                ) : (
-                  <div className="space-y-3">
-                    {badges.map((userBadge, index) => (
-                      <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                        <span className="text-2xl">{userBadge.badges.icon}</span>
-                        <div>
-                          <p className="font-medium">{userBadge.badges.name}</p>
-                          <p className="text-sm text-muted-foreground">{userBadge.badges.description}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Earned {formatDate(userBadge.earned_at)}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 )}
               </CardContent>
             </Card>

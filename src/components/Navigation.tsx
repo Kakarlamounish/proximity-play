@@ -58,34 +58,34 @@ export const Navigation: React.FC<NavigationProps> = ({ profile }) => {
             </h1>
           </div>
 
-          {/* Navigation - Show only key items on smaller screens */}
-          <div className="hidden lg:flex items-center gap-1">
+          {/* Navigation - Desktop with labels */}
+          <div className="hidden xl:flex items-center gap-1">
             {navItems.map(({ path, icon: Icon, label }) => (
               <Button
                 key={path}
                 variant={isActive(path) ? "default" : "ghost"}
                 size="sm"
                 onClick={() => navigate(path)}
-                className={`h-8 px-2 ${isActive(path) ? "bg-gradient-to-r from-secondary to-primary" : ""}`}
+                className={`h-8 px-3 ${isActive(path) ? "bg-gradient-to-r from-secondary to-primary" : ""}`}
               >
-                <Icon className="h-3.5 w-3.5 mr-1" />
-                <span className="text-xs hidden xl:inline">{label}</span>
+                <Icon className="h-3.5 w-3.5 mr-1.5" />
+                <span className="text-xs">{label}</span>
               </Button>
             ))}
           </div>
           
-          {/* Compact nav for medium screens */}
-          <div className="hidden md:flex lg:hidden items-center gap-1">
-            {navItems.slice(0, 5).map(({ path, icon: Icon, label }) => (
+          {/* Navigation - Tablet/Laptop with icons only */}
+          <div className="hidden md:flex xl:hidden items-center gap-0.5 overflow-x-auto">
+            {navItems.map(({ path, icon: Icon, label }) => (
               <Button
                 key={path}
                 variant={isActive(path) ? "default" : "ghost"}
                 size="sm"
                 onClick={() => navigate(path)}
-                className={`h-8 px-2 ${isActive(path) ? "bg-gradient-to-r from-secondary to-primary" : ""}`}
+                className={`h-8 px-2 shrink-0 ${isActive(path) ? "bg-gradient-to-r from-secondary to-primary" : ""}`}
                 title={label}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <Icon className="h-4 w-4" />
               </Button>
             ))}
           </div>

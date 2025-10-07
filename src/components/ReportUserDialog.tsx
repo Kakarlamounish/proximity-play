@@ -25,12 +25,12 @@ export const ReportUserDialog = ({ open, onOpenChange, reportedUserId }: ReportU
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { error } = await supabase.from("user_reports").insert({
+      const { error } = await supabase.from("user_reports").insert([{
         reporter_id: user.id,
         reported_id: reportedUserId,
-        reason,
+        reason: reason as any,
         description: description.trim() || null,
-      });
+      }] as any);
 
       if (error) throw error;
 

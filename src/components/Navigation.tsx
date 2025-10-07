@@ -53,13 +53,13 @@ export const Navigation: React.FC<NavigationProps> = ({ profile }) => {
               alt="App Logo"
               className="w-8 h-8 rounded-lg object-cover"
             />
-            <h1 className="text-lg font-bold bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent hidden sm:block">
+            <h1 className="text-base sm:text-lg font-bold bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">
               Social Bubble
             </h1>
           </div>
 
-          {/* Navigation */}
-          <div className="hidden md:flex items-center gap-1">
+          {/* Navigation - Show only key items on smaller screens */}
+          <div className="hidden lg:flex items-center gap-1">
             {navItems.map(({ path, icon: Icon, label }) => (
               <Button
                 key={path}
@@ -68,8 +68,24 @@ export const Navigation: React.FC<NavigationProps> = ({ profile }) => {
                 onClick={() => navigate(path)}
                 className={`h-8 px-2 ${isActive(path) ? "bg-gradient-to-r from-secondary to-primary" : ""}`}
               >
-                <Icon className="h-3.5 w-3.5 mr-1.5" />
-                <span className="text-xs">{label}</span>
+                <Icon className="h-3.5 w-3.5 mr-1" />
+                <span className="text-xs hidden xl:inline">{label}</span>
+              </Button>
+            ))}
+          </div>
+          
+          {/* Compact nav for medium screens */}
+          <div className="hidden md:flex lg:hidden items-center gap-1">
+            {navItems.slice(0, 5).map(({ path, icon: Icon, label }) => (
+              <Button
+                key={path}
+                variant={isActive(path) ? "default" : "ghost"}
+                size="sm"
+                onClick={() => navigate(path)}
+                className={`h-8 px-2 ${isActive(path) ? "bg-gradient-to-r from-secondary to-primary" : ""}`}
+                title={label}
+              >
+                <Icon className="h-3.5 w-3.5" />
               </Button>
             ))}
           </div>
@@ -90,14 +106,14 @@ export const Navigation: React.FC<NavigationProps> = ({ profile }) => {
               </span>
             </div>
             
-            <Button variant="outline" size="sm" onClick={signOut} className="hidden md:flex">
+            <Button variant="outline" size="sm" onClick={signOut} className="hidden lg:flex">
               <LogOut className="h-4 w-4" />
             </Button>
 
-            {/* Mobile Menu Trigger */}
+            {/* Mobile/Tablet Menu Trigger */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" className="md:hidden">
+                <Button variant="ghost" size="sm" className="lg:hidden">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>

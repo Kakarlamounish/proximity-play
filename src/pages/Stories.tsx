@@ -29,11 +29,37 @@ const Stories = () => {
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
   const [storyDialogOpen, setStoryDialogOpen] = useState(false);
+  const [profile, setProfile] = useState<any>(null);
   const { latitude, longitude } = useLocation();
 
   useEffect(() => {
     fetchStories();
-  }, []);
+    fetchProfile();
+  }, [user]);
+
+  const fetchProfile = async () => {
+    if (!user) return;
+    
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      if (data) {
+        setProfile({
+          ...data,
+          email: user.email,
+          app_metadata: user.app_metadata,
+          user_metadata: user.user_metadata,
+          aud: user.aud,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
 
   const fetchStories = async () => {
     try {
@@ -73,25 +99,7 @@ const Stories = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
-      {/* Pass a mock profile to Navigation to avoid type errors */}
-      <Navigation profile={{
-        age: 0,
-        bio: '',
-        created_at: '',
-        first_name: user?.user_metadata?.first_name ?? 'User',
-        gender: 'prefer_not_to_say',
-        ghost_mode: false,
-        id: user?.id ?? '',
-        interests: [],
-        latitude: 0,
-        location_updated_at: '',
-        longitude: 0,
-        profile_photo_url: user?.user_metadata?.profile_photo_url ?? '',
-        updated_at: '',
-        app_metadata: {},
-        user_metadata: user?.user_metadata ?? {},
-        aud: '',
-      }} />
+      <Navigation profile={profile} />
       <CreateStoryDialog
         open={storyDialogOpen}
         onClose={() => {

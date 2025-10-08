@@ -125,17 +125,17 @@ export const Navigation: React.FC<NavigationProps> = ({ profile }) => {
                 <div className="flex flex-col gap-1 mt-6">
                   {/* User Profile Section */}
                   <div className="flex items-center gap-3 p-3 mb-4 bg-muted rounded-lg">
-                    <Avatar className="h-12 w-12">
+                    <Avatar className="h-12 w-12 shrink-0">
                       <AvatarImage src={profile?.profile_photo_url} />
                       <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white">
                         {(profile?.first_name?.[0] || profile?.email?.[0] || 'U').toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="text-sm font-medium truncate">
                         {profile?.first_name || 'User'}
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground truncate">
                         {profile?.email}
                       </span>
                     </div>

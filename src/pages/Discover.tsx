@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Search, MapPin, Users } from 'lucide-react';
+import { UserPlus, Search, MapPin, Users, TrendingUp } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { BubbleFilters } from '@/components/BubbleFilters';
 
 interface NearbyUser {
   id: string;
@@ -22,14 +24,30 @@ interface NearbyUser {
   mutual_bubbles?: number;
 }
 
+interface Bubble {
+  id: string;
+  name: string;
+  description?: string;
+  interest_tag: string;
+  member_count: number;
+  latitude: number;
+  longitude: number;
+  created_at: string;
+  is_private: boolean;
+  distance?: number;
+}
+
 export default function Discover() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [nearbyUsers, setNearbyUsers] = useState<NearbyUser[]>([]);
+  const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [radiusKm, setRadiusKm] = useState([5]);
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [selectedInterest, setSelectedInterest] = useState('all');
+  const [sortBy, setSortBy] = useState('nearest');
 
   useEffect(() => {
     fetchMyLocation();
@@ -38,8 +56,9 @@ export default function Discover() {
   useEffect(() => {
     if (myLocation) {
       fetchNearbyUsers();
+      fetchNearbyBubbles();
     }
-  }, [myLocation, radiusKm]);
+  }, [myLocation, radiusKm, selectedInterest, sortBy]);
 
   const fetchMyLocation = async () => {
     const { data: profile } = await supabase
@@ -144,9 +163,105 @@ export default function Discover() {
     }
   };
 
+  const fetchNearbyBubbles = async () => {
+    if (!myLocation || !user) return;
+
+    try {
+      let query = supabase
+        .from('bubbles')
+        .select('*')
+        .eq('is_private', false);
+
+      if (selectedInterest !== 'all') {
+        query = query.eq('interest_tag', selectedInterest);
+      }
+
+      const { data: bubblesData, error } = await query;
+
+      if (error) throw error;
+
+      const bubblesWithDistance = bubblesData
+        ?.map(bubble => {
+          const distance = calculateDistance(
+            myLocation.lat,
+            myLocation.lng,
+            Number(bubble.latitude),
+            Number(bubble.longitude)
+          );
+          return { ...bubble, distance };
+        })
+        .filter(bubble => bubble.distance <= radiusKm[0]) || [];
+
+      // Sort bubbles
+      let sortedBubbles = [...bubblesWithDistance];
+      switch (sortBy) {
+        case 'popular':
+          sortedBubbles.sort((a, b) => b.member_count - a.member_count);
+          break;
+        case 'newest':
+          sortedBubbles.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          break;
+        case 'members':
+          sortedBubbles.sort((a, b) => b.member_count - a.member_count);
+          break;
+        default: // nearest
+          sortedBubbles.sort((a, b) => a.distance! - b.distance!);
+      }
+
+      setBubbles(sortedBubbles);
+    } catch (error) {
+      console.error('Error fetching bubbles:', error);
+    }
+  };
+
+  const joinBubble = async (bubbleId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('bubble_memberships')
+        .insert({
+          bubble_id: bubbleId,
+          user_id: user.id,
+          role: 'member'
+        });
+
+      if (error) {
+        if (error.code === '23505') {
+          toast({
+            title: 'Already a member',
+            description: 'You are already a member of this bubble',
+          });
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Joined bubble successfully!',
+      });
+
+      fetchNearbyBubbles();
+    } catch (error) {
+      console.error('Error joining bubble:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to join bubble',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const filteredUsers = nearbyUsers.filter(u =>
     u.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.interests?.some(i => i.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const filteredBubbles = bubbles.filter(b =>
+    b.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    b.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (!myLocation) {
@@ -167,10 +282,18 @@ export default function Discover() {
     <div className="container mx-auto p-6 max-w-6xl">
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">
-          Discover People
+          Discover
         </h1>
-        <p className="text-muted-foreground">Find and connect with people nearby</p>
+        <p className="text-muted-foreground">Find people and bubbles nearby</p>
       </div>
+
+      <Tabs defaultValue="people" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-6">
+          <TabsTrigger value="people">People</TabsTrigger>
+          <TabsTrigger value="bubbles">Bubbles</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="people" className="space-y-6">
 
       {/* Filters */}
       <Card className="p-6 mb-6">
@@ -204,66 +327,149 @@ export default function Discover() {
         </div>
       </Card>
 
-      {/* Results */}
-      {loading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-        </div>
-      ) : filteredUsers.length === 0 ? (
-        <Card className="p-8 text-center">
-          <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-          <h2 className="text-xl font-semibold mb-2">No users found</h2>
-          <p className="text-muted-foreground">
-            Try adjusting your search radius or check back later
-          </p>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredUsers.map((nearbyUser) => (
-            <Card key={nearbyUser.id} className="p-6 hover:shadow-lg transition-shadow">
-              <div className="flex flex-col items-center text-center">
-                <Avatar className="w-20 h-20 mb-4">
-                  <AvatarImage src={nearbyUser.profile_photo_url} />
-                  <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white text-lg">
-                    {nearbyUser.first_name?.[0] || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-
-                <h3 className="font-semibold text-lg mb-1">{nearbyUser.first_name}</h3>
-                
-                <div className="flex items-center text-sm text-muted-foreground mb-3">
-                  <MapPin className="w-3 h-3 mr-1" />
-                  {nearbyUser.distance?.toFixed(1)} km away
-                </div>
-
-                {nearbyUser.bio && (
-                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                    {nearbyUser.bio}
-                  </p>
-                )}
-
-                {nearbyUser.interests && nearbyUser.interests.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-4">
-                    {nearbyUser.interests.slice(0, 3).map((interest, idx) => (
-                      <Badge key={idx} variant="secondary" className="text-xs">
-                        {interest}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-
-                <Button
-                  onClick={() => sendFriendRequest(nearbyUser.id)}
-                  className="w-full bg-gradient-to-r from-secondary to-primary"
-                >
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Add Friend
-                </Button>
-              </div>
+          {/* Results */}
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <Card className="p-8 text-center">
+              <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+              <h2 className="text-xl font-semibold mb-2">No users found</h2>
+              <p className="text-muted-foreground">
+                Try adjusting your search radius or check back later
+              </p>
             </Card>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredUsers.map((nearbyUser) => (
+                <Card key={nearbyUser.id} className="p-6 hover:shadow-lg transition-shadow">
+                  <div className="flex flex-col items-center text-center">
+                    <Avatar className="w-20 h-20 mb-4">
+                      <AvatarImage src={nearbyUser.profile_photo_url} />
+                      <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white text-lg">
+                        {nearbyUser.first_name?.[0] || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+
+                    <h3 className="font-semibold text-lg mb-1">{nearbyUser.first_name}</h3>
+                    
+                    <div className="flex items-center text-sm text-muted-foreground mb-3">
+                      <MapPin className="w-3 h-3 mr-1" />
+                      {nearbyUser.distance?.toFixed(1)} km away
+                    </div>
+
+                    {nearbyUser.bio && (
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                        {nearbyUser.bio}
+                      </p>
+                    )}
+
+                    {nearbyUser.interests && nearbyUser.interests.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-4">
+                        {nearbyUser.interests.slice(0, 3).map((interest, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            {interest}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+
+                    <Button
+                      onClick={() => sendFriendRequest(nearbyUser.id)}
+                      className="w-full bg-gradient-to-r from-secondary to-primary"
+                    >
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Add Friend
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="bubbles" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-1">
+              <BubbleFilters
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                selectedInterest={selectedInterest}
+                onInterestChange={setSelectedInterest}
+                maxDistance={radiusKm[0]}
+                onDistanceChange={setRadiusKm}
+                sortBy={sortBy}
+                onSortChange={setSortBy}
+              />
+            </div>
+
+            <div className="lg:col-span-3">
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                </div>
+              ) : filteredBubbles.length === 0 ? (
+                <Card className="p-8 text-center">
+                  <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                  <h2 className="text-xl font-semibold mb-2">No bubbles found</h2>
+                  <p className="text-muted-foreground">
+                    Try adjusting your filters or check back later
+                  </p>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredBubbles.map((bubble) => (
+                    <Card key={bubble.id} className="p-6 hover:shadow-lg transition-shadow">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg mb-1">{bubble.name}</h3>
+                            <Badge variant="secondary" className="mb-2">
+                              {bubble.interest_tag}
+                            </Badge>
+                          </div>
+                          {bubble.member_count > 10 && (
+                            <Badge variant="outline" className="gap-1">
+                              <TrendingUp className="h-3 w-3" />
+                              Popular
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="flex items-center text-sm text-muted-foreground">
+                          <MapPin className="w-3 h-3 mr-1" />
+                          {bubble.distance?.toFixed(1)} km away
+                        </div>
+
+                        {bubble.description && (
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {bubble.description}
+                          </p>
+                        )}
+
+                        <div className="flex items-center justify-between pt-2">
+                          <div className="flex items-center text-sm text-muted-foreground">
+                            <Users className="w-4 h-4 mr-1" />
+                            {bubble.member_count} members
+                          </div>
+                          <Button
+                            onClick={() => joinBubble(bubble.id)}
+                            size="sm"
+                            className="bg-gradient-to-r from-secondary to-primary"
+                          >
+                            Join
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

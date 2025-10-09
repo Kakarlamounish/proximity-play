@@ -11,6 +11,7 @@ import { UserPlus, Search, MapPin, Users, TrendingUp } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BubbleFilters } from '@/components/BubbleFilters';
+import { Navigation } from '@/components/Navigation';
 
 interface NearbyUser {
   id: string;
@@ -48,10 +49,22 @@ export default function Discover() {
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [selectedInterest, setSelectedInterest] = useState('all');
   const [sortBy, setSortBy] = useState('nearest');
+  const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
+    fetchProfile();
     fetchMyLocation();
   }, []);
+
+  const fetchProfile = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    setProfile(data);
+  };
 
   useEffect(() => {
     if (myLocation) {
@@ -266,7 +279,9 @@ export default function Discover() {
 
   if (!myLocation) {
     return (
-      <div className="container mx-auto p-6 max-w-6xl">
+      <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
+        <Navigation profile={profile} />
+        <div className="container mx-auto p-6 max-w-6xl">
         <Card className="p-8 text-center">
           <MapPin className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
           <h2 className="text-2xl font-bold mb-2">Location Required</h2>
@@ -274,12 +289,15 @@ export default function Discover() {
             Please update your location in your profile to discover nearby users
           </p>
         </Card>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-6xl">
+    <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
+      <Navigation profile={profile} />
+      <div className="container mx-auto p-6 max-w-6xl">
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">
           Discover
@@ -470,6 +488,7 @@ export default function Discover() {
           </div>
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }

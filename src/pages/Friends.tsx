@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { MessageSquare, UserMinus, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { FriendRequests } from '@/components/FriendRequests';
+import { Navigation } from '@/components/Navigation';
 
 interface Friend {
   id: string;
@@ -24,10 +25,22 @@ export default function Friends() {
   const navigate = useNavigate();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
+    fetchProfile();
     fetchFriends();
   }, [user]);
+
+  const fetchProfile = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    setProfile(data);
+  };
 
   const fetchFriends = async () => {
     if (!user) return;
@@ -98,7 +111,9 @@ export default function Friends() {
   };
 
   return (
-    <div className="container mx-auto p-6 max-w-6xl">
+    <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
+      <Navigation profile={profile} />
+      <div className="container mx-auto p-6 max-w-6xl">
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">
           Friends
@@ -180,6 +195,7 @@ export default function Friends() {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

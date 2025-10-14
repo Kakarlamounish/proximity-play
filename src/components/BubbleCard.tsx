@@ -10,13 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 
 import type { Database } from '@/integrations/supabase/types';
 
-type Bubble = Database['public']['Tables']['bubbles']['Row'] & {
-  distance?: number;
-  is_member?: boolean;
-};
-
 interface BubbleCardProps {
-  bubble: Bubble;
+  bubble: any; // Accept any bubble shape
   onJoin?: (bubbleId: string) => void;
   onLeave?: (bubbleId: string) => void;
   onChat?: (bubbleId: string) => void;

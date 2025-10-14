@@ -14,127 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
-      privacy_schedules: {
+      activities: {
         Row: {
-          id: string;
-          user_id: string;
-          start_time: string;
-          end_time: string;
-          updated_at: string;
-        };
+          activity_type: string
+          bubble_id: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          user_id: string
+        }
         Insert: {
-          id?: string;
-          user_id: string;
-          start_time: string;
-          end_time: string;
-          updated_at?: string;
-        };
+          activity_type: string
+          bubble_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          user_id: string
+        }
         Update: {
-          id?: string;
-          user_id?: string;
-          start_time?: string;
-          end_time?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
-      },
-      emergency_shares: {
-        Row: {
-          id: string;
-          user_id: string;
-          latitude: number;
-          longitude: number;
-          shared_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          latitude: number;
-          longitude: number;
-          shared_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          latitude?: number;
-          longitude?: number;
-          shared_at?: string;
-        };
-        Relationships: [];
-      },
+          activity_type?: string
+          bubble_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activities_bubble_id_fkey"
+            columns: ["bubble_id"]
+            isOneToOne: false
+            referencedRelation: "bubbles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       badges: {
         Row: {
-          id: string;
-          name: string;
-          description: string | null;
-          icon: string | null;
-          created_at: string;
-        };
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+        }
         Insert: {
-          id?: string;
-          name: string;
-          description?: string | null;
-          icon?: string | null;
-          created_at?: string;
-        };
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+        }
         Update: {
-          id?: string;
-          name?: string;
-          description?: string | null;
-          icon?: string | null;
-          created_at?: string;
-        };
-        Relationships: [];
-      },
-      user_badges: {
-        Row: {
-          id: string;
-          user_id: string;
-          badge_id: string;
-          earned_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          badge_id: string;
-          earned_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          badge_id?: string;
-          earned_at?: string;
-        };
-        Relationships: [];
-      },
-      ar_pins: {
-        Row: {
-          id: string;
-          user_id: string;
-          note: string;
-          latitude: number;
-          longitude: number;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          note: string;
-          latitude: number;
-          longitude: number;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          note?: string;
-          latitude?: number;
-          longitude?: number;
-          created_at?: string;
-        };
-        Relationships: [];
-      },
-      // ...existing code...
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       bubble_memberships: {
         Row: {
           bubble_id: string
@@ -206,6 +144,54 @@ export type Database = {
           member_count?: number | null
           name?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      friend_requests: {
+        Row: {
+          created_at: string
+          id: string
+          receiver_id: string
+          sender_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          receiver_id: string
+          sender_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          receiver_id?: string
+          sender_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      friendships: {
+        Row: {
+          created_at: string
+          id: string
+          user_id_1: string
+          user_id_2: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id_1: string
+          user_id_2: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id_1?: string
+          user_id_2?: string
         }
         Relationships: []
       }
@@ -380,6 +366,7 @@ export type Database = {
           created_at: string | null
           first_name: string
           gender: Database["public"]["Enums"]["gender_type"] | null
+          ghost_mode: boolean | null
           id: string
           interests: string[] | null
           latitude: number | null
@@ -394,6 +381,7 @@ export type Database = {
           created_at?: string | null
           first_name: string
           gender?: Database["public"]["Enums"]["gender_type"] | null
+          ghost_mode?: boolean | null
           id: string
           interests?: string[] | null
           latitude?: number | null
@@ -408,6 +396,7 @@ export type Database = {
           created_at?: string | null
           first_name?: string
           gender?: Database["public"]["Enums"]["gender_type"] | null
+          ghost_mode?: boolean | null
           id?: string
           interests?: string[] | null
           latitude?: number | null
@@ -494,7 +483,131 @@ export type Database = {
           },
         ]
       }
-      // ...existing code...
+      story_comments: {
+        Row: {
+          comment_text: string
+          created_at: string
+          id: string
+          story_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comment_text: string
+          created_at?: string
+          id?: string
+          story_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          comment_text?: string
+          created_at?: string
+          id?: string
+          story_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_comments_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "user_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_reactions: {
+        Row: {
+          created_at: string
+          id: string
+          reaction_type: string
+          story_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reaction_type?: string
+          story_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reaction_type?: string
+          story_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_reactions_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "user_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_views: {
+        Row: {
+          id: string
+          story_id: string
+          viewed_at: string
+          viewer_id: string
+        }
+        Insert: {
+          id?: string
+          story_id: string
+          viewed_at?: string
+          viewer_id: string
+        }
+        Update: {
+          id?: string
+          story_id?: string
+          viewed_at?: string
+          viewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_views_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "user_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_badges: {
+        Row: {
+          badge_id: string
+          earned_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          badge_id: string
+          earned_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          badge_id?: string
+          earned_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "badges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_blocks: {
         Row: {
           blocked_id: string

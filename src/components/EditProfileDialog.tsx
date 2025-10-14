@@ -30,7 +30,14 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ profile, o
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    first_name: string;
+    bio: string;
+    age: number;
+    gender: 'male' | 'female' | 'non_binary' | 'prefer_not_to_say' | '';
+    interests: string[];
+    profile_photo_url: string;
+  }>({
     first_name: profile?.first_name || '',
     bio: profile?.bio || '',
     age: profile?.age || 18,
@@ -45,17 +52,22 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ profile, o
     setLoading(true);
 
     try {
+      const updateData: any = {
+        first_name: formData.first_name,
+        bio: formData.bio,
+        age: formData.age,
+        interests: formData.interests,
+        profile_photo_url: formData.profile_photo_url,
+        updated_at: new Date().toISOString()
+      };
+
+      if (formData.gender) {
+        updateData.gender = formData.gender;
+      }
+
       const { data, error } = await supabase
         .from('profiles')
-        .update({
-          first_name: formData.first_name,
-          bio: formData.bio,
-          age: formData.age,
-          gender: formData.gender,
-          interests: formData.interests,
-          profile_photo_url: formData.profile_photo_url,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', profile.id)
         .select()
         .single();
@@ -132,12 +144,25 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ profile, o
                 variant="outline"
                 className="mt-2"
                 onClick={async () => {
-                  // Start Supabase OAuth sign-in with Google
-                  const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
-                  if (error) {
-                    toast({ title: 'Google import failed', description: error.message, variant: 'destructive' });
+                  const { data: { user } } = await supabase.auth.getUser();
+                  
+                  if (!user) {
+                    toast({ title: 'Not signed in', description: 'Please sign in to import from Google.', variant: 'destructive' });
+                    return;
+                  }
+
+                  // Check if user has Google profile photo in metadata
+                  const googlePhoto = user.user_metadata?.avatar_url || user.user_metadata?.picture;
+                  
+                  if (googlePhoto) {
+                    handlePhotoUpload(googlePhoto);
+                    toast({ title: 'Photo imported', description: 'Your Google profile photo has been imported successfully.' });
                   } else {
-                    toast({ title: 'Google sign-in', description: 'Complete sign-in and your Google profile photo will be imported.' });
+                    toast({ 
+                      title: 'No Google photo found', 
+                      description: 'Please sign in with Google to import your profile photo.', 
+                      variant: 'destructive' 
+                    });
                   }
                 }}
               >
@@ -178,7 +203,7 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ profile, o
             <Label htmlFor="gender">Gender</Label>
             <Select 
               value={formData.gender} 
-              onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
+              onValueChange={(value: 'male' | 'female' | 'non_binary' | 'prefer_not_to_say') => setFormData(prev => ({ ...prev, gender: value }))}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select gender" />

@@ -60,7 +60,7 @@ const CreateStoryDialog: React.FC<CreateStoryDialogProps> = ({ open, onClose, us
       imageUrl = urlData.publicUrl;
     }
     const expiresAt = new Date(Date.now() + DEFAULT_EXPIRY_HOURS * 60 * 60 * 1000).toISOString();
-    // @ts-expect-error - location_stories table exists in database but not in generated types
+    // @ts-ignore - location_stories table exists in database but not in generated types
     const { error: dbError } = await supabase.from('location_stories').insert({
       user_id: user.id,
       latitude: userLocation[0],
@@ -69,7 +69,7 @@ const CreateStoryDialog: React.FC<CreateStoryDialogProps> = ({ open, onClose, us
       image_url: imageUrl,
       expires_at: expiresAt,
       visibility_radius: 500,
-    });
+    } as any);
     if (dbError) {
       setError('Failed to post story');
     } else {
@@ -82,10 +82,10 @@ const CreateStoryDialog: React.FC<CreateStoryDialogProps> = ({ open, onClose, us
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogHeader>
-        <DialogTitle>Post a Story</DialogTitle>
-      </DialogHeader>
       <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create Story</DialogTitle>
+        </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Textarea
             placeholder="What's happening?"

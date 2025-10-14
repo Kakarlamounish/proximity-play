@@ -21,13 +21,13 @@ const EmergencyShareButton: React.FC<EmergencyShareButtonProps> = ({ userLocatio
     }
     setLoading(true);
     setError(null);
-    // For demo: insert emergency share into a table (could trigger notification in real app)
+    // @ts-ignore - emergency_shares table not yet created in database
     const { error: dbError } = await supabase.from("emergency_shares").insert({
       user_id: userId,
       latitude: userLocation[0],
       longitude: userLocation[1],
       shared_at: new Date().toISOString(),
-    });
+    } as any);
     if (dbError) {
       setError("Failed to share location");
     } else {

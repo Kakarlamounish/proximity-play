@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,8 +18,14 @@ import Maps from "./pages/Maps";
 import Discover from "./pages/Discover";
 import Friends from "./pages/Friends";
 import NotFound from "./pages/NotFound";
+import { createClient } from '@supabase/supabase-js';
 
 const queryClient = new QueryClient();
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL!,
+  import.meta.env.VITE_SUPABASE_ANON_KEY!
+);
 
 const App = () => {
   // Force dark mode globally on app load
@@ -28,6 +34,41 @@ const App = () => {
     localStorage.setItem('theme', 'dark');
   }, []);
   
+  useEffect(() => {
+    let mounted = true;
+    const checkSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!mounted) return;
+        if (!data?.session) {
+          // if not on auth page, redirect to /auth
+          if (!window.location.pathname.startsWith('/auth')) {
+            window.location.replace('/auth');
+          }
+        }
+      } catch (err) {
+        console.error('Error checking session', err);
+      }
+    };
+    checkSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        if (!window.location.pathname.startsWith('/auth')) {
+          window.location.replace('/auth');
+        }
+      }
+    });
+
+    return () => {
+      mounted = false;
+      try {
+        // unsubscribe if available
+        (listener as any)?.subscription?.unsubscribe?.();
+      } catch {}
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

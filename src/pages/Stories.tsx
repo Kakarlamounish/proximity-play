@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Navigation } from '@/components/Navigation';
+import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -86,7 +86,7 @@ const Stories = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
+    <>
       <Navigation profile={profile} />
       <CreateStoryDialog
         open={storyDialogOpen}
@@ -96,36 +96,24 @@ const Stories = () => {
         }}
         userLocation={[latitude, longitude]}
       />
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">
-              Stories
-            </h1>
-            <Button onClick={() => setStoryDialogOpen(true)} className="gap-2 bg-gradient-to-r from-secondary to-primary">
-              <PlusCircle className="h-5 w-5" />
-              New Story
-            </Button>
-          </div>
+      <main className="page-stories px-8 py-8">
+        <header className="mb-8">
+          <h1 className="text-4xl font-bold">Stories</h1>
+        </header>
 
-          <div className="space-y-4">
-            {stories.map((story) => (
-              <StoryCard key={story.id} story={story} />
-            ))}
-
-            {stories.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-lg text-muted-foreground mb-4">No stories yet</p>
-                <Button onClick={() => setStoryDialogOpen(true)} className="bg-gradient-to-r from-secondary to-primary">
-                  <PlusCircle className="h-5 w-5 mr-2" />
-                  Share Your First Story
-                </Button>
-              </div>
-            )}
+        <section className="stories-content">
+          <div className="stories-card bg-neutral-800 rounded-xl p-8">
+            <div className="text-center text-neutral-400 mb-4">No stories yet</div>
+            <div className="flex justify-center">
+              <Button onClick={() => setStoryDialogOpen(true)} className="gap-2 bg-gradient-to-r from-secondary to-primary">
+                <PlusCircle className="h-5 w-5" />
+                Share Your First Story
+              </Button>
+            </div>
           </div>
-        </div>
-      </div>
-    </div>
+        </section>
+      </main>
+    </>
   );
 };
 

@@ -2,26 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
-export default function Navigation(props: { profile?: any } = {}): JSX.Element {
-  const { profile: initialProfile } = props;
+export function Navigation(): JSX.Element {
   const [userName, setUserName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
-
-    const applyProfile = (p: any) => {
-      if (!mounted || !p) return;
-      const display =
-        p.full_name || p.username || p.email || p.id || 'User';
-      const avatar = p.avatar_url || (p.user_metadata as any)?.avatar_url || null;
-      setUserName(display);
-      setAvatarUrl(avatar);
-    };
-
-    if (initialProfile) {
-      applyProfile(initialProfile);
-    }
 
     const loadUserAndProfile = async () => {
       try {
@@ -35,22 +21,9 @@ export default function Navigation(props: { profile?: any } = {}): JSX.Element {
           return;
         }
 
-        // fetch profile only if no initialProfile provided
-        if (initialProfile) {
-          // merge auth user info into displayed profile when available
-          const merged = {
-            ...initialProfile,
-            email: user.email,
-            user_metadata: user.user_metadata,
-            id: user.id,
-          };
-          applyProfile(merged);
-          return;
-        }
-
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name, username, avatar_url, email')
+          .select('full_name, username, avatar_url')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -76,16 +49,14 @@ export default function Navigation(props: { profile?: any } = {}): JSX.Element {
       }
     };
 
-    // only load from supabase if no initialProfile
-    if (!initialProfile) loadUserAndProfile();
+    loadUserAndProfile();
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
         setUserName(null);
         setAvatarUrl(null);
       } else {
-        // refresh if auth changed and no initialProfile
-        if (!initialProfile) loadUserAndProfile();
+        loadUserAndProfile();
       }
     });
 
@@ -95,7 +66,7 @@ export default function Navigation(props: { profile?: any } = {}): JSX.Element {
         (listener as any)?.subscription?.unsubscribe?.();
       } catch {}
     };
-  }, [initialProfile]);
+  }, []);
 
   return (
     <nav className="app-nav">
@@ -132,3 +103,6 @@ export default function Navigation(props: { profile?: any } = {}): JSX.Element {
     </nav>
   );
 }
+
+// keep default export for existing default imports
+export default Navigation;

@@ -87,7 +87,7 @@ const Stories = () => {
 
   return (
     <>
-      <Navigation profile={profile} />
+      <Navigation />
       <CreateStoryDialog
         open={storyDialogOpen}
         onClose={() => {

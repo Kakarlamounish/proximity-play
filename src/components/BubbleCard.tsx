@@ -15,13 +15,15 @@ interface BubbleCardProps {
   onJoin?: (bubbleId: string) => void;
   onLeave?: (bubbleId: string) => void;
   onChat?: (bubbleId: string) => void;
+  showTrendingBadge?: boolean;
 }
 
-export const BubbleCard: React.FC<BubbleCardProps> = ({ 
-  bubble, 
-  onJoin, 
-  onLeave, 
-  onChat 
+export const BubbleCard: React.FC<BubbleCardProps> = ({
+  bubble,
+  onJoin,
+  onLeave,
+  onChat,
+  showTrendingBadge = false
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -88,7 +90,7 @@ export const BubbleCard: React.FC<BubbleCardProps> = ({
   };
 
   return (
-    <Card className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02] border-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
+    <Card className={`hover:shadow-lg transition-all duration-200 hover:scale-[1.02] border-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm ${bubble.trending ? 'ring-2 ring-orange-400/50 shadow-orange-400/20' : ''}`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
@@ -98,7 +100,14 @@ export const BubbleCard: React.FC<BubbleCardProps> = ({
               </AvatarFallback>
             </Avatar>
             <div>
-              <CardTitle className="text-lg">{bubble.name}</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2">
+                {bubble.name}
+                {bubble.trending && (
+                  <Badge variant="destructive" className="text-xs bg-gradient-to-r from-orange-500 to-red-500">
+                    🔥 Hot
+                  </Badge>
+                )}
+              </CardTitle>
               <Badge variant="secondary" className="mt-1">
                 {bubble.interest_tag}
               </Badge>

@@ -34,12 +34,107 @@ export const NotificationCenter: React.FC = () => {
   useEffect(() => {
     if (!user) return;
 
-    // Initialize with empty notifications array
-    const realNotifications: Notification[] = [];
-    
-    setNotifications(realNotifications);
-    setUnreadCount(0);
+    fetchNotifications();
+    setupRealtimeSubscription();
+
+    return () => {
+      // Cleanup will be handled by useEffect cleanup
+    };
   }, [user]);
+
+  const fetchNotifications = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      // Fetch recent activities that could generate notifications
+      const notifications: Notification[] = [];
+
+      // Fetch recent messages in user's bubbles
+      const { data: memberships } = await supabase
+        .from('bubble_memberships')
+        .select('bubble_id')
+        .eq('user_id', user.id);
+
+      if (memberships && memberships.length > 0) {
+        const bubbleIds = memberships.map(m => m.bubble_id);
+
+        // Get recent messages from user's bubbles
+        const { data: recentMessages } = await supabase
+          .from('messages')
+          .select(`
+            id,
+            content,
+            created_at,
+            sender_id,
+            bubble_id,
+            profiles!messages_sender_id_fkey (
+              first_name,
+              profile_photo_url
+            )
+          `)
+          .in('bubble_id', bubbleIds)
+          .neq('sender_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (recentMessages) {
+          recentMessages.forEach(msg => {
+            notifications.push({
+              id: `msg-${msg.id}`,
+              type: 'message',
+              title: `${msg.profiles?.first_name || 'Someone'} sent a message`,
+              content: msg.content.length > 50 ? msg.content.substring(0, 50) + '...' : msg.content,
+              created_at: msg.created_at,
+              read: false,
+              actor_id: msg.sender_id,
+              actor: {
+                first_name: msg.profiles?.first_name || 'Unknown',
+                profile_photo_url: msg.profiles?.profile_photo_url
+              }
+            });
+          });
+        }
+      }
+
+      // Sort by created_at descending
+      notifications.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      setNotifications(notifications);
+      setUnreadCount(notifications.filter(n => !n.read).length);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const setupRealtimeSubscription = () => {
+    if (!user) return;
+
+    // Subscribe to new messages in user's bubbles
+    const channel = supabase
+      .channel('notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload) => {
+          // Check if the message is in one of user's bubbles and not from themselves
+          if (payload.new.sender_id !== user.id) {
+            fetchNotifications(); // Refresh notifications
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  };
 
   const markAsRead = (notificationId: string) => {
     setNotifications(prev => 

@@ -21,15 +21,28 @@ const CreateStoryDialog: React.FC<CreateStoryDialogProps> = ({ open, onClose, us
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [filters, setFilters] = useState<string>('none');
   const [duration, setDuration] = useState<number>(24); // Hours
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setImage(e.target.files[0]);
+      const file = e.target.files[0];
+      setImage(file);
+
+      // Create preview URL
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
     }
   };
+
+  // Cleanup preview URL on unmount
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +72,7 @@ const CreateStoryDialog: React.FC<CreateStoryDialogProps> = ({ open, onClose, us
         
       imageUrl = urlData.publicUrl;
     }
-    const expiresAt = new Date(Date.now() + DEFAULT_EXPIRY_HOURS * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + duration * 60 * 60 * 1000).toISOString();
     // @ts-ignore - location_stories table exists in database but not in generated types
     const { error: dbError } = await supabase.from('location_stories').insert({
       user_id: user.id,
@@ -68,13 +81,17 @@ const CreateStoryDialog: React.FC<CreateStoryDialogProps> = ({ open, onClose, us
       text_content: text,
       image_url: imageUrl,
       expires_at: expiresAt,
-      visibility_radius: 500,
+      visibility_radius: 500, // 500 meters radius
     } as any);
     if (dbError) {
       setError('Failed to post story');
     } else {
       setText('');
       setImage(null);
+      setPreviewUrl(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       onClose();
     }
     setLoading(false);
@@ -88,15 +105,77 @@ const CreateStoryDialog: React.FC<CreateStoryDialogProps> = ({ open, onClose, us
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Textarea
-            placeholder="What's happening?"
+            placeholder="What's happening at this location?"
             value={text}
             onChange={e => setText(e.target.value)}
             rows={3}
+            className="resize-none"
           />
-          <Input type="file" accept="image/*" onChange={handleImageChange} />
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Add Photo (Optional)</label>
+            <Input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="cursor-pointer"
+            />
+            {previewUrl && (
+              <div className="relative">
+                <img
+                  src={previewUrl}
+                  alt="Preview"
+                  className="w-full h-32 object-cover rounded-lg border"
+                />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={() => {
+                    setImage(null);
+                    setPreviewUrl(null);
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = '';
+                    }
+                  }}
+                >
+                  ✕
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Story Duration</label>
+            <select
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+              className="w-full px-3 py-2 bg-background border border-input rounded-md"
+            >
+              <option value={1}>1 hour</option>
+              <option value={6}>6 hours</option>
+              <option value={12}>12 hours</option>
+              <option value={24}>24 hours</option>
+              <option value={48}>48 hours</option>
+            </select>
+          </div>
+
+          {userLocation && (
+            <div className="text-sm text-muted-foreground">
+              📍 Location: {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
+            </div>
+          )}
+
           {error && <div className="text-red-500 text-sm">{error}</div>}
-          <Button type="submit" disabled={loading || !userLocation}>
-            {loading ? 'Posting...' : 'Post Story'}
+
+          <Button
+            type="submit"
+            disabled={loading || !userLocation || (!text.trim() && !image)}
+            className="w-full bg-gradient-to-r from-secondary to-primary"
+          >
+            {loading ? 'Creating Story...' : 'Share Story'}
           </Button>
         </form>
       </DialogContent>

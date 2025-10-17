@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, MapPin, Users, Sparkles, RefreshCw, Search } from 'lucide-react';
+import { Loader2, MapPin, Users, Sparkles, RefreshCw, Search, Trophy, Star } from 'lucide-react';
 
 interface Bubble {
   id: string;
@@ -39,6 +39,14 @@ const Index = () => {
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [bubblesLoading, setBubblesLoading] = useState(false);
   const [radius, setRadius] = useState('2'); // km
+  const [trendingBubbles, setTrendingBubbles] = useState<Bubble[]>([]);
+  const [userStats, setUserStats] = useState({
+    storiesCreated: 0,
+    reactionsReceived: 0,
+    friendsCount: 0,
+    level: 1,
+    xp: 0
+  });
 
   // All hooks must be called before any conditional returns
   useEffect(() => {
@@ -57,10 +65,13 @@ const Index = () => {
         }
 
         setProfile(data);
-        
+
         // If no profile exists, redirect to profile setup
         if (!data) {
           navigate('/profile-setup');
+        } else {
+          // Fetch user stats for gamification
+          fetchUserStats();
         }
       } catch (error) {
         console.error('Error checking profile:', error);
@@ -73,6 +84,57 @@ const Index = () => {
       checkProfile();
     }
   }, [user, loading, navigate]);
+
+  const fetchUserStats = async () => {
+    if (!user) return;
+
+    try {
+      // Count user's stories
+      const { count: storiesCount } = await supabase
+        .from('location_stories')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      // Count reactions received on user's stories
+      const { data: userStories } = await supabase
+        .from('location_stories')
+        .select('id')
+        .eq('user_id', user.id);
+
+      let reactionsCount = 0;
+      if (userStories && userStories.length > 0) {
+        const storyIds = userStories.map(s => s.id);
+        const { count } = await supabase
+          .from('story_reactions')
+          .select('*', { count: 'exact', head: true })
+          .in('story_id', storyIds);
+        reactionsCount = count || 0;
+      }
+
+      // Count friends
+      const { data: friendships } = await supabase
+        .from('friendships')
+        .select('user_id_1, user_id_2')
+        .or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id}`);
+
+      const friendsCount = friendships?.length || 0;
+
+      // Calculate level and XP
+      const totalXP = (storiesCount || 0) * 10 + reactionsCount * 2 + friendsCount * 5;
+      const level = Math.floor(totalXP / 100) + 1;
+      const xp = totalXP % 100;
+
+      setUserStats({
+        storiesCreated: storiesCount || 0,
+        reactionsReceived: reactionsCount,
+        friendsCount,
+        level,
+        xp
+      });
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+    }
+  };
 
   useEffect(() => {
     const fetchNearbyBubbles = async () => {
@@ -130,7 +192,66 @@ const Index = () => {
     };
 
     fetchNearbyBubbles();
+    fetchTrendingBubbles();
   }, [latitude, longitude, radius, user]);
+
+  const fetchTrendingBubbles = async () => {
+    if (!latitude || !longitude || !user) return;
+
+    try {
+      // Fetch bubbles with highest member counts and recent activity
+      const { data: bubblesData, error } = await supabase
+        .from('bubbles')
+        .select('*')
+        .order('member_count', { ascending: false })
+        .order('updated_at', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('Error fetching trending bubbles:', error);
+        return;
+      }
+
+      // Calculate distances and filter by radius
+      const bubblesWithDistance = bubblesData?.map((bubble: any) => {
+        const distance = calculateDistance(
+          latitude,
+          longitude,
+          bubble.latitude,
+          bubble.longitude
+        );
+        return { ...bubble, distance };
+      }).filter((bubble: any) => bubble.distance <= parseFloat(radius) * 2); // Wider radius for trending
+
+      // Check memberships
+      const bubbleIds = bubblesWithDistance?.map((b: any) => b.id) || [];
+      if (bubbleIds.length > 0) {
+        const { data: memberships } = await supabase
+          .from('bubble_memberships')
+          .select('bubble_id')
+          .eq('user_id', user.id)
+          .in('bubble_id', bubbleIds);
+
+        const membershipIds = new Set(memberships?.map(m => m.bubble_id));
+
+        const bubblesWithMembership = bubblesWithDistance?.map((bubble: any) => ({
+          ...bubble,
+          is_member: membershipIds.has(bubble.id)
+        }));
+
+        // Sort by trending score (member count + recent activity bonus)
+        const sortedTrending = bubblesWithMembership?.sort((a: any, b: any) => {
+          const aScore = a.member_count + (new Date(a.updated_at) > new Date(Date.now() - 24 * 60 * 60 * 1000) ? 10 : 0);
+          const bScore = b.member_count + (new Date(b.updated_at) > new Date(Date.now() - 24 * 60 * 60 * 1000) ? 10 : 0);
+          return bScore - aScore;
+        });
+
+        setTrendingBubbles(sortedTrending?.slice(0, 6) || []);
+      }
+    } catch (error) {
+      console.error('Error fetching trending bubbles:', error);
+    }
+  };
 
   // Calculate distance between two points using Haversine formula
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -237,9 +358,27 @@ const Index = () => {
             </CardContent>
           </Card>
 
-          {/* User Stats */}
+          {/* User Stats & Gamification */}
           {profile && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+              {/* Level & XP Card */}
+              <Card className="backdrop-blur-sm bg-card/95 border-0 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-secondary to-primary"></div>
+                <CardContent className="p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Trophy className="h-5 w-5 text-yellow-500" />
+                    <span className="text-2xl font-bold text-primary">Level {userStats.level}</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2 mb-2">
+                    <div
+                      className="bg-gradient-to-r from-secondary to-primary h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${(userStats.xp / 100) * 100}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{userStats.xp}/100 XP</p>
+                </CardContent>
+              </Card>
+
               <Card className="backdrop-blur-sm bg-card/95 border-0">
                 <CardContent className="p-4 text-center">
                   <div className="text-2xl font-bold text-primary">{bubbles.filter(b => b.is_member).length}</div>
@@ -248,14 +387,14 @@ const Index = () => {
               </Card>
               <Card className="backdrop-blur-sm bg-card/95 border-0">
                 <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-primary">{profile.interests?.length || 0}</div>
-                  <p className="text-sm text-muted-foreground">Interests</p>
+                  <div className="text-2xl font-bold text-primary">{userStats.storiesCreated}</div>
+                  <p className="text-sm text-muted-foreground">Stories Created</p>
                 </CardContent>
               </Card>
               <Card className="backdrop-blur-sm bg-card/95 border-0">
                 <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-primary">{bubbles.length}</div>
-                  <p className="text-sm text-muted-foreground">Nearby Bubbles</p>
+                  <div className="text-2xl font-bold text-primary">{userStats.friendsCount}</div>
+                  <p className="text-sm text-muted-foreground">Friends</p>
                 </CardContent>
               </Card>
             </div>
@@ -312,9 +451,12 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Nearby Bubbles */}
+          {/* Trending Bubbles */}
           <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-6">Nearby Bubbles</h2>
+            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+              🔥 Trending Bubbles
+              <Badge variant="secondary" className="text-xs">Hot</Badge>
+            </h2>
             
             {bubblesLoading ? (
               <div className="flex items-center justify-center py-12">
@@ -339,34 +481,90 @@ const Index = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {bubbles.map((bubble) => (
-                  <BubbleCard
-                    key={bubble.id}
-                    bubble={bubble}
-                    onChat={handleChatClick}
-                    onJoin={(bubbleId) => {
-                      // Refresh bubbles to update membership status
-                      setBubbles(prev => 
-                        prev.map(b => 
-                          b.id === bubbleId 
-                            ? { ...b, is_member: true, member_count: b.member_count + 1 }
-                            : b
-                        )
-                      );
-                    }}
-                    onLeave={(bubbleId) => {
-                      // Refresh bubbles to update membership status
-                      setBubbles(prev => 
-                        prev.map(b => 
-                          b.id === bubbleId 
-                            ? { ...b, is_member: false, member_count: Math.max(0, b.member_count - 1) }
-                            : b
-                        )
-                      );
-                    }}
-                  />
-                ))}
+              <div className="space-y-8">
+                {/* Show trending bubbles first if available */}
+                {trendingBubbles.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      🔥 Hot Right Now
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                      {trendingBubbles.slice(0, 3).map((bubble) => (
+                        <BubbleCard
+                          key={`trending-${bubble.id}`}
+                          bubble={{...bubble, trending: true}}
+                          onChat={handleChatClick}
+                          onJoin={(bubbleId) => {
+                            setBubbles(prev =>
+                              prev.map(b =>
+                                b.id === bubbleId
+                                  ? { ...b, is_member: true, member_count: b.member_count + 1 }
+                                  : b
+                              )
+                            );
+                            setTrendingBubbles(prev =>
+                              prev.map(b =>
+                                b.id === bubbleId
+                                  ? { ...b, is_member: true, member_count: b.member_count + 1 }
+                                  : b
+                              )
+                            );
+                          }}
+                          onLeave={(bubbleId) => {
+                            setBubbles(prev =>
+                              prev.map(b =>
+                                b.id === bubbleId
+                                  ? { ...b, is_member: false, member_count: Math.max(0, b.member_count - 1) }
+                                  : b
+                              )
+                            );
+                            setTrendingBubbles(prev =>
+                              prev.map(b =>
+                                b.id === bubbleId
+                                  ? { ...b, is_member: false, member_count: Math.max(0, b.member_count - 1) }
+                                  : b
+                              )
+                            );
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Regular nearby bubbles */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Nearby Bubbles</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {bubbles.map((bubble) => (
+                      <BubbleCard
+                        key={bubble.id}
+                        bubble={bubble}
+                        onChat={handleChatClick}
+                        onJoin={(bubbleId) => {
+                          // Refresh bubbles to update membership status
+                          setBubbles(prev =>
+                            prev.map(b =>
+                              b.id === bubbleId
+                                ? { ...b, is_member: true, member_count: b.member_count + 1 }
+                                : b
+                            )
+                          );
+                        }}
+                        onLeave={(bubbleId) => {
+                          // Refresh bubbles to update membership status
+                          setBubbles(prev =>
+                            prev.map(b =>
+                              b.id === bubbleId
+                                ? { ...b, is_member: false, member_count: Math.max(0, b.member_count - 1) }
+                                : b
+                            )
+                          );
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>

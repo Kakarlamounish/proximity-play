@@ -72,7 +72,7 @@ export function Navigation(): JSX.Element {
     <nav className="app-nav">
       <div className="nav-left">
         <Link to="/">
-          <img src="/logo.png" alt="Social Bubble" className="nav-logo" />
+          <img src="/logo.svg" alt="Social Bubble" className="nav-logo" />
         </Link>
         <span className="app-title">Social Bubble</span>
       </div>

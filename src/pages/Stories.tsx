@@ -16,12 +16,8 @@ const Stories = () => {
   const [profile, setProfile] = useState<any>(null);
   const { latitude, longitude } = useLocation();
 
-  useEffect(() => {
-    fetchStories();
-    fetchProfile();
-  }, [user]);
-
-  const fetchProfile = async () => {
+  // Hoisted function declarations (were const before -> caused runtime ReferenceError)
+  async function fetchProfile() {
     if (!user) return;
     
     try {
@@ -43,9 +39,9 @@ const Stories = () => {
     } catch (error) {
       console.error('Error fetching profile:', error);
     }
-  };
+  }
 
-  const fetchStories = async () => {
+  async function fetchStories() {
     try {
       const { data } = await supabase
         .from('user_reports')
@@ -75,7 +71,12 @@ const Stories = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchStories();
+    fetchProfile();
+  }, [user]);
 
   if (loading) {
     return (
@@ -94,7 +95,8 @@ const Stories = () => {
           setStoryDialogOpen(false);
           fetchStories();
         }}
-        userLocation={[latitude, longitude]}
+        // guard against passing [null, null] — pass null when location is not available
+        userLocation={latitude != null && longitude != null ? [latitude, longitude] : null}
       />
       <main className="page-stories px-8 py-8">
         <header className="mb-8">

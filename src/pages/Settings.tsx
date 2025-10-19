@@ -16,8 +16,6 @@ import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UpdateLocationDialog } from '@/components/UpdateLocationDialog';
 
-type ProfilesRow = Database['public']['Tables']['profiles']['Row'];
-type MergedProfile = SupabaseUser & ProfilesRow;
 
 const Settings = () => {
   const { user, loading, signOut } = useAuth();
@@ -42,7 +40,7 @@ const Settings = () => {
     const savedNotifications = localStorage.getItem('notification-preferences');
     const savedLanguage = localStorage.getItem('app-language');
     const savedTimezone = localStorage.getItem('app-timezone');
-    
+
     if (savedNotifications) {
       try {
         setNotifications(JSON.parse(savedNotifications));
@@ -50,7 +48,7 @@ const Settings = () => {
         console.error('Error loading notification preferences:', error);
       }
     }
-    
+
     if (savedLanguage) setLanguage(savedLanguage);
     if (savedTimezone) setTimezone(savedTimezone);
   }, []);
@@ -70,11 +68,6 @@ const Settings = () => {
     setTimezone(newTimezone);
     localStorage.setItem('app-timezone', newTimezone);
   };
-
-  // Redirect unauthenticated users
-  if (!user && !loading) {
-    return <Navigate to="/auth" replace />;
-  }
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -107,9 +100,9 @@ const Settings = () => {
           }));
           
           setBlockedUsers(blocksWithProfiles || []);
+        } else {
+          setBlockedUsers([]);
         }
-
-        setBlockedUsers(blocks || []);
 
         // Calculate storage usage
         try {
@@ -139,25 +132,21 @@ const Settings = () => {
   }, [user, loading]);
 
   useEffect(() => {
-    // Always default to dark mode unless user sets light
+    // Initialize dark mode from localStorage (default to dark)
     let isDark = true;
     const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'light') {
-      isDark = false;
-    }
-    setDarkMode(true); // Force dark mode on initial load
-    document.documentElement.classList.add('dark');
+    if (savedTheme === 'light') isDark = false;
+    setDarkMode(isDark);
+    if (isDark) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
   }, []);
-
-  const toggleDarkMode = () => {
-    const newDarkMode = !darkMode;
+  
+  const toggleDarkMode = (checked?: boolean) => {
+    const newDarkMode = typeof checked === 'boolean' ? checked : !darkMode;
     setDarkMode(newDarkMode);
     localStorage.setItem('theme', newDarkMode ? 'dark' : 'light');
-    if (newDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    if (newDarkMode) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
   };
 
   const handleDeleteAccount = async () => {
@@ -181,10 +170,10 @@ const Settings = () => {
 
       // Sign out after deletion
       await signOut();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: 'Error deleting account',
-        description: error.message,
+        description: error instanceof Error ? error.message : 'An error occurred',
         variant: 'destructive',
       });
     }
@@ -227,10 +216,10 @@ const Settings = () => {
         title: 'Data exported',
         description: 'Your data has been downloaded successfully.',
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: 'Export failed',
-        description: error.message,
+        description: error instanceof Error ? error.message : 'An error occurred',
         variant: 'destructive',
       });
     }
@@ -246,16 +235,16 @@ const Settings = () => {
 
       if (error) throw error;
 
-      setBlockedUsers(prev => prev.filter((block: any) => block.blocked_id !== blockedId));
+      setBlockedUsers(prev => prev.filter((block) => block.blocked_id !== blockedId));
       
       toast({
         title: 'User unblocked',
         description: 'The user has been unblocked successfully.',
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: 'Failed to unblock',
-        description: error.message,
+        description: error instanceof Error ? error.message : 'An error occurred',
         variant: 'destructive',
       });
     }
@@ -271,7 +260,7 @@ const Settings = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
-      <Navigation profile={user && profile ? ({ ...user, ...profile } as MergedProfile) : undefined} />
+      <Navigation />
       
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
@@ -301,7 +290,7 @@ const Settings = () => {
                   <Switch
                     id="dark-mode"
                     checked={darkMode}
-                    onCheckedChange={toggleDarkMode}
+                    onCheckedChange={(checked) => toggleDarkMode(Boolean(checked))}
                   />
                 </div>
               </CardContent>
@@ -477,7 +466,7 @@ const Settings = () => {
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {blockedUsers.map((block: any) => (
+                    {blockedUsers.map((block) => (
                       <div key={block.blocked_id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center">

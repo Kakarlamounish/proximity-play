@@ -21,13 +21,13 @@ const EmergencyShareButton: React.FC<EmergencyShareButtonProps> = ({ userLocatio
     }
     setLoading(true);
     setError(null);
-    // @ts-ignore - emergency_shares table not yet created in database
+    // @ts-expect-error - emergency_shares table not yet created in database
     const { error: dbError } = await supabase.from("emergency_shares").insert({
       user_id: userId,
       latitude: userLocation[0],
       longitude: userLocation[1],
       shared_at: new Date().toISOString(),
-    } as any);
+    });
     if (dbError) {
       setError("Failed to share location");
     } else {

@@ -20,13 +20,13 @@ const PrivacyScheduleDialog: React.FC<PrivacyScheduleDialogProps> = ({ open, onC
   const handleSave = async () => {
     setLoading(true);
     setError(null);
-    // @ts-ignore - privacy_schedules table not yet created in database
+    // @ts-expect-error - privacy_schedules table not yet created in database
     const { error: dbError } = await supabase.from("privacy_schedules").upsert({
       user_id: userId,
       start_time: start,
       end_time: end,
       updated_at: new Date().toISOString(),
-    } as any, { onConflict: "user_id" });
+    }, { onConflict: "user_id" });
     if (dbError) {
       setError("Failed to save schedule");
     } else {

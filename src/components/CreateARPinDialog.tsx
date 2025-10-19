@@ -39,14 +39,14 @@ const CreateARPinDialog: React.FC<CreateARPinDialogProps> = ({ open, onClose, us
     }
     setLoading(true);
     setError(null);
-    // @ts-ignore - ar_pins table not yet created in database
+    // @ts-expect-error - ar_pins table not yet created in database
     const { error: dbError } = await supabase.from("ar_pins").insert({
       user_id: user.id,
       note,
       latitude: userLocation[0],
       longitude: userLocation[1],
       created_at: new Date().toISOString(),
-    } as any);
+    });
     if (dbError) {
       setError("Failed to drop AR pin");
     } else {

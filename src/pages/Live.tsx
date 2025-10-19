@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
-import { RealtimeChannel } from '@supabase/supabase-js';
+// (Removed unused RealtimeChannel import)
 import { Map } from '@/components/Map';
 import CreateStoryDialog from '@/components/CreateStoryDialog';
 import CreateEventDialog from '@/components/CreateEventDialog';
@@ -145,15 +145,14 @@ const Live = () => {
     if (!user) return;
     const fetchSchedule = async () => {
       try {
-        // @ts-ignore - privacy_schedules table not yet created in database
-        const { data } = await supabase
-          // @ts-ignore
-          .from('privacy_schedules')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data } = await (supabase as any)
+          .from('privacy_schedules' as any)
           .select('*')
           .eq('user_id', user.id)
           .single();
-        // @ts-ignore - accessing properties from non-existent table
-        if (data) setPrivacySchedule({ start: data.start_time, end: data.end_time });
+         
+        if (data) setPrivacySchedule({ start: (data as unknown as { start_time: string }).start_time, end: (data as unknown as { end_time: string }).end_time });
       } catch (error) {
         // Silently handle error for non-existent table
       }
@@ -319,14 +318,15 @@ const Live = () => {
       setLiveLocations(data || []);
     };
     fetchLiveLocations();
-    const subscription = supabase
+    const channel = supabase
       .channel('live_locations')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'live_locations', filter: `bubble_id=eq.${selectedBubble.id}` },
-        (payload) => { fetchLiveLocations(); }
-      )
-      .subscribe();
+        () => { fetchLiveLocations(); }
+      );
+    // subscribe explicitly and keep channel reference for cleanup
+    channel.subscribe();
     return () => {
-      supabase.removeChannel(subscription);
+      supabase.removeChannel(channel);
     };
   }, [selectedBubble]);
 
@@ -344,7 +344,7 @@ const Live = () => {
 
   return (
   <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary dark:from-secondary-dark dark:via-background dark:to-primary-dark">
-      <Navigation profile={user && profile ? { ...user, ...profile } : undefined} />
+      <Navigation />
       {/* Location-based Story Dialog */}
       <CreateStoryDialog
         open={storyDialogOpen}

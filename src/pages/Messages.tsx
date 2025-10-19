@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/Navigation';
@@ -17,97 +17,92 @@ const Messages = () => {
   const { user, loading } = useAuth();
   const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
   const [bubbles, setBubbles] = useState<Database['public']['Tables']['bubbles']['Row'][]>([]);
-  const [friends, setFriends] = useState<any[]>([]);
+  const [friends, setFriends] = useState<Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'first_name' | 'profile_photo_url' | 'bio'>[]>([]);
   const [selectedBubble, setSelectedBubble] = useState<Database['public']['Tables']['bubbles']['Row'] | null>(null);
-  const [selectedFriend, setSelectedFriend] = useState<any | null>(null);
+  const [selectedFriend, setSelectedFriend] = useState<Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'first_name' | 'profile_photo_url' | 'bio'> | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [meetupDialogOpen, setMeetupDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'bubbles' | 'friends'>('bubbles');
 
-  // Redirect unauthenticated users
-  if (!user && !loading) {
-    return <Navigate to="/auth" replace />;
-  }
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      // Fetch profile
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      setProfile(profileData);
+
+      // Fetch user's bubbles
+      const { data: userBubbles } = await supabase
+        .from('bubble_memberships')
+        .select(`
+          bubble_id,
+          bubbles (
+            id,
+            name,
+            interest_tag,
+            member_count
+          )
+        `)
+        .eq('user_id', user.id);
+
+        // Map bubbles to expected type
+        const bubblesData = (userBubbles || []).map(bm => ({
+          id: bm.bubbles?.id ?? '',
+          name: bm.bubbles?.name ?? '',
+          interest_tag: bm.bubbles?.interest_tag ?? '',
+          member_count: bm.bubbles?.member_count ?? 0,
+          // Fill missing fields with defaults
+          created_at: '',
+          creator_id: '',
+          description: '',
+          is_private: false,
+          latitude: 0,
+          longitude: 0,
+          updated_at: '',
+        }));
+        setBubbles(bubblesData);
+
+        // Fetch user's friends
+        const { data: friendships } = await supabase
+          .from('friendships')
+          .select('user_id_1, user_id_2')
+          .or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id}`);
+
+        const friendIds = friendships?.map(f =>
+          f.user_id_1 === user.id ? f.user_id_2 : f.user_id_1
+        ) || [];
+
+        if (friendIds.length > 0) {
+          const { data: friendsData } = await supabase
+            .from('profiles')
+            .select('id, first_name, profile_photo_url, bio')
+            .in('id', friendIds);
+
+          setFriends(friendsData || []);
+        }
+
+        // Auto-select first bubble if none selected
+        if (bubblesData.length > 0 && !selectedBubble) {
+          setSelectedBubble(bubblesData[0]);
+        }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setProfileLoading(false);
+    }
+  }, [user, selectedBubble]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
-
-      try {
-        // Fetch profile
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        setProfile(profileData);
-
-        // Fetch user's bubbles
-        const { data: userBubbles } = await supabase
-          .from('bubble_memberships')
-          .select(`
-            bubble_id,
-            bubbles (
-              id,
-              name,
-              interest_tag,
-              member_count
-            )
-          `)
-          .eq('user_id', user.id);
-
-          // Map bubbles to expected type
-          const bubblesData = (userBubbles || []).map(bm => ({
-            id: bm.bubbles?.id ?? '',
-            name: bm.bubbles?.name ?? '',
-            interest_tag: bm.bubbles?.interest_tag ?? '',
-            member_count: bm.bubbles?.member_count ?? 0,
-            // Fill missing fields with defaults
-            created_at: '',
-            creator_id: '',
-            description: '',
-            is_private: false,
-            latitude: 0,
-            longitude: 0,
-            updated_at: '',
-          }));
-          setBubbles(bubblesData);
-
-          // Fetch user's friends
-          const { data: friendships } = await supabase
-            .from('friendships')
-            .select('user_id_1, user_id_2')
-            .or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id}`);
-
-          const friendIds = friendships?.map(f =>
-            f.user_id_1 === user.id ? f.user_id_2 : f.user_id_1
-          ) || [];
-
-          if (friendIds.length > 0) {
-            const { data: friendsData } = await supabase
-              .from('profiles')
-              .select('id, first_name, profile_photo_url, bio')
-              .in('id', friendIds);
-
-            setFriends(friendsData || []);
-          }
-
-          // Auto-select first bubble if none selected
-          if (bubblesData.length > 0 && !selectedBubble) {
-            setSelectedBubble(bubblesData[0]);
-          }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setProfileLoading(false);
-      }
-    };
-
     if (user && !loading) {
       fetchData();
     }
-  }, [user, loading]);
+  }, [user, loading, fetchData]);
 
   if (loading || profileLoading) {
     return (
@@ -119,7 +114,7 @@ const Messages = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
-      <Navigation profile={user && profile ? { ...user, ...profile } : undefined} />
+      <Navigation />
       
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
@@ -173,7 +168,7 @@ const Messages = () => {
                             >
                               <Avatar className="h-10 w-10 bg-gradient-to-br from-secondary to-primary">
                                 <AvatarFallback className="text-white font-semibold">
-                                  {bubble.interest_tag[0].toUpperCase()}
+                                  {(bubble.interest_tag?.[0] ?? 'B').toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1 min-w-0">

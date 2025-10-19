@@ -20,11 +20,6 @@ const Profile = () => {
   const [badges, setBadges] = useState<Array<{ earned_at: string; badges: { name: string; description: string; icon: string } }>>([]);
   const [profileLoading, setProfileLoading] = useState(true);
 
-  // Redirect unauthenticated users
-  if (!user && !loading) {
-    return <Navigate to="/auth" replace />;
-  }
-
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
@@ -93,9 +88,9 @@ const Profile = () => {
             earned_at: ub.earned_at,
             badges: (ub.badges && typeof ub.badges === 'object' && 'name' in (ub.badges as object))
               ? {
-                  name: (ub.badges as any).name ?? '',
-                  description: (ub.badges as any).description ?? '',
-                  icon: (ub.badges as any).icon ?? '',
+                  name: (ub.badges as { name?: string }).name ?? '',
+                  description: (ub.badges as { description?: string }).description ?? '',
+                  icon: (ub.badges as { icon?: string }).icon ?? '',
                 }
               : { name: '', description: '', icon: '' }
           }));
@@ -112,6 +107,15 @@ const Profile = () => {
     }
   }, [user, loading]);
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  // Redirect unauthenticated users
+  if (!user && !loading) {
+    return <Navigate to="/auth" replace />;
+  }
+
   if (loading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary">
@@ -120,13 +124,9 @@ const Profile = () => {
     );
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
-      <Navigation profile={user && profile ? { ...user, ...profile } : undefined} />
+      <Navigation />
       
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">

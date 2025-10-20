@@ -11,7 +11,22 @@ import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
 interface BubbleCardProps {
-  bubble: any; // Accept any bubble shape
+  bubble: {
+    id: string;
+    name: string;
+    description?: string;
+    interest_tag: string;
+    member_count: number;
+    latitude: number;
+    longitude: number;
+    created_at: string;
+    creator_id: string;
+    is_private: boolean;
+    updated_at: string;
+    is_member?: boolean;
+    trending?: boolean;
+    distance?: number;
+  };
   onJoin?: (bubbleId: string) => void;
   onLeave?: (bubbleId: string) => void;
   onChat?: (bubbleId: string) => void;

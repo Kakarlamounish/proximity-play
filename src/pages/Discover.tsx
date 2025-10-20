@@ -12,6 +12,7 @@ import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BubbleFilters } from '@/components/BubbleFilters';
 import { Navigation } from '@/components/Navigation';
+import type { Database } from '@/integrations/supabase/types';
 
 interface NearbyUser {
   id: string;
@@ -49,12 +50,34 @@ export default function Discover() {
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [selectedInterest, setSelectedInterest] = useState('all');
   const [sortBy, setSortBy] = useState('nearest');
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
 
   useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      setProfile(data);
+    };
+
+    const fetchMyLocation = async () => {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('latitude, longitude')
+        .eq('id', user?.id)
+        .single();
+
+      if (profile?.latitude && profile?.longitude) {
+        setMyLocation({ lat: profile.latitude, lng: profile.longitude });
+      }
+    };
+
     fetchProfile();
     fetchMyLocation();
-  }, []);
+  }, [user]);
 
   const fetchProfile = async () => {
     if (!user) return;
@@ -206,7 +229,7 @@ export default function Discover() {
         .filter(bubble => bubble.distance <= radiusKm[0]) || [];
 
       // Sort bubbles
-      let sortedBubbles = [...bubblesWithDistance];
+      const sortedBubbles = [...bubblesWithDistance];
       switch (sortBy) {
         case 'popular':
           sortedBubbles.sort((a, b) => b.member_count - a.member_count);
@@ -280,7 +303,7 @@ export default function Discover() {
   if (!myLocation) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
-        <Navigation profile={profile} />
+        <Navigation />
         <div className="container mx-auto p-6 max-w-6xl">
         <Card className="p-8 text-center">
           <MapPin className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
@@ -296,7 +319,7 @@ export default function Discover() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
-      <Navigation profile={profile} />
+      <Navigation />
       <div className="container mx-auto p-6 max-w-6xl">
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">

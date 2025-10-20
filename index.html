@@ -3,16 +3,56 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>proximity-play</title>
-  <meta name="description" content="Proximity Play - Real-time social map app" />
+    <title>Proximity Play - Real-time Location Sharing</title>
+  <meta name="description" content="Real-time location sharing and community building platform" />
+  <meta name="keywords" content="social, location, community, real-time, bubbles, proximity" />
   <meta name="author" content="Proximity Play" />
+  <meta name="theme-color" content="#6366f1" />
 
-  <meta property="og:title" content="proximity-play" />
-  <meta property="og:description" content="Real-time social map app" />
+  <!-- PWA -->
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="apple-touch-icon" href="/icon-192x192.png" />
+  <link rel="manifest" href="/manifest.json" />
+
+  <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://proximity-play.com/" />
+  <meta property="og:title" content="Proximity Play - Real-time Location Sharing" />
+  <meta property="og:description" content="Connect with people who share your interests in real-time. Join bubbles, share locations, and build communities." />
+  <meta property="og:image" content="https://proximity-play.com/og-image.png" />
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:url" content="https://proximity-play.com/" />
+  <meta property="twitter:title" content="Proximity Play - Real-time Location Sharing" />
+  <meta property="twitter:description" content="Connect with people who share your interests in real-time. Join bubbles, share locations, and build communities." />
+  <meta property="twitter:image" content="https://proximity-play.com/twitter-image.png" />
+
+  <!-- Security Headers -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <meta http-equiv="X-Frame-Options" content="DENY" />
+  <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+
+  <!-- Preconnect to external domains -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://api.supabase.co" />
+  <link rel="preconnect" href="https://maps.googleapis.com" />
+
+  <!-- DNS prefetch -->
+  <link rel="dns-prefetch" href="//api.supabase.co" />
+  <link rel="dns-prefetch" href="//maps.googleapis.com" />
   </head>
 
   <body>
+    <noscript>
+      <div style="text-align: center; padding: 2rem; font-family: system-ui, -apple-system, sans-serif;">
+        <h1>Proximity Play</h1>
+        <p>This application requires JavaScript to run. Please enable JavaScript in your browser settings.</p>
+        <p>For the best experience, we recommend using a modern web browser.</p>
+      </div>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

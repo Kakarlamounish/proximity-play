@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Award } from 'lucide-react';
@@ -15,15 +15,11 @@ interface UserBadgesProps {
   userId: string;
 }
 
-export const UserBadges = ({ userId }: UserBadgesProps) => {
+export const UserBadges = memo(({ userId }: UserBadgesProps) => {
   const [badges, setBadges] = useState<BadgeData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchBadges();
-  }, [userId]);
-
-  const fetchBadges = async () => {
+  const fetchBadges = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('user_badges')
@@ -52,7 +48,11 @@ export const UserBadges = ({ userId }: UserBadgesProps) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    fetchBadges();
+  }, [fetchBadges]);
 
   if (loading || badges.length === 0) {
     return null;
@@ -79,4 +79,6 @@ export const UserBadges = ({ userId }: UserBadgesProps) => {
       </div>
     </div>
   );
-};
+});
+
+UserBadges.displayName = 'UserBadges';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ interface Comment {
   };
 }
 
-export const StoryCard: React.FC<StoryCardProps> = ({ story }) => {
+export const StoryCard: React.FC<StoryCardProps> = memo(({ story }) => {
   const { user } = useAuth();
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
@@ -43,12 +43,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story }) => {
   const [newComment, setNewComment] = useState('');
   const [showComments, setShowComments] = useState(false);
 
-  useEffect(() => {
-    fetchStoryData();
-    trackView();
-  }, [story.id]);
-
-  const fetchStoryData = async () => {
+  const fetchStoryData = useCallback(async () => {
     // Fetch reactions
     const { data: reactions } = await supabase
       .from('story_reactions')
@@ -93,9 +88,9 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story }) => {
       setComments(commentsWithProfiles);
       setCommentsCount(commentsData.length);
     }
-  };
+  }, [story.id, user?.id]);
 
-  const trackView = async () => {
+  const trackView = useCallback(async () => {
     if (!user?.id || user.id === story.reporter_id) return;
 
     await supabase
@@ -106,7 +101,8 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story }) => {
       })
       .select()
       .single();
-  };
+  }, [user?.id, story.id, story.reporter_id]);
+
 
   const handleLike = async () => {
     if (!user?.id) return;
@@ -244,4 +240,6 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story }) => {
       </CardFooter>
     </Card>
   );
-};
+});
+
+StoryCard.displayName = 'StoryCard';

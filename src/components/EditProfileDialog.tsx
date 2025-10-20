@@ -52,7 +52,7 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ profile, o
     setLoading(true);
 
     try {
-      const updateData: any = {
+      const updateData: Partial<ProfilesRow> = {
         first_name: formData.first_name,
         bio: formData.bio,
         age: formData.age,

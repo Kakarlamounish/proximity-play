@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card } from '@/components/ui/card';
@@ -20,17 +20,13 @@ interface FriendRequest {
   };
 }
 
-export const FriendRequests = () => {
+export const FriendRequests = memo(() => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchRequests();
-  }, [user]);
-
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -69,9 +65,9 @@ export const FriendRequests = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
-  const handleRequest = async (requestId: string, action: 'accepted' | 'rejected') => {
+  const handleRequest = useCallback(async (requestId: string, action: 'accepted' | 'rejected') => {
     try {
       const { error } = await supabase
         .from('friend_requests')
@@ -82,8 +78,8 @@ export const FriendRequests = () => {
 
       toast({
         title: action === 'accepted' ? 'Friend added!' : 'Request declined',
-        description: action === 'accepted' 
-          ? 'You are now friends' 
+        description: action === 'accepted'
+          ? 'You are now friends'
           : 'Friend request declined',
       });
 
@@ -96,7 +92,7 @@ export const FriendRequests = () => {
         variant: 'destructive',
       });
     }
-  };
+  }, [fetchRequests, toast]);
 
   if (loading) {
     return (
@@ -162,4 +158,6 @@ export const FriendRequests = () => {
       ))}
     </div>
   );
-};
+});
+
+FriendRequests.displayName = 'FriendRequests';

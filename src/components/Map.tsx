@@ -1,20 +1,40 @@
 // Emoji Reaction Picker and Map Drop
 const EMOJI_OPTIONS = ['😀','👍','🔥','🎉','❤️','😂','😮','😢','😎','🙏'];
-function ReactionPicker({ onPick }) {
+function ReactionPicker({ onPick }: { onPick: (emoji: string) => void }) {
   return (
-    <div style={{ position: 'absolute', top: 120, right: 32, zIndex: 2000, background: 'rgba(30,41,59,0.97)', borderRadius: 8, boxShadow: '0 2px 8px #6366f1', padding: '8px 12px', display: 'flex', gap: 8 }}>
+    <div
+      style={{ position: 'absolute', top: 120, right: 32, zIndex: 2000, background: 'rgba(30,41,59,0.97)', borderRadius: 8, boxShadow: '0 2px 8px #6366f1', padding: '8px 12px', display: 'flex', gap: 8 }}
+      role="toolbar"
+      aria-label="Emoji reaction picker"
+    >
       {EMOJI_OPTIONS.map(e => (
-        <button key={e} onClick={() => onPick(e)} style={{ fontSize: 24, background: 'none', border: 'none', cursor: 'pointer' }}>{e}</button>
+        <button
+          key={e}
+          onClick={() => onPick(e)}
+          style={{ fontSize: 24, background: 'none', border: 'none', cursor: 'pointer' }}
+          aria-label={`React with ${e}`}
+          type="button"
+        >
+          {e}
+        </button>
       ))}
     </div>
   );
 }
 // Nearby Places Search Bar
-function NearbyPlacesSearch({ mapCenter, nearbyPlaces, setNearbyPlaces }) {
+function NearbyPlacesSearch({
+  mapCenter,
+  nearbyPlaces,
+  setNearbyPlaces
+}: {
+  mapCenter: [number, number];
+  nearbyPlaces: any[];
+  setNearbyPlaces: (places: any[]) => void;
+}) {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSearch = async (e) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&viewbox=${mapCenter[1]-0.05},${mapCenter[0]-0.05},${mapCenter[1]+0.05},${mapCenter[0]+0.05}`;
@@ -25,7 +45,11 @@ function NearbyPlacesSearch({ mapCenter, nearbyPlaces, setNearbyPlaces }) {
   };
 
   return (
-    <div style={{ position: 'absolute', top: 72, left: 32, zIndex: 2000, background: 'rgba(30,41,59,0.97)', borderRadius: 8, boxShadow: '0 2px 8px #6366f1', padding: '12px 16px', minWidth: 320 }}>
+    <div
+      style={{ position: 'absolute', top: 72, left: 32, zIndex: 2000, background: 'rgba(30,41,59,0.97)', borderRadius: 8, boxShadow: '0 2px 8px #6366f1', padding: '12px 16px', minWidth: 320 }}
+      role="search"
+      aria-label="Nearby places search"
+    >
       <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8 }}>
         <input
           type="text"
@@ -33,15 +57,25 @@ function NearbyPlacesSearch({ mapCenter, nearbyPlaces, setNearbyPlaces }) {
           onChange={e => setQuery(e.target.value)}
           placeholder="Search nearby (e.g. cafe, restaurant)"
           style={{ flex: 1, padding: 8, borderRadius: 6, border: 'none', background: '#334155', color: '#fff' }}
+          aria-label="Search query"
         />
-        <button type="submit" style={{ background: '#6366f1', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}>
+        <button
+          type="submit"
+          style={{ background: '#6366f1', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}
+          aria-label={loading ? 'Searching for places' : 'Search for places'}
+        >
           {loading ? 'Searching...' : 'Search'}
         </button>
       </form>
       {nearbyPlaces.length > 0 && (
-        <div style={{ marginTop: 12, maxHeight: 180, overflowY: 'auto' }}>
+        <div style={{ marginTop: 12, maxHeight: 180, overflowY: 'auto' }} role="list" aria-label="Search results">
           {nearbyPlaces.map((place, idx) => (
-            <div key={idx} style={{ marginBottom: 8, background: '#475569', borderRadius: 6, padding: 8, color: '#fff', cursor: 'pointer' }}>
+            <div
+              key={idx}
+              style={{ marginBottom: 8, background: '#475569', borderRadius: 6, padding: 8, color: '#fff', cursor: 'pointer' }}
+              role="listitem"
+              aria-label={`Place: ${place.display_name}, Type: ${place.type}`}
+            >
               <strong>{place.display_name}</strong>
               <div style={{ fontSize: 12, color: '#a3a3a3' }}>{place.type}</div>
             </div>
@@ -58,9 +92,13 @@ const MAP_THEMES = [
   { key: 'satellite', label: 'Satellite', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR, and the GIS User Community' }
 ];
 
-function MapThemeSwitcher({ theme, setTheme }) {
+function MapThemeSwitcher({ theme, setTheme }: { theme: string; setTheme: (theme: string) => void }) {
   return (
-    <div style={{ position: 'absolute', top: 24, left: 32, zIndex: 2000, display: 'flex', gap: 8 }}>
+    <div
+      style={{ position: 'absolute', top: 24, left: 32, zIndex: 2000, display: 'flex', gap: 8 }}
+      role="radiogroup"
+      aria-label="Map theme selector"
+    >
       {MAP_THEMES.map(t => (
         <button
           key={t.key}
@@ -78,6 +116,10 @@ function MapThemeSwitcher({ theme, setTheme }) {
             outline: 'none',
             marginRight: 4,
           }}
+          role="radio"
+          aria-checked={theme === t.key}
+          aria-label={`Switch to ${t.label} map theme`}
+          type="button"
         >
           {t.label}
         </button>
@@ -104,6 +146,9 @@ const LocationSharingToggle: React.FC<{ enabled: boolean; onToggle: () => void }
         outline: 'none',
       }}
       title={enabled ? 'Disable Live Location Sharing' : 'Enable Live Location Sharing'}
+      aria-label={enabled ? 'Location sharing is enabled. Click to disable.' : 'Location sharing is disabled. Click to enable.'}
+      aria-pressed={enabled}
+      type="button"
     >
       {enabled ? '🟢 Sharing Location' : '🔴 Not Sharing'}
     </button>
@@ -124,6 +169,8 @@ const HeatmapStatsControl: React.FC<{ locations: { latitude: number; longitude: 
     controlDiv.style.fontSize = '14px';
     controlDiv.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
     controlDiv.innerText = `Hotspots: ${hotspots}`;
+    controlDiv.setAttribute('aria-label', `Map statistics: ${hotspots} hotspots detected`);
+    controlDiv.setAttribute('role', 'status');
     const customControl = (window as any).L.control({ position: 'topright' });
     customControl.onAdd = () => controlDiv;
     customControl.addTo(map);
@@ -295,7 +342,7 @@ const Routing: React.FC<{ start: [number, number]; end: [number, number] }> = ({
     <Polyline positions={routeCoords} pathOptions={{ color: 'green', weight: 5 }} />
   ) : null;
 };
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '@/integrations/supabase/types';
 // (already imported above)
@@ -529,7 +576,7 @@ export function Map(props: MapProps) {
   storyRadius = 1000,
   } = props;
   // Center map on first live location if available
-  const mapCenter = liveLocations.length > 0
+  const mapCenter: [number, number] = liveLocations.length > 0
     ? [liveLocations[0].latitude, liveLocations[0].longitude]
     : center;
 
@@ -555,7 +602,7 @@ export function Map(props: MapProps) {
   const [routeReady, setRouteReady] = useState(false);
 
   // Handle map click for route planning
-  const handleRouteMapClick = (e) => {
+  const handleRouteMapClick = (e: any) => {
     if (showRouteDialog) {
       if (!routePoints.start) {
         setRoutePoints(p => ({ ...p, start: [e.latlng.lat, e.latlng.lng] }));
@@ -577,7 +624,7 @@ export function Map(props: MapProps) {
   const [newBubble, setNewBubble] = useState({ name: '', interest_tag: '', member_count: 1, lat: null, lng: null });
 
   // Handle map click for bubble creation
-  const handleMapClick = (e) => {
+  const handleMapClick = (e: any) => {
     if (showBubbleDialog) {
       setNewBubble(b => ({ ...b, lat: e.latlng.lat, lng: e.latlng.lng }));
     }
@@ -606,7 +653,7 @@ export function Map(props: MapProps) {
   const [annotationText, setAnnotationText] = useState('');
 
   // Handle map click for annotation
-  const handleAnnotationMapClick = (e) => {
+  const handleAnnotationMapClick = (e: any) => {
     if (showAnnotationDialog) {
       setPendingAnnotation({ lat: e.latlng.lat, lng: e.latlng.lng });
     }
@@ -697,7 +744,7 @@ export function Map(props: MapProps) {
   }, [liveUsers, geofences]);
 
   // Handle geofence drawing
-  const handleGeofenceCreated = (e) => {
+  const handleGeofenceCreated = (e: any) => {
     if (e.layerType === 'circle') {
       const layer = e.layer;
       setGeofences(prev => [...prev, {
@@ -739,6 +786,75 @@ export function Map(props: MapProps) {
       easyPrint.printMap('CurrentSize', `proximity-map-${Date.now()}`);
     }
   };
+  // Add screen reader announcement for map interactions
+  const announceToScreenReader = useCallback((message: string) => {
+    const announcement = document.createElement('div');
+    announcement.setAttribute('aria-live', 'polite');
+    announcement.setAttribute('aria-atomic', 'true');
+    announcement.style.position = 'absolute';
+    announcement.style.left = '-10000px';
+    announcement.style.width = '1px';
+    announcement.style.height = '1px';
+    announcement.style.overflow = 'hidden';
+    document.body.appendChild(announcement);
+    announcement.textContent = message;
+    setTimeout(() => {
+      document.body.removeChild(announcement);
+    }, 1000);
+  }, []);
+
+  // Keyboard navigation handler
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    switch (event.key) {
+      case '+':
+      case '=':
+        event.preventDefault();
+        map.zoomIn();
+        announceToScreenReader('Zoomed in on map');
+        break;
+      case '-':
+        event.preventDefault();
+        map.zoomOut();
+        announceToScreenReader('Zoomed out on map');
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        map.panBy([0, -100]);
+        announceToScreenReader('Panned map up');
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        map.panBy([0, 100]);
+        announceToScreenReader('Panned map down');
+        break;
+      case 'ArrowLeft':
+        event.preventDefault();
+        map.panBy([-100, 0]);
+        announceToScreenReader('Panned map left');
+        break;
+      case 'ArrowRight':
+        event.preventDefault();
+        map.panBy([100, 0]);
+        announceToScreenReader('Panned map right');
+        break;
+      case 'Home':
+        event.preventDefault();
+        map.setView(mapCenter, 15);
+        announceToScreenReader('Centered map on current location');
+        break;
+    }
+  }, [mapCenter, announceToScreenReader]);
+
+  // Add keyboard event listeners
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleKeyDown]);
   {/* Floating Screenshot/Export Button */}
   <div style={{ position: 'absolute', bottom: 240, right: 32, zIndex: 2000 }}>
     <button
@@ -903,13 +1019,31 @@ export function Map(props: MapProps) {
   // ...existing code...
 
   return (
-  <div style={{ position: 'relative', width: '100%', height: '100%', background: 'linear-gradient(120deg,#6366f1 0%,#3b82f6 100%)' }}>
+  <div
+    style={{ position: 'relative', width: '100%', height: '100%', background: 'linear-gradient(120deg,#6366f1 0%,#3b82f6 100%)' }}
+    role="application"
+    aria-label="Interactive map with live location sharing. Use keyboard shortcuts: arrow keys to pan, +/- to zoom, Home to center."
+    tabIndex={0}
+    onKeyDown={(e) => {
+      // Prevent default behavior for our custom shortcuts
+      if (['+', '-', '=', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home'].includes(e.key)) {
+        e.preventDefault();
+        handleKeyDown(e.nativeEvent);
+      }
+    }}
+  >
     {/* Floating Weather Overlay Button */}
     <div style={{ position: 'absolute', bottom: 32, left: 32, zIndex: 2000 }}>
       <button
-        onClick={() => setShowWeather(w => !w)}
+        onClick={() => {
+          setShowWeather(w => !w);
+          announceToScreenReader(showWeather ? 'Weather overlay disabled' : 'Weather overlay enabled');
+        }}
         style={{ background: 'linear-gradient(90deg,#38bdf8,#6366f1)', color: '#fff', border: 'none', borderRadius: '50%', width: 56, height: 56, fontSize: 28, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', cursor: 'pointer' }}
         title="Toggle Weather Overlay"
+        aria-label={showWeather ? 'Disable weather overlay' : 'Enable weather overlay'}
+        aria-pressed={showWeather}
+        type="button"
       >
         🌦️
       </button>
@@ -938,7 +1072,11 @@ export function Map(props: MapProps) {
     <MapThemeSwitcher theme={mapTheme} setTheme={setMapTheme} />
     {/* Nearby Places Search Bar */}
   <NearbyPlacesSearch mapCenter={mapCenter} nearbyPlaces={nearbyPlaces} setNearbyPlaces={setNearbyPlaces} />
-    <MapContainer center={mapCenter as [number, number]} zoom={15} style={{ height: '100%', width: '100%' }}>
+    <MapContainer
+      center={mapCenter as [number, number]}
+      zoom={15}
+      style={{ height: '100%', width: '100%' }}
+    >
       {/* Weather overlay tile layer */}
       {showWeather && (
         <TileLayer url={weatherTileUrl} opacity={0.5} />

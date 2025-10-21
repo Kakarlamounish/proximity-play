@@ -153,6 +153,47 @@ export default function Friends() {
 
   const sendFriendRequest = async (receiverId: string) => {
     try {
+      // Check if request already exists
+      const { data: existingRequest } = await supabase
+        .from('friend_requests')
+        .select('id, status')
+        .or(`and(sender_id.eq.${user!.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user!.id})`)
+        .single();
+
+      if (existingRequest) {
+        if (existingRequest.status === 'pending') {
+          toast({
+            title: 'Request already sent',
+            description: 'You have already sent a friend request to this person',
+            variant: 'destructive',
+          });
+          return;
+        } else if (existingRequest.status === 'accepted') {
+          toast({
+            title: 'Already friends',
+            description: 'You are already friends with this person',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+
+      // Check if they are already friends
+      const { data: existingFriendship } = await supabase
+        .from('friendships')
+        .select('id')
+        .or(`and(user_id_1.eq.${user!.id},user_id_2.eq.${receiverId}),and(user_id_1.eq.${receiverId},user_id_2.eq.${user!.id})`)
+        .single();
+
+      if (existingFriendship) {
+        toast({
+          title: 'Already friends',
+          description: 'You are already friends with this person',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from('friend_requests')
         .insert({
@@ -168,8 +209,9 @@ export default function Friends() {
         description: 'They will be notified of your request',
       });
 
-      // Remove from suggestions
+      // Remove from suggestions and search results
       setSuggestedFriends(prev => prev.filter(f => f.id !== receiverId));
+      setSearchResults(prev => prev.filter(f => f.id !== receiverId));
     } catch (error) {
       console.error('Error sending friend request:', error);
       toast({
@@ -371,9 +413,10 @@ export default function Friends() {
                             size="sm"
                             onClick={() => sendFriendRequest(user.id)}
                             className="w-full bg-gradient-to-r from-secondary to-primary"
+                            disabled={friends.some(f => f.id === user.id)}
                           >
                             <UserPlus className="w-3 h-3 mr-1" />
-                            Add Friend
+                            {friends.some(f => f.id === user.id) ? 'Already Friends' : 'Add Friend'}
                           </Button>
                         </div>
                       </div>
@@ -432,8 +475,9 @@ export default function Friends() {
                           size="sm"
                           onClick={() => sendFriendRequest(suggested.id)}
                           className="bg-gradient-to-r from-secondary to-primary"
+                          disabled={friends.some(f => f.id === suggested.id)}
                         >
-                          Add Friend
+                          {friends.some(f => f.id === suggested.id) ? 'Already Friends' : 'Add Friend'}
                         </Button>
                       </div>
                     </div>

@@ -1053,10 +1053,11 @@ export function Map(props: MapProps) {
     {showWeather && weatherData && (
       <div style={{ position: 'absolute', top: 24, left: 100, zIndex: 3000, background: 'rgba(30,41,59,0.97)', borderRadius: 12, boxShadow: '0 2px 12px #38bdf8', padding: '18px 28px', minWidth: 260 }}>
         <h2 style={{ color: '#fff', fontWeight: 'bold', marginBottom: 8 }}>Weather</h2>
-        <div style={{ color: '#38bdf8', fontSize: 18, marginBottom: 6 }}>{weatherData.weather[0].main} ({weatherData.weather[0].description})</div>
+        <div style={{ color: '#38bdf8', fontSize: 18, marginBottom: 6 }}>
+          {weatherData.weather[0].main} ({weatherData.weather[0].description})
+        </div>
         <div style={{ color: '#fff', fontSize: 15 }}>🌡️ Temp: {weatherData.main.temp}°C</div>
         <div style={{ color: '#fff', fontSize: 15 }}>💧 Humidity: {weatherData.main.humidity}%</div>
-        <div style={{ color: '#fff', fontSize: 15 }}>🌬️ Wind: {weatherData.wind.speed} m/s</div>
       </div>
     )}
     {/* Notification Center */}

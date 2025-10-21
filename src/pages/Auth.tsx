@@ -78,7 +78,7 @@ const Auth = () => {
   }
 
   return (
-  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary dark:from-secondary-dark dark:via-background dark:to-primary-dark p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary dark:from-secondary-dark dark:via-background dark:to-primary-dark p-4 pt-20">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">

@@ -285,7 +285,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
       <Navigation />
-      <div className="pt-20">
+      <div className="pt-4">
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-6xl mx-auto">
             {/* Welcome Header */}

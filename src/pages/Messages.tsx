@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/Navigation';
 import { ChatWindow } from '@/components/ChatWindow';
+import {FriendChatWindow} from '@/components/FriendChatWindow';
 import { MeetupDialog } from '@/components/MeetupDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -250,16 +251,13 @@ const Messages = () => {
                       onCreateMeetup={() => setMeetupDialogOpen(true)}
                     />
                   ) : selectedFriend ? (
-                    <CardContent className="p-0 h-full flex items-center justify-center">
-                      <div className="text-center text-muted-foreground">
-                        <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p className="text-lg font-medium mb-2">Private messaging with {selectedFriend.first_name}</p>
-                        <p className="text-sm">Direct messaging feature coming soon!</p>
-                        <p className="text-xs mt-2 text-muted-foreground">
-                          For now, you can chat in shared bubbles or use the call feature.
-                        </p>
-                      </div>
-                    </CardContent>
+                    <FriendChatWindow
+                      friend={selectedFriend}
+                      onStartCall={() => {
+                        // TODO: Implement call functionality
+                        console.log('Starting call with', selectedFriend.first_name);
+                      }}
+                    />
                   ) : (
                     <CardContent className="p-0 h-full flex items-center justify-center">
                       <div className="text-center text-muted-foreground">

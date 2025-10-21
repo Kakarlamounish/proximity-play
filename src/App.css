@@ -123,6 +123,17 @@
 }
 
 /* Responsive Design */
+@media (max-width: 1024px) {
+  .nav-center {
+    gap: 1.5rem;
+  }
+
+  .nav-center a {
+    padding: 0.5rem 0.875rem;
+    font-size: 0.9rem;
+  }
+}
+
 @media (max-width: 768px) {
   .app-nav {
     padding: 0.5rem 1rem;

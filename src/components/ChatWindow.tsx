@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Send, MoreVertical, Users, Calendar, ImageIcon, Paperclip } from 'lucide-react';
+import { Send, MoreVertical, Users, Calendar, ImageIcon, Paperclip, Type, Video } from 'lucide-react';
 import { ImageUpload } from '@/components/ImageUpload';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { supabase } from '@/integrations/supabase/client';
@@ -80,6 +80,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
   const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [showImageUpload, setShowImageUpload] = useState(false);
+  const [messageType, setMessageType] = useState<'text' | 'video'>('text');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -207,21 +208,38 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !user) return;
+
+    if (messageType === 'text') {
+      if (!newMessage.trim() || !user) return;
+    } else if (messageType === 'video') {
+      // Video recording not implemented yet
+      toast({
+        title: 'Video recording',
+        description: 'Video message feature is coming soon!',
+        variant: 'default',
+      });
+      return;
+    }
 
     setLoading(true);
     try {
+      const content = messageType === 'text'
+        ? newMessage.trim()
+        : '🎥 Video message (feature coming soon)';
+
       const { error } = await supabase
         .from('messages')
         .insert({
-          content: newMessage.trim(),
+          content,
           sender_id: user.id,
           bubble_id: bubble.id
         });
 
       if (error) throw error;
 
-      setNewMessage('');
+      if (messageType === 'text') {
+        setNewMessage('');
+      }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       toast({
@@ -362,6 +380,30 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
 
       {/* Message Input */}
       <form onSubmit={handleSendMessage} className="p-4 border-t">
+        {/* Message Type Selector */}
+        <div className="flex gap-2 mb-3">
+          <Button
+            type="button"
+            variant={messageType === 'text' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setMessageType('text')}
+            className="flex items-center gap-2"
+          >
+            <Type className="h-4 w-4" />
+            Text
+          </Button>
+          <Button
+            type="button"
+            variant={messageType === 'video' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setMessageType('video')}
+            className="flex items-center gap-2"
+          >
+            <Video className="h-4 w-4" />
+            Video
+          </Button>
+        </div>
+
         <div className="flex gap-2">
           <Button
             type="button"
@@ -373,16 +415,26 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
           >
             <ImageIcon className="h-4 w-4" />
           </Button>
-          <Input
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
-            disabled={loading || !insideGeofence}
-            className="flex-1"
-          />
+
+          {messageType === 'text' ? (
+            <Input
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Type a message..."
+              disabled={loading || !insideGeofence}
+              className="flex-1"
+            />
+          ) : (
+            <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-muted rounded-md border-2 border-dashed border-muted-foreground/30">
+              <Video className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Tap to record video message</span>
+              <span className="text-xs text-muted-foreground/70">(Coming soon)</span>
+            </div>
+          )}
+
           <Button
             type="submit"
-            disabled={loading || !newMessage.trim() || !insideGeofence}
+            disabled={loading || (messageType === 'text' && !newMessage.trim()) || !insideGeofence}
             className="bg-gradient-to-r from-secondary to-primary flex-shrink-0"
           >
             <Send className="h-4 w-4" />

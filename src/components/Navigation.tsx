@@ -79,9 +79,12 @@ export function Navigation(): JSX.Element {
 
       <div className="nav-center">
         <Link to="/">Home</Link>
+        <Link to="/discover">Discover</Link>
         <Link to="/messages">Messages</Link>
         <Link to="/live">Live</Link>
         <Link to="/stories">Stories</Link>
+        <Link to="/maps">Maps</Link>
+        <Link to="/friends">Friends</Link>
       </div>
 
       <div className="nav-right">

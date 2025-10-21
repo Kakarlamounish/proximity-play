@@ -290,6 +290,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
       <Navigation profile={profile} />
+      <div style={{ paddingTop: '80px' }}>
       
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
@@ -569,6 +570,7 @@ const Index = () => {
             )}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

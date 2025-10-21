@@ -89,27 +89,22 @@ const Index = () => {
     if (!user) return;
 
     try {
-      // Count user's stories
-      const { count: storiesCount } = await supabase
-        .from('location_stories')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
+      // Count user's stories - temporarily disabled due to table name mismatch
+      const storiesCount = 0;
 
-      // Count reactions received on user's stories
-      const { data: userStories } = await supabase
-        .from('location_stories')
-        .select('id')
-        .eq('user_id', user.id);
+      // Count reactions received on user's stories - temporarily disabled
+      const userStories: any[] = [];
 
       let reactionsCount = 0;
-      if (userStories && userStories.length > 0) {
-        const storyIds = userStories.map(s => s.id);
-        const { count } = await supabase
-          .from('story_reactions')
-          .select('*', { count: 'exact', head: true })
-          .in('story_id', storyIds);
-        reactionsCount = count || 0;
-      }
+      // Temporarily disabled due to table name mismatch
+      // if (userStories && userStories.length > 0) {
+      //   const storyIds = userStories.map(s => s.id);
+      //   const { count } = await supabase
+      //     .from('story_reactions')
+      //     .select('*', { count: 'exact', head: true })
+      //     .in('story_id', storyIds);
+      //   reactionsCount = count || 0;
+      // }
 
       // Count friends
       const { data: friendships } = await supabase
@@ -289,221 +284,261 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
-      <Navigation profile={profile} />
+      <Navigation />
       <div style={{ paddingTop: '80px' }}>
-      
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
-          {/* Welcome Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold mb-4">
-              Welcome{profile?.first_name ? `, ${profile.first_name}` : ''}! 
-              <Sparkles className="inline-block ml-2 h-8 w-8 text-primary" />
-            </h1>
-            <p className="text-lg text-muted-foreground">
-              Discover social bubbles near you and connect with like-minded people
-            </p>
-            
-            {/* Quick Actions */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-6">
-              <SearchDialog />
-              <CreateBubbleDialog onBubbleCreated={refreshBubbles} />
-            </div>
-          </div>
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-6xl mx-auto">
+            {/* Welcome Header */}
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold mb-4">
+                Welcome{profile?.first_name ? `, ${profile.first_name}` : ''}!
+                <Sparkles className="inline-block ml-2 h-8 w-8 text-primary" />
+              </h1>
+              <p className="text-lg text-muted-foreground">
+                Discover social bubbles near you and connect with like-minded people
+              </p>
 
-          {/* Location Status */}
-          <Card className="backdrop-blur-sm bg-card/95 border-0 mb-8">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <MapPin className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="font-medium">Location Status</p>
-                    {locationLoading ? (
-                      <p className="text-sm text-muted-foreground">Getting your location...</p>
-                    ) : locationError ? (
-                      <p className="text-sm text-destructive">{locationError}</p>
-                    ) : latitude && longitude ? (
-                      <p className="text-sm text-muted-foreground">
-                        Location found • Showing bubbles within {radius}km
-                      </p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">Location not available</p>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  <Select value={radius} onValueChange={setRadius}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0.5">500m</SelectItem>
-                      <SelectItem value="1">1km</SelectItem>
-                      <SelectItem value="2">2km</SelectItem>
-                      <SelectItem value="5">5km</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={refreshBubbles}
-                    disabled={locationLoading}
-                  >
-                    <RefreshCw className={`h-4 w-4 ${locationLoading ? 'animate-spin' : ''}`} />
-                  </Button>
-                </div>
+              {/* Quick Actions */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-6">
+                <SearchDialog />
+                <CreateBubbleDialog onBubbleCreated={refreshBubbles} />
               </div>
-            </CardContent>
-          </Card>
-
-          {/* User Stats & Gamification */}
-          {profile && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-              {/* Level & XP Card */}
-              <Card className="backdrop-blur-sm bg-card/95 border-0 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-secondary to-primary"></div>
-                <CardContent className="p-4 text-center">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Trophy className="h-5 w-5 text-yellow-500" />
-                    <span className="text-2xl font-bold text-primary">Level {userStats.level}</span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2 mb-2">
-                    <div
-                      className="bg-gradient-to-r from-secondary to-primary h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${(userStats.xp / 100) * 100}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{userStats.xp}/100 XP</p>
-                </CardContent>
-              </Card>
-
-              <Card className="backdrop-blur-sm bg-card/95 border-0">
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-primary">{bubbles.filter(b => b.is_member).length}</div>
-                  <p className="text-sm text-muted-foreground">Joined Bubbles</p>
-                </CardContent>
-              </Card>
-              <Card className="backdrop-blur-sm bg-card/95 border-0">
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-primary">{userStats.storiesCreated}</div>
-                  <p className="text-sm text-muted-foreground">Stories Created</p>
-                </CardContent>
-              </Card>
-              <Card className="backdrop-blur-sm bg-card/95 border-0">
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-primary">{userStats.friendsCount}</div>
-                  <p className="text-sm text-muted-foreground">Friends</p>
-                </CardContent>
-              </Card>
             </div>
-          )}
 
-          {/* Your Interests */}
-          {profile?.interests && profile.interests.length > 0 && (
+            {/* Location Status */}
             <Card className="backdrop-blur-sm bg-card/95 border-0 mb-8">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Your Interests
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {profile.interests.map((interest: string, index: number) => (
-                    <Badge key={index} variant="secondary">
-                      {interest}
-                    </Badge>
-                  ))}
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <MapPin className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium">Location Status</p>
+                      {locationLoading ? (
+                        <p className="text-sm text-muted-foreground">Getting your location...</p>
+                      ) : locationError ? (
+                        <p className="text-sm text-destructive">{locationError}</p>
+                      ) : latitude && longitude ? (
+                        <p className="text-sm text-muted-foreground">
+                          Location found • Showing bubbles within {radius}km
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Location not available</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Select value={radius} onValueChange={setRadius}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0.5">500m</SelectItem>
+                        <SelectItem value="1">1km</SelectItem>
+                        <SelectItem value="2">2km</SelectItem>
+                        <SelectItem value="5">5km</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={refreshBubbles}
+                      disabled={locationLoading}
+                    >
+                      <RefreshCw className={`h-4 w-4 ${locationLoading ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          )}
 
-          {/* Activity Feed */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-            <div className="lg:col-span-2">
-              <ActivityFeed limit={8} />
-            </div>
-            <div>
-              <Card className="backdrop-blur-sm bg-card/95 border-0">
+            {/* User Stats & Gamification */}
+            {profile && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                {/* Level & XP Card */}
+                <Card className="backdrop-blur-sm bg-card/95 border-0 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-secondary to-primary"></div>
+                  <CardContent className="p-4 text-center">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <Trophy className="h-5 w-5 text-yellow-500" />
+                      <span className="text-2xl font-bold text-primary">Level {userStats.level}</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2 mb-2">
+                      <div
+                        className="bg-gradient-to-r from-secondary to-primary h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${(userStats.xp / 100) * 100}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{userStats.xp}/100 XP</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="backdrop-blur-sm bg-card/95 border-0">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-primary">{bubbles.filter(b => b.is_member).length}</div>
+                    <p className="text-sm text-muted-foreground">Joined Bubbles</p>
+                  </CardContent>
+                </Card>
+                <Card className="backdrop-blur-sm bg-card/95 border-0">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-primary">{userStats.storiesCreated}</div>
+                    <p className="text-sm text-muted-foreground">Stories Created</p>
+                  </CardContent>
+                </Card>
+                <Card className="backdrop-blur-sm bg-card/95 border-0">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-primary">{userStats.friendsCount}</div>
+                    <p className="text-sm text-muted-foreground">Friends</p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Your Interests */}
+            {profile?.interests && profile.interests.length > 0 && (
+              <Card className="backdrop-blur-sm bg-card/95 border-0 mb-8">
                 <CardHeader>
-                  <CardTitle>Quick Stats</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Your Interests
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Active Bubbles</span>
-                      <span className="font-medium">{bubbles.filter(b => b.is_member).length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Nearby Options</span>
-                      <span className="font-medium">{bubbles.length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Your Interests</span>
-                      <span className="font-medium">{profile?.interests?.length || 0}</span>
-                    </div>
+                  <div className="flex flex-wrap gap-2">
+                    {profile.interests.map((interest: string, index: number) => (
+                      <Badge key={index} variant="secondary">
+                        {interest}
+                      </Badge>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
-            </div>
-          </div>
+            )}
 
-          {/* Trending Bubbles */}
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-              🔥 Trending Bubbles
-              <Badge variant="secondary" className="text-xs">Hot</Badge>
-            </h2>
-            
-            {bubblesLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            {/* Activity Feed */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+              <div className="lg:col-span-2">
+                <ActivityFeed limit={8} />
               </div>
-            ) : bubbles.length === 0 ? (
-              <Card className="backdrop-blur-sm bg-card/95 border-0">
-                <CardContent className="p-12 text-center">
-                  <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold mb-2">No bubbles found nearby</h3>
-                  <p className="text-muted-foreground mb-4">
-                    {locationError 
-                      ? 'Enable location access to discover bubbles near you'
-                      : 'Try expanding your search radius or check back later'
-                    }
-                  </p>
-                  {locationError && (
-                    <Button onClick={requestLocation} className="bg-gradient-to-r from-secondary to-primary">
-                      Enable Location
-                    </Button>
+              <div>
+                <Card className="backdrop-blur-sm bg-card/95 border-0">
+                  <CardHeader>
+                    <CardTitle>Quick Stats</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Active Bubbles</span>
+                        <span className="font-medium">{bubbles.filter(b => b.is_member).length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Nearby Options</span>
+                        <span className="font-medium">{bubbles.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Your Interests</span>
+                        <span className="font-medium">{profile?.interests?.length || 0}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Trending Bubbles */}
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                🔥 Trending Bubbles
+                <Badge variant="secondary" className="text-xs">Hot</Badge>
+              </h2>
+
+              {bubblesLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : bubbles.length === 0 ? (
+                <Card className="backdrop-blur-sm bg-card/95 border-0">
+                  <CardContent className="p-12 text-center">
+                    <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="text-lg font-semibold mb-2">No bubbles found nearby</h3>
+                    <p className="text-muted-foreground mb-4">
+                      {locationError
+                        ? 'Enable location access to discover bubbles near you'
+                        : 'Try expanding your search radius or check back later'
+                      }
+                    </p>
+                    {locationError && (
+                      <Button onClick={requestLocation} className="bg-gradient-to-r from-secondary to-primary">
+                        Enable Location
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-8">
+                  {/* Show trending bubbles first if available */}
+                  {trendingBubbles.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        🔥 Hot Right Now
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                        {trendingBubbles.slice(0, 3).map((bubble) => (
+                          <BubbleCard
+                            key={`trending-${bubble.id}`}
+                            bubble={{...bubble, trending: true, created_at: bubble.created_at || '', creator_id: bubble.creator_id || '', is_private: bubble.is_private || false, updated_at: bubble.updated_at || ''}}
+                            onChat={handleChatClick}
+                            onJoin={(bubbleId) => {
+                              setBubbles(prev =>
+                                prev.map(b =>
+                                  b.id === bubbleId
+                                    ? { ...b, is_member: true, member_count: b.member_count + 1 }
+                                    : b
+                                )
+                              );
+                              setTrendingBubbles(prev =>
+                                prev.map(b =>
+                                  b.id === bubbleId
+                                    ? { ...b, is_member: true, member_count: b.member_count + 1 }
+                                    : b
+                                )
+                              );
+                            }}
+                            onLeave={(bubbleId) => {
+                              setBubbles(prev =>
+                                prev.map(b =>
+                                  b.id === bubbleId
+                                    ? { ...b, is_member: false, member_count: Math.max(0, b.member_count - 1) }
+                                    : b
+                                )
+                              );
+                              setTrendingBubbles(prev =>
+                                prev.map(b =>
+                                  b.id === bubbleId
+                                    ? { ...b, is_member: false, member_count: Math.max(0, b.member_count - 1) }
+                                    : b
+                                )
+                              );
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   )}
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-8">
-                {/* Show trending bubbles first if available */}
-                {trendingBubbles.length > 0 && (
+
+                  {/* Regular nearby bubbles */}
                   <div>
-                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      🔥 Hot Right Now
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                      {trendingBubbles.slice(0, 3).map((bubble) => (
+                    <h3 className="text-lg font-semibold mb-4">Nearby Bubbles</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {bubbles.map((bubble) => (
                         <BubbleCard
-                          key={`trending-${bubble.id}`}
-                          bubble={{...bubble, trending: true}}
+                          key={bubble.id}
+                          bubble={{...bubble, created_at: bubble.created_at || '', creator_id: bubble.creator_id || '', is_private: bubble.is_private || false, updated_at: bubble.updated_at || ''}}
                           onChat={handleChatClick}
                           onJoin={(bubbleId) => {
+                            // Refresh bubbles to update membership status
                             setBubbles(prev =>
-                              prev.map(b =>
-                                b.id === bubbleId
-                                  ? { ...b, is_member: true, member_count: b.member_count + 1 }
-                                  : b
-                              )
-                            );
-                            setTrendingBubbles(prev =>
                               prev.map(b =>
                                 b.id === bubbleId
                                   ? { ...b, is_member: true, member_count: b.member_count + 1 }
@@ -512,14 +547,8 @@ const Index = () => {
                             );
                           }}
                           onLeave={(bubbleId) => {
+                            // Refresh bubbles to update membership status
                             setBubbles(prev =>
-                              prev.map(b =>
-                                b.id === bubbleId
-                                  ? { ...b, is_member: false, member_count: Math.max(0, b.member_count - 1) }
-                                  : b
-                              )
-                            );
-                            setTrendingBubbles(prev =>
                               prev.map(b =>
                                 b.id === bubbleId
                                   ? { ...b, is_member: false, member_count: Math.max(0, b.member_count - 1) }
@@ -531,46 +560,11 @@ const Index = () => {
                       ))}
                     </div>
                   </div>
-                )}
-
-                {/* Regular nearby bubbles */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Nearby Bubbles</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {bubbles.map((bubble) => (
-                      <BubbleCard
-                        key={bubble.id}
-                        bubble={bubble}
-                        onChat={handleChatClick}
-                        onJoin={(bubbleId) => {
-                          // Refresh bubbles to update membership status
-                          setBubbles(prev =>
-                            prev.map(b =>
-                              b.id === bubbleId
-                                ? { ...b, is_member: true, member_count: b.member_count + 1 }
-                                : b
-                            )
-                          );
-                        }}
-                        onLeave={(bubbleId) => {
-                          // Refresh bubbles to update membership status
-                          setBubbles(prev =>
-                            prev.map(b =>
-                              b.id === bubbleId
-                                ? { ...b, is_member: false, member_count: Math.max(0, b.member_count - 1) }
-                                : b
-                            )
-                          );
-                        }}
-                      />
-                    ))}
-                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
-      </div>
       </div>
     </div>
   );

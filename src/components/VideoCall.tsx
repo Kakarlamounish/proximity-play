@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import SimplePeer from 'simple-peer';
-import { RealtimeChannel } from '@supabase/supabase-js';
+// removed potentially incompatible RealtimeChannel import
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
@@ -40,12 +40,13 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  // use a loose type here to avoid runtime issues if supabase types differ
+  const channelRef = useRef<any | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
   const sendSignal = useCallback(async (signal: SimplePeer.SignalData) => {
-    console.log('VideoCall: Sending WebRTC signal:', signal.type);
+    console.log('VideoCall: Sending WebRTC signal:', signal);
     try {
       const { error } = await supabase
         .from('messages')
@@ -66,13 +67,20 @@ export const VideoCall: React.FC<VideoCallProps> = ({
 
   const listenForSignals = useCallback((peerInstance: SimplePeer.Instance) => {
     console.log('VideoCall: Setting up signal listener for bubble:', bubbleId);
+    // cleanup existing channel
     if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
+      try {
+        supabase.removeChannel(channelRef.current);
+      } catch (e) {
+        console.warn('VideoCall: Failed to remove existing channel', e);
+      }
+      channelRef.current = null;
     }
 
-    channelRef.current = supabase
-      .channel(`call-${bubbleId}-${Date.now()}`) // Add timestamp to make channel unique
-      .on(
+    // create channel, attach listener, then subscribe and keep the channel ref
+    try {
+      const channel = supabase.channel(`call-${bubbleId}-${Date.now()}`);
+      channel.on(
         'postgres_changes',
         {
           event: 'INSERT',
@@ -80,35 +88,39 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           table: 'messages',
           filter: `bubble_id=eq.${bubbleId}`,
         },
-        (payload) => {
-          console.log('VideoCall: Received message:', payload.new);
+        (payload: any) => {
           try {
-            const message = payload.new;
-            if (message.sender_id !== user?.id && message.content) {
-              const parsed = JSON.parse(message.content);
-              console.log('VideoCall: Parsed message content:', parsed);
-              if (parsed.type === 'webrtc_signal' && parsed.signal) {
-                console.log('VideoCall: Applying WebRTC signal:', parsed.signal.type);
-                // Add small delay to ensure peer is ready
-                setTimeout(() => {
-                  try {
-                    peerInstance.signal(parsed.signal);
-                    console.log('VideoCall: Signal applied successfully');
-                  } catch (signalError) {
-                    console.error('VideoCall: Error applying signal:', signalError);
-                  }
-                }, 100);
-              }
+            console.log('VideoCall: Received message payload:', payload?.new);
+            const message = payload?.new;
+            if (!message) return;
+            if (message.sender_id === user?.id) return; // ignore own messages
+            if (!message.content) return;
+            const parsed = JSON.parse(message.content);
+            console.log('VideoCall: Parsed message content:', parsed);
+            if (parsed.type === 'webrtc_signal' && parsed.signal) {
+              // small delay to ensure peer is ready
+              setTimeout(() => {
+                try {
+                  peerInstance.signal(parsed.signal);
+                  console.log('VideoCall: Signal applied successfully');
+                } catch (signalError) {
+                  console.error('VideoCall: Error applying signal:', signalError);
+                }
+              }, 100);
             }
           } catch (error) {
-            console.error('VideoCall: Error processing signal:', error);
+            console.error('VideoCall: Error processing incoming message:', error);
           }
         }
-      )
-      .subscribe((status) => {
-        console.log('VideoCall: Subscription status:', status);
-      });
-    console.log('VideoCall: Signal listener subscribed');
+      );
+      // subscribe and store the channel reference for later removal
+      // subscribe may be sync or async depending on supabase version
+      const sub = channel.subscribe();
+      channelRef.current = channel;
+      console.log('VideoCall: Signal listener subscribed', sub);
+    } catch (err) {
+      console.error('VideoCall: Failed to setup realtime channel', err);
+    }
   }, [bubbleId, user?.id]);
 
   const initializeCall = useCallback(async () => {
@@ -125,7 +137,13 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       setLocalStream(stream);
 
       if (callType === 'video' && localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
+        try {
+          localVideoRef.current.srcObject = stream;
+          // some browsers require play() call
+          localVideoRef.current.play().catch(() => {});
+        } catch (e) {
+          console.warn('VideoCall: local video assignment failed', e);
+        }
       }
 
       const newPeer = new SimplePeer({
@@ -142,7 +160,8 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       console.log('VideoCall: Created SimplePeer instance, initiator:', isInitiator);
 
       newPeer.on('signal', (data: SimplePeer.SignalData) => {
-        console.log('VideoCall: Peer generated signal:', data.type);
+        console.log('VideoCall: Peer generated signal (raw):', data);
+        // avoid assuming data.type exists
         sendSignal(data);
       });
 
@@ -155,11 +174,16 @@ export const VideoCall: React.FC<VideoCallProps> = ({
         });
       });
 
-      newPeer.on('stream', (remoteStream) => {
-        console.log('VideoCall: Received remote stream:', remoteStream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled })));
-        setRemoteStream(remoteStream);
+      newPeer.on('stream', (incomingRemoteStream: MediaStream) => {
+        console.log('VideoCall: Received remote stream:', incomingRemoteStream?.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled })));
+        setRemoteStream(incomingRemoteStream);
         if (callType === 'video' && remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = remoteStream;
+          try {
+            remoteVideoRef.current.srcObject = incomingRemoteStream;
+            remoteVideoRef.current.play().catch(() => {});
+          } catch (e) {
+            console.warn('VideoCall: remote video assignment failed', e);
+          }
         }
       });
 
@@ -188,6 +212,8 @@ export const VideoCall: React.FC<VideoCallProps> = ({
         description: 'Could not access camera/microphone.',
         variant: 'destructive',
       });
+      // mark call as ended to avoid stuck UI
+      setCallStatus('ended');
     }
   }, [callType, isInitiator, user?.id, bubbleId, onCallEnd, toast, sendSignal, listenForSignals]);
 
@@ -215,6 +241,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     }
 
     if (remoteStream) {
+      // don't try to stop remote tracks (they belong to other peer) — just clear
       setRemoteStream(null);
     }
 

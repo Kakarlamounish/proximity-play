@@ -163,52 +163,57 @@ export function Navigation(): JSX.Element {
         </div>
 
         {/* Mobile Navigation Menu */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden border-t border-white/10 bg-gradient-to-r from-secondary/95 via-primary/95 to-secondary/95 backdrop-blur-lg animate-in slide-in-from-top-2 duration-200">
-            <div className="px-2 pt-2 pb-3 space-y-1">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={`block px-3 py-2 rounded-lg text-base font-medium transition-all duration-200 ${
-                    isActive(link.to)
-                      ? 'bg-white/20 text-white shadow-md'
-                      : 'text-white/80 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
+        <div className={`md:hidden absolute top-full left-0 right-0 bg-gradient-to-r from-secondary/95 via-primary/95 to-secondary/95 backdrop-blur-lg border-t border-white/10 shadow-2xl transition-all duration-300 ease-in-out ${
+          isMobileMenuOpen
+            ? 'opacity-100 visible transform translate-y-0'
+            : 'opacity-0 invisible transform -translate-y-4'
+        }`}>
+          <div className="px-4 pt-4 pb-6 space-y-2 max-h-[calc(100vh-4rem)] overflow-y-auto">
+            {navLinks.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`block px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
+                  isActive(link.to)
+                    ? 'bg-white/20 text-white shadow-lg border border-white/20'
+                    : 'text-white/80 hover:text-white hover:bg-white/10 hover:translate-x-1'
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
 
-              <div className="border-t border-white/10 pt-3 mt-3">
-                <Link
-                  to="/settings"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center space-x-3 px-3 py-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200"
-                >
-                  <span>⚙️</span>
-                  <span>Settings</span>
-                </Link>
+            <div className="border-t border-white/10 pt-4 mt-4">
+              <Link
+                to="/settings"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 hover:translate-x-1"
+              >
+                <span className="text-lg">⚙️</span>
+                <span className="font-medium">Settings</span>
+              </Link>
 
-                <Link
-                  to="/profile"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center space-x-3 px-3 py-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200"
-                >
-                  <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white/20">
-                    <img
-                      src={avatarUrl ?? '/placeholder.svg'}
-                      alt="avatar"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <span className="font-medium">{userName ?? 'User'}</span>
-                </Link>
-              </div>
+              <Link
+                to="/profile"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 hover:translate-x-1"
+              >
+                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20 flex-shrink-0">
+                  <img
+                    src={avatarUrl ?? '/placeholder.svg'}
+                    alt="avatar"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium block truncate">{userName ?? 'User'}</span>
+                  <span className="text-xs text-white/60">View Profile</span>
+                </div>
+              </Link>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </nav>
   );

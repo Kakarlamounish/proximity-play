@@ -47,40 +47,52 @@ export const BubbleCard: React.FC<BubbleCardProps> = ({
 
   const handleJoinLeave = async () => {
     if (!user) return;
-    
+
+    console.log('BubbleCard: Handling join/leave for bubble:', bubble.id, 'current member status:', isMember);
     setIsLoading(true);
     try {
       if (isMember) {
         // Leave bubble
-        const { error } = await supabase
+        console.log('BubbleCard: Leaving bubble');
+        const { error, count } = await supabase
           .from('bubble_memberships')
-          .delete()
+          .delete({ count: 'exact' })
           .eq('user_id', user.id)
           .eq('bubble_id', bubble.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('BubbleCard: Error leaving bubble:', error);
+          throw error;
+        }
 
+        console.log('BubbleCard: Successfully left bubble, deleted rows:', count);
         setIsMember(false);
         onLeave?.(bubble.id);
-        
+
         toast({
           title: 'Left bubble',
           description: `You left ${bubble.name}`,
         });
       } else {
         // Join bubble
-        const { error } = await supabase
+        console.log('BubbleCard: Joining bubble');
+        const { error, data } = await supabase
           .from('bubble_memberships')
           .insert({
             user_id: user.id,
             bubble_id: bubble.id,
-          });
+          })
+          .select();
 
-        if (error) throw error;
+        if (error) {
+          console.error('BubbleCard: Error joining bubble:', error);
+          throw error;
+        }
 
+        console.log('BubbleCard: Successfully joined bubble, inserted data:', data);
         setIsMember(true);
         onJoin?.(bubble.id);
-        
+
         toast({
           title: 'Joined bubble!',
           description: `Welcome to ${bubble.name}`,
@@ -88,6 +100,7 @@ export const BubbleCard: React.FC<BubbleCardProps> = ({
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      console.error('BubbleCard: Join/leave operation failed:', errorMessage);
       toast({
         title: 'Error',
         description: errorMessage,

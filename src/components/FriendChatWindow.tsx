@@ -95,7 +95,7 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
     if (!user || !friend.id) return;
 
     const channel = supabase
-      .channel('friend-messages')
+      .channel(`friend-messages-${friend.id}-${Date.now()}`) // Make channel unique
       .on(
         'postgres_changes',
         {
@@ -105,26 +105,35 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
           filter: `recipient_id=eq.${user.id}`,
         },
         async (payload) => {
+          console.log('FriendChatWindow: Received message:', payload.new);
           // Only process messages from this friend
           if (payload.new.sender_id === friend.id) {
-            const { data: senderData } = await supabase
-              .from('profiles')
-              .select('first_name, profile_photo_url')
-              .eq('id', payload.new.sender_id)
-              .single();
+            try {
+              const { data: senderData } = await supabase
+                .from('profiles')
+                .select('first_name, profile_photo_url')
+                .eq('id', payload.new.sender_id)
+                .single();
 
-            const newMessage = {
-              ...payload.new,
-              sender: senderData
-            } as Message;
+              const newMessage = {
+                ...payload.new,
+                sender: senderData
+              } as Message;
 
-            setMessages(prev => [...prev, newMessage]);
+              setMessages(prev => [...prev, newMessage]);
+              console.log('FriendChatWindow: Added friend message to state');
+            } catch (error) {
+              console.error('FriendChatWindow: Error processing friend message:', error);
+            }
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('FriendChatWindow: Subscription status:', status);
+      });
 
     return () => {
+      console.log('FriendChatWindow: Cleaning up subscription');
       supabase.removeChannel(channel);
     };
   }, [user, friend.id]);

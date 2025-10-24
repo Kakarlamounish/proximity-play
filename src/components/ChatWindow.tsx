@@ -51,11 +51,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
 
   // Get user location and check geofence
   useEffect(() => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      console.log('ChatWindow: Geolocation not available');
+      setInsideGeofence(true); // Allow chat if geolocation unavailable
+      return;
+    }
+    console.log('ChatWindow: Starting geolocation watch');
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
+        console.log('ChatWindow: User location update:', { lat, lng });
         setUserLocation([lat, lng]);
         // Haversine formula
         const R = 6371000;
@@ -66,12 +72,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
           Math.sin(dLon / 2) * Math.sin(dLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const dist = R * c;
-        setInsideGeofence(dist <= bubbleRadius);
+        const inside = dist <= bubbleRadius;
+        console.log('ChatWindow: Distance from bubble center:', dist, 'meters, inside geofence:', inside);
+        setInsideGeofence(inside);
       },
-      (err) => {},
+      (err) => {
+        console.error('ChatWindow: Geolocation error:', err);
+        // Allow chat on geolocation errors to not block functionality
+        setInsideGeofence(true);
+      },
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
     );
-    return () => navigator.geolocation.clearWatch(watchId);
+    return () => {
+      console.log('ChatWindow: Clearing geolocation watch');
+      navigator.geolocation.clearWatch(watchId);
+    };
   }, [bubbleCenter, bubbleRadius]);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -168,8 +183,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
   useEffect(() => {
     if (!bubble.id) return;
 
+    console.log('ChatWindow: Setting up real-time subscription for bubble:', bubble.id);
     const channel = supabase
-      .channel('chat-messages')
+      .channel(`chat-messages-${bubble.id}-${Date.now()}`) // Make channel unique
       .on(
         'postgres_changes',
         {
@@ -179,24 +195,33 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
           filter: `bubble_id=eq.${bubble.id}`,
         },
         async (payload) => {
-          // Fetch sender info for new message
-          const { data: senderData } = await supabase
-            .from('profiles')
-            .select('first_name, profile_photo_url')
-            .eq('id', payload.new.sender_id)
-            .single();
+          console.log('ChatWindow: Received new message:', payload.new);
+          try {
+            // Fetch sender info for new message
+            const { data: senderData } = await supabase
+              .from('profiles')
+              .select('first_name, profile_photo_url')
+              .eq('id', payload.new.sender_id)
+              .single();
 
-          const newMessage = {
-            ...payload.new,
-            sender: senderData
-          } as Message;
+            const newMessage = {
+              ...payload.new,
+              sender: senderData
+            } as Message;
 
-          setMessages(prev => [...prev, newMessage]);
+            setMessages(prev => [...prev, newMessage]);
+            console.log('ChatWindow: Added new message to state');
+          } catch (error) {
+            console.error('ChatWindow: Error processing new message:', error);
+          }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('ChatWindow: Subscription status:', status);
+      });
 
     return () => {
+      console.log('ChatWindow: Cleaning up subscription');
       supabase.removeChannel(channel);
     };
   }, [bubble.id]);
@@ -289,8 +314,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
     <div className="flex flex-col h-full">
       {/* Geofence Alert */}
       {!insideGeofence && (
-        <div className="bg-red-100 text-red-700 text-center py-2 font-semibold">
-          You are outside the group zone. Chat and content are locked until you enter the area.
+        <div className="bg-yellow-100 text-yellow-800 text-center py-2 font-semibold border-b">
+          <div className="flex items-center justify-center gap-2">
+            <span>📍</span>
+            <span>You are outside the bubble zone. Chat is available but location-based features may be limited.</span>
+          </div>
         </div>
       )}
       {/* Chat Header */}
@@ -411,7 +439,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
             size="icon"
             onClick={() => setShowImageUpload(true)}
             className="flex-shrink-0"
-            disabled={!insideGeofence}
           >
             <ImageIcon className="h-4 w-4" />
           </Button>
@@ -421,7 +448,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Type a message..."
-              disabled={loading || !insideGeofence}
+              disabled={loading}
               className="flex-1"
             />
           ) : (
@@ -434,7 +461,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
 
           <Button
             type="submit"
-            disabled={loading || (messageType === 'text' && !newMessage.trim()) || !insideGeofence}
+            disabled={loading || (messageType === 'text' && !newMessage.trim())}
             className="bg-gradient-to-r from-secondary to-primary flex-shrink-0"
           >
             <Send className="h-4 w-4" />

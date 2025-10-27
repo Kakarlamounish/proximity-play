@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/Navigation';
 import { ChatWindow } from '@/components/ChatWindow';
@@ -16,6 +16,7 @@ import { Loader2 } from 'lucide-react';
 
 const Messages = () => {
   const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
   const [bubbles, setBubbles] = useState<Database['public']['Tables']['bubbles']['Row'][]>([]);
   const [friends, setFriends] = useState<Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'first_name' | 'profile_photo_url' | 'bio'>[]>([]);

@@ -150,8 +150,8 @@ const Live = () => {
           .select('*')
           .eq('user_id', user.id)
           .single();
-         
-        if (data) setPrivacySchedule({ start: (data as unknown as { start_time: string }).start_time, end: (data as unknown as { end_time: string }).end_time });
+
+        if (data) setPrivacySchedule({ start: data.start_time, end: data.end_time });
       } catch (error) {
         // Silently handle error for non-existent table
       }

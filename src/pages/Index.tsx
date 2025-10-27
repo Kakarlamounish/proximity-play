@@ -89,22 +89,27 @@ const Index = () => {
     if (!user) return;
 
     try {
-      // Count user's stories - temporarily disabled due to table name mismatch
-      const storiesCount = 0;
+      // Count user's stories from location_stories table
+      const { count: storiesCount } = await supabase
+        .from('location_stories')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
 
-      // Count reactions received on user's stories - temporarily disabled
-      const userStories: any[] = [];
+      // Count reactions received on user's stories
+      const { data: userStories } = await supabase
+        .from('location_stories')
+        .select('id')
+        .eq('user_id', user.id);
 
       let reactionsCount = 0;
-      // Temporarily disabled due to table name mismatch
-      // if (userStories && userStories.length > 0) {
-      //   const storyIds = userStories.map(s => s.id);
-      //   const { count } = await supabase
-      //     .from('story_reactions')
-      //     .select('*', { count: 'exact', head: true })
-      //     .in('story_id', storyIds);
-      //   reactionsCount = count || 0;
-      // }
+      if (userStories && userStories.length > 0) {
+        const storyIds = userStories.map(s => s.id);
+        const { count } = await supabase
+          .from('story_reactions')
+          .select('*', { count: 'exact', head: true })
+          .in('story_id', storyIds);
+        reactionsCount = count || 0;
+      }
 
       // Count friends
       const { data: friendships } = await supabase

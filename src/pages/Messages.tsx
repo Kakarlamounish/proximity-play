@@ -254,8 +254,8 @@ const Messages = () => {
                     <FriendChatWindow
                       friend={selectedFriend}
                       onStartCall={() => {
-                        // TODO: Implement call functionality
-                        console.log('Starting call with', selectedFriend.first_name);
+                        // Navigate to calls page with selected friend
+                        navigate('/calls', { state: { selectedFriendId: selectedFriend.id } });
                       }}
                     />
                   ) : (

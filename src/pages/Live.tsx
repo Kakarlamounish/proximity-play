@@ -145,9 +145,8 @@ const Live = () => {
     if (!user) return;
     const fetchSchedule = async () => {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data } = await (supabase as any)
-          .from('privacy_schedules' as any)
+        const { data } = await supabase
+          .from('privacy_schedules')
           .select('*')
           .eq('user_id', user.id)
           .single();

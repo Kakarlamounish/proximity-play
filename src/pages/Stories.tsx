@@ -9,9 +9,7 @@ import { StoryCard } from '@/components/StoryCard';
 import { useLocation } from '@/hooks/useLocation';
 
 const Stories = () => {
-  console.log('Stories component rendering');
   const { user } = useAuth();
-  console.log('User from auth:', user);
   const [stories, setStories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [storyDialogOpen, setStoryDialogOpen] = useState(false);
@@ -20,14 +18,9 @@ const Stories = () => {
   const [userReactions, setUserReactions] = useState<{[key: string]: string}>({});
   const [storyViews, setStoryViews] = useState<{[key: string]: number}>({});
   const { latitude, longitude } = useLocation();
-  console.log('Location:', { latitude, longitude });
-
-  // Debug: Log component state changes
-  console.log('Stories state:', { stories, loading, storyDialogOpen });
 
   // Hoisted function declarations (were const before -> caused runtime ReferenceError)
   async function fetchProfile() {
-    console.log('fetchProfile called, user:', user);
     if (!user) return;
 
     try {
@@ -37,7 +30,6 @@ const Stories = () => {
         .eq('id', user.id)
         .single();
 
-      console.log('Profile data:', data);
       if (data) {
         setProfile({
           ...data,
@@ -53,11 +45,9 @@ const Stories = () => {
   }
 
   async function fetchStories() {
-    console.log('fetchStories called');
     try {
       // Get current location for filtering nearby stories
       const currentLocation = { latitude, longitude };
-      console.log('Current location for filtering:', currentLocation);
 
       let query = supabase
         .from('location_stories')
@@ -72,7 +62,6 @@ const Stories = () => {
 
       const { data } = await query;
 
-      console.log('Raw stories data from location_stories:', data);
       if (data) {
         // Filter expired stories
         const now = new Date();
@@ -92,17 +81,13 @@ const Stories = () => {
           });
         }
 
-        console.log('Filtered stories count:', filteredStories.length);
-
         // Fetch profiles for all story creators
         const userIds = [...new Set(filteredStories.map(s => s.user_id))];
-        console.log('User IDs for profiles:', userIds);
         const { data: profilesData } = await supabase
           .from('profiles')
           .select('id, first_name, profile_photo_url')
           .in('id', userIds);
 
-        console.log('Profiles data:', profilesData);
         const storiesWithProfiles = filteredStories.map(story => ({
           id: story.id,
           created_at: story.created_at,
@@ -116,7 +101,6 @@ const Stories = () => {
           visibility_radius: story.visibility_radius
         }));
 
-        console.log('Stories with profiles:', storiesWithProfiles);
         setStories(storiesWithProfiles);
       }
     } catch (error) {
@@ -140,7 +124,6 @@ const Stories = () => {
   };
 
   useEffect(() => {
-    console.log('useEffect triggered, user:', user);
     fetchStories();
     fetchProfile();
   }, [user, latitude, longitude]);
@@ -279,9 +262,7 @@ const Stories = () => {
     }
   };
 
-  console.log('Loading state:', loading);
   if (loading) {
-    console.log('Showing loading spinner');
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -289,8 +270,6 @@ const Stories = () => {
     );
   }
 
-  console.log('Rendering Stories component, stories count:', stories.length);
-  console.log('Stories data:', stories);
   return (
     <>
       <Navigation />
@@ -322,7 +301,7 @@ const Stories = () => {
               {stories.map((story) => {
                 const isExpired = new Date(story.expires_at) < new Date();
                 return (
-                  <div key={story.id} className={`stories-card bg-neutral-800 rounded-xl p-6 ${isExpired ? 'opacity-60' : ''}`}>
+                  <div key={story.id} className={`stories-card backdrop-blur-sm bg-card/95 border-0 rounded-xl p-6 ${isExpired ? 'opacity-60' : ''}`}>
                     <div className="flex items-center gap-3 mb-4">
                       <img
                         src={story.profiles?.profile_photo_url || '/avatar-placeholder.png'}
@@ -330,17 +309,17 @@ const Stories = () => {
                         className="w-10 h-10 rounded-full object-cover"
                       />
                       <div className="flex-1">
-                        <p className="font-medium text-white">{story.profiles?.first_name || 'Anonymous'}</p>
-                        <p className="text-sm text-neutral-400">
+                        <p className="font-medium">{story.profiles?.first_name || 'Anonymous'}</p>
+                        <p className="text-sm text-muted-foreground">
                           {new Date(story.created_at).toLocaleDateString()}
-                          {isExpired && <span className="text-red-400 ml-2">• Expired</span>}
+                          {isExpired && <span className="text-destructive ml-2">• Expired</span>}
                         </p>
                       </div>
                       <div className="flex gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
-                          className={`text-sm ${userReactions[story.id] === 'like' ? 'text-red-400' : 'text-neutral-400 hover:text-white'}`}
+                          className={`text-sm ${userReactions[story.id] === 'like' ? 'text-red-400' : 'text-muted-foreground hover:text-foreground'}`}
                           onClick={() => handleReaction(story.id, 'like')}
                         >
                           👍 {storyReactions[story.id]?.filter(r => r.reaction_type === 'like').length || 0}
@@ -348,7 +327,7 @@ const Stories = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className={`text-sm ${userReactions[story.id] === 'love' ? 'text-pink-400' : 'text-neutral-400 hover:text-white'}`}
+                          className={`text-sm ${userReactions[story.id] === 'love' ? 'text-pink-400' : 'text-muted-foreground hover:text-foreground'}`}
                           onClick={() => handleReaction(story.id, 'love')}
                         >
                           ❤️ {storyReactions[story.id]?.filter(r => r.reaction_type === 'love').length || 0}
@@ -356,13 +335,13 @@ const Stories = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className={`text-sm ${userReactions[story.id] === 'laugh' ? 'text-yellow-400' : 'text-neutral-400 hover:text-white'}`}
+                          className={`text-sm ${userReactions[story.id] === 'laugh' ? 'text-yellow-400' : 'text-muted-foreground hover:text-foreground'}`}
                           onClick={() => handleReaction(story.id, 'laugh')}
                         >
                           😂 {storyReactions[story.id]?.filter(r => r.reaction_type === 'laugh').length || 0}
                         </Button>
-                        <Button variant="ghost" size="sm" className="text-neutral-400 hover:text-white text-sm">
-                          👀 0
+                        <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm">
+                          👀 {storyViews[story.id] || 0}
                         </Button>
                       </div>
                     </div>
@@ -373,8 +352,8 @@ const Stories = () => {
                         className="w-full h-48 object-cover rounded-lg mb-4"
                       />
                     )}
-                    <p className="text-neutral-200 mb-3">{story.description}</p>
-                    <div className="flex items-center justify-between text-sm text-neutral-400">
+                    <p className="mb-3">{story.description}</p>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
                       {(story.latitude || story.longitude) && (
                         <span>📍 {story.latitude?.toFixed(4)}, {story.longitude?.toFixed(4)}</span>
                       )}
@@ -385,11 +364,11 @@ const Stories = () => {
               })}
             </div>
           ) : (
-            <div className="stories-card bg-neutral-800 rounded-xl p-12">
+            <div className="stories-card backdrop-blur-sm bg-card/95 border-0 rounded-xl p-12">
               <div className="text-center">
                 <div className="text-6xl mb-4">📱</div>
-                <h3 className="text-xl font-semibold text-white mb-2">No stories nearby</h3>
-                <p className="text-neutral-400 mb-6">Be the first to share a location-based story!</p>
+                <h3 className="text-xl font-semibold mb-2">No stories nearby</h3>
+                <p className="text-muted-foreground mb-6">Be the first to share a location-based story!</p>
                 <Button onClick={() => setStoryDialogOpen(true)} className="gap-2 bg-gradient-to-r from-secondary to-primary">
                   <PlusCircle className="h-5 w-5" />
                   Create Your First Story

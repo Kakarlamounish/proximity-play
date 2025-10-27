@@ -236,6 +236,42 @@ export type Database = {
           },
         ]
       }
+      location_stories: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          image_url: string | null
+          latitude: number
+          longitude: number
+          text_content: string | null
+          user_id: string
+          visibility_radius: number
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          image_url?: string | null
+          latitude: number
+          longitude: number
+          text_content?: string | null
+          user_id: string
+          visibility_radius?: number
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          image_url?: string | null
+          latitude?: number
+          longitude?: number
+          text_content?: string | null
+          user_id?: string
+          visibility_radius?: number
+        }
+        Relationships: []
+      }
       meetup_rsvps: {
         Row: {
           created_at: string | null

@@ -145,8 +145,7 @@ const Index = () => {
         // For now, let's fetch all bubbles and calculate distance client-side
         const { data: bubblesData, error } = await supabase
           .from('bubbles')
-          .select('*')
-          .limit(20);
+          .select('*');
 
         if (error) {
           console.error('Error fetching bubbles:', error);

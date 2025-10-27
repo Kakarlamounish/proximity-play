@@ -17,7 +17,7 @@ import type { Database } from '@/integrations/supabase/types';
 const INTEREST_OPTIONS = [
   'Technology', 'Fitness', 'Food', 'Music', 'Photography', 'Art', 'Books', 
   'Movies', 'Gaming', 'Sports', 'Travel', 'Nature', 'Fashion', 'Business',
-  'Education', 'Health', 'Pets', 'Crafts', 'Dancing', 'Cooking'
+  'Education', 'Health', 'Pets', 'Crafts', 'Dancing', 'Cooking','Tech'
 ];
 
 interface CreateBubbleDialogProps {
@@ -36,7 +36,7 @@ interface FormData {
 export const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({ onBubbleCreated }) => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { latitude, longitude } = useLocation();
+  const { latitude, longitude, requestLocation } = useLocation();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
@@ -50,13 +50,38 @@ export const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({ onBubble
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !latitude || !longitude) {
+    if (!user) {
       toast({
         title: 'Error',
-        description: 'Location is required to create a bubble',
+        description: 'You must be logged in to create a bubble',
         variant: 'destructive'
       });
       return;
+    }
+
+    // Try to get location, but allow bubble creation even without it
+    let bubbleLat = latitude || 0;
+    let bubbleLng = longitude || 0;
+
+    // If no location, try to request it
+    if (!latitude || !longitude) {
+      try {
+        // Request location permission and wait for it
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 300000
+          });
+        });
+        bubbleLat = position.coords.latitude;
+        bubbleLng = position.coords.longitude;
+      } catch (error) {
+        console.warn('Could not get location for bubble creation, using default coordinates');
+        // Use a default location (e.g., center of a major city) if location access fails
+        bubbleLat = 40.7128; // New York City coordinates as fallback
+        bubbleLng = -74.0060;
+      }
     }
 
     setLoading(true);
@@ -65,8 +90,8 @@ export const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({ onBubble
         name: formData.name,
         description: formData.description,
         interest_tag: formData.interest_tag,
-        latitude,
-        longitude,
+        latitude: bubbleLat,
+        longitude: bubbleLng,
         creator_id: user.id,
         is_private: formData.privacy === 'private',
         member_count: 1

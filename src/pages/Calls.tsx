@@ -76,6 +76,7 @@ const Calls = () => {
   }
 
   const startCall = (bubbleId: string, type: 'audio' | 'video') => {
+    console.log('Starting call:', { bubbleId, type });
     setActiveCall({ bubbleId, type });
   };
 
@@ -98,7 +99,7 @@ const Calls = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
-      <Navigation profile={user && profile ? { ...user, ...profile } : undefined} />
+      <Navigation />
       
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">

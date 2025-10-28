@@ -10,7 +10,7 @@ import SkipLinks from "@/components/SkipLinks";
 import WebVitals from "@/components/WebVitals";
 import { Loader2 } from "lucide-react";
 import './i18n';
-import { sentry } from '@/utils/sentry';
+import { supabase } from '@/integrations/supabase/client';
 
 // Lazy load pages for better performance
 const Index = lazy(() => import("./pages/Index"));
@@ -26,21 +26,7 @@ const Maps = lazy(() => import("./pages/Maps"));
 const Discover = lazy(() => import("./pages/Discover"));
 const Friends = lazy(() => import("./pages/Friends"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-import { createClient } from '@supabase/supabase-js';
-
 const queryClient = new QueryClient();
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL!,
-  import.meta.env.VITE_SUPABASE_ANON_KEY!,
-  {
-    auth: {
-      storage: localStorage,
-      persistSession: true,
-      autoRefreshToken: true,
-    }
-  }
-);
 
 const App = () => {
   // Force dark mode globally on app load

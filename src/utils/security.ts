@@ -150,7 +150,7 @@ export const validatePasswordStrength = (password: string): {
     score += 1;
   }
 
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>?/]/.test(password)) {
     feedback.push('Password must contain at least one special character');
   } else {
     score += 1;
@@ -228,7 +228,7 @@ export const validationRules = {
   displayName: {
     minLength: 1,
     maxLength: 50,
-    pattern: /^[^\x00-\x1F\x7F]*$/,
+    pattern: /^[^\x00-\x1F\x7F]*$/u,
     message: 'Display name must be 1-50 characters and not contain control characters',
   },
   bio: {
@@ -315,7 +315,7 @@ export class SecureStorage {
     return SecureStorage.instance;
   }
 
-  setItem(key: string, value: any): void {
+  setItem<T>(key: string, value: T): void {
     try {
       const serializedValue = JSON.stringify(value);
       // In a real implementation, you would encrypt the value here

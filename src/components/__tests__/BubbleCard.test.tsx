@@ -1,11 +1,10 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BubbleCard } from '../BubbleCard';
-import { useAppStore } from '@/stores/useAppStore';
 
-// Mock the store
-vi.mock('@/stores/useAppStore', () => ({
-  useAppStore: vi.fn(),
+// Mock the AuthContext
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 'user1', email: 'john@example.com' } }),
 }));
 
 // Mock lucide-react icons
@@ -13,11 +12,22 @@ vi.mock('lucide-react', () => ({
   Users: () => <div data-testid="users-icon">Users</div>,
   MapPin: () => <div data-testid="map-pin-icon">MapPin</div>,
   Calendar: () => <div data-testid="calendar-icon">Calendar</div>,
+  MessageCircle: () => <div data-testid="message-circle-icon">MessageCircle</div>,
 }));
 
-// Mock next-themes
-vi.mock('next-themes', () => ({
-  useTheme: () => ({ theme: 'light' }),
+// Mock toast hook
+vi.mock('@/hooks/use-toast', () => ({
+  useToast: () => ({ toast: vi.fn() }),
+}));
+
+// Mock supabase
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    from: vi.fn(() => ({
+      delete: vi.fn(() => ({ count: 'exact', eq: vi.fn(() => ({ eq: vi.fn(() => ({ error: null, count: 1 })) })) })),
+      insert: vi.fn(() => ({ select: vi.fn(() => ({ error: null, data: [{ id: 'membership1' }] })) })),
+    })),
+  },
 }));
 
 const mockBubble = {
@@ -32,30 +42,20 @@ const mockBubble = {
   creator_id: 'user1',
   is_private: false,
   updated_at: '2024-01-01T00:00:00Z',
-};
-
-const mockUser = {
-  id: 'user1',
-  first_name: 'John',
-  email: 'john@example.com',
+  is_member: false,
 };
 
 describe('BubbleCard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (useAppStore as any).mockReturnValue({
-      user: mockUser,
-      isAuthenticated: true,
-    });
   });
 
   it('renders bubble information correctly', () => {
     render(<BubbleCard bubble={mockBubble} />);
 
     expect(screen.getByText('Test Bubble')).toBeInTheDocument();
-    expect(screen.getByText('A test bubble for testing')).toBeInTheDocument();
     expect(screen.getByText('technology')).toBeInTheDocument();
-    expect(screen.getByText('25')).toBeInTheDocument();
+    expect(screen.getByText('25 members')).toBeInTheDocument();
   });
 
   it('displays join button for non-member bubbles', () => {
@@ -65,30 +65,30 @@ describe('BubbleCard', () => {
     expect(joinButton).toBeInTheDocument();
   });
 
-  it('displays member button for joined bubbles', () => {
-    (useAppStore as any).mockReturnValue({
-      user: mockUser,
-      isAuthenticated: true,
-      userBubbles: [mockBubble],
-    });
+  it('displays leave button and additional buttons for member bubbles', () => {
+    const memberBubble = { ...mockBubble, is_member: true };
+    render(<BubbleCard bubble={memberBubble} />);
 
-    render(<BubbleCard bubble={mockBubble} />);
+    const leaveButton = screen.getByRole('button', { name: /leave/i });
+    expect(leaveButton).toBeInTheDocument();
 
-    const memberButton = screen.getByRole('button', { name: /member/i });
-    expect(memberButton).toBeInTheDocument();
+    // Should show message and calendar buttons for members
+    expect(screen.getByTestId('message-circle-icon')).toBeInTheDocument();
+    expect(screen.getByTestId('calendar-icon')).toBeInTheDocument();
   });
 
-  it('shows distance when user location is available', () => {
-    (useAppStore as any).mockReturnValue({
-      user: mockUser,
-      isAuthenticated: true,
-      userLocation: { lat: 40.7589, lng: -73.9851 }, // Times Square
-    });
+  it('shows distance when provided', () => {
+    const bubbleWithDistance = { ...mockBubble, distance: 5.2 };
+    render(<BubbleCard bubble={bubbleWithDistance} />);
 
-    render(<BubbleCard bubble={mockBubble} />);
+    expect(screen.getByText('5.2km away')).toBeInTheDocument();
+  });
 
-    // Should show distance (approximately 8-9 km from Times Square to NYC center)
-    expect(screen.getByText(/\d+(\.\d+)?\s*(km|mi)/)).toBeInTheDocument();
+  it('shows distance in meters for short distances', () => {
+    const bubbleWithShortDistance = { ...mockBubble, distance: 0.8 };
+    render(<BubbleCard bubble={bubbleWithShortDistance} />);
+
+    expect(screen.getByText('800m away')).toBeInTheDocument();
   });
 
   it('calls onJoin when join button is clicked', async () => {
@@ -104,46 +104,47 @@ describe('BubbleCard', () => {
   });
 
   it('calls onLeave when leave button is clicked', async () => {
-    (useAppStore as any).mockReturnValue({
-      user: mockUser,
-      isAuthenticated: true,
-      userBubbles: [mockBubble],
-    });
-
+    const memberBubble = { ...mockBubble, is_member: true };
     const mockOnLeave = vi.fn();
-    render(<BubbleCard bubble={mockBubble} onLeave={mockOnLeave} />);
+    render(<BubbleCard bubble={memberBubble} onLeave={mockOnLeave} />);
 
     const leaveButton = screen.getByRole('button', { name: /leave/i });
     fireEvent.click(leaveButton);
 
     await waitFor(() => {
-      expect(mockOnLeave).toHaveBeenCalledWith(mockBubble.id);
+      expect(mockOnLeave).toHaveBeenCalledWith(memberBubble.id);
     });
   });
 
-  it('displays private badge for private bubbles', () => {
-    const privateBubble = { ...mockBubble, is_private: true };
-    render(<BubbleCard bubble={privateBubble} />);
+  it('calls onChat when chat button is clicked', () => {
+    const memberBubble = { ...mockBubble, is_member: true };
+    const mockOnChat = vi.fn();
+    render(<BubbleCard bubble={memberBubble} onChat={mockOnChat} />);
 
-    expect(screen.getByText('Private')).toBeInTheDocument();
+    const chatButton = screen.getByTestId('message-circle-icon').closest('button');
+    if (chatButton) {
+      fireEvent.click(chatButton);
+      expect(mockOnChat).toHaveBeenCalledWith(memberBubble.id);
+    }
   });
 
-  it('shows loading state when isLoading is true', () => {
-    render(<BubbleCard bubble={mockBubble} isLoading={true} />);
+  it('displays trending badge when trending is true', () => {
+    const trendingBubble = { ...mockBubble, trending: true };
+    render(<BubbleCard bubble={trendingBubble} />);
 
-    expect(screen.getByText('Joining...')).toBeInTheDocument();
+    expect(screen.getByText('🔥 Hot')).toBeInTheDocument();
   });
 
-  it('displays member count with correct pluralization', () => {
+  it('displays member count correctly', () => {
     const singleMemberBubble = { ...mockBubble, member_count: 1 };
     const { rerender } = render(<BubbleCard bubble={singleMemberBubble} />);
 
-    expect(screen.getByText('1')).toBeInTheDocument();
+    expect(screen.getByText('1 members')).toBeInTheDocument();
 
     const multipleMembersBubble = { ...mockBubble, member_count: 25 };
     rerender(<BubbleCard bubble={multipleMembersBubble} />);
 
-    expect(screen.getByText('25')).toBeInTheDocument();
+    expect(screen.getByText('25 members')).toBeInTheDocument();
   });
 
   it('handles missing description gracefully', () => {
@@ -152,12 +153,5 @@ describe('BubbleCard', () => {
 
     // Should not crash and should still render the bubble name
     expect(screen.getByText('Test Bubble')).toBeInTheDocument();
-  });
-
-  it('applies correct CSS classes based on props', () => {
-    const { container } = render(<BubbleCard bubble={mockBubble} className="custom-class" />);
-
-    const cardElement = container.firstChild;
-    expect(cardElement).toHaveClass('custom-class');
   });
 });

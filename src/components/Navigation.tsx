@@ -15,7 +15,7 @@ export function Navigation(): JSX.Element {
     const loadUserAndProfile = async () => {
       try {
         const { data } = await supabase.auth.getUser();
-        const user = (data as any)?.user ?? null;
+        const user = data?.user ?? null;
         if (!user) {
           if (mounted) {
             setUserName(null);
@@ -31,13 +31,13 @@ export function Navigation(): JSX.Element {
           .maybeSingle();
 
         const display =
-          (profile as any)?.full_name ||
-          (profile as any)?.username ||
+          profile?.full_name ||
+          profile?.username ||
           user.email ||
           user.id ||
           'User';
         const avatar =
-          (profile as any)?.avatar_url || (user.user_metadata as any)?.avatar_url || null;
+          profile?.avatar_url || user.user_metadata?.avatar_url || null;
 
         if (mounted) {
           setUserName(display);
@@ -66,7 +66,8 @@ export function Navigation(): JSX.Element {
     return () => {
       mounted = false;
       try {
-        (listener as any)?.subscription?.unsubscribe?.();
+        listener?.subscription?.unsubscribe?.();
+      // eslint-disable-next-line no-empty
       } catch {}
     };
   }, []);

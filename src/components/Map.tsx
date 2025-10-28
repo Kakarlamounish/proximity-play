@@ -21,6 +21,14 @@ function ReactionPicker({ onPick }: { onPick: (emoji: string) => void }) {
     </div>
   );
 }
+
+interface NearbyPlace {
+  lat: string;
+  lon: string;
+  display_name: string;
+  type: string;
+}
+
 // Nearby Places Search Bar
 function NearbyPlacesSearch({
   mapCenter,
@@ -28,8 +36,8 @@ function NearbyPlacesSearch({
   setNearbyPlaces
 }: {
   mapCenter: [number, number];
-  nearbyPlaces: any[];
-  setNearbyPlaces: (places: any[]) => void;
+  nearbyPlaces: NearbyPlace[];
+  setNearbyPlaces: (places: NearbyPlace[]) => void;
 }) {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -343,8 +351,7 @@ const Routing: React.FC<{ start: [number, number]; end: [number, number] }> = ({
   ) : null;
 };
 import React, { useRef, useState, useCallback } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import { Database } from '@/integrations/supabase/types';
+import { supabase } from '@/integrations/supabase/client';
 // (already imported above)
 // Supabase client for real-time features
 // import { createClient } from '@supabase/supabase-js';
@@ -563,7 +570,6 @@ interface MapProps {
 
 export function Map(props: MapProps) {
   // ...existing code...
-  // ...existing code...
   // Props destructuring
   const {
   bubbles = [],
@@ -581,7 +587,11 @@ export function Map(props: MapProps) {
     : center;
 
   // Weather overlay state
-  const [weatherData, setWeatherData] = useState<any>(null);
+  interface WeatherData {
+    weather: Array<{ main: string; description: string }>;
+    main: { temp: number; humidity: number };
+  }
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [showWeather, setShowWeather] = useState(false);
 
   // Fetch weather for current map center
@@ -602,7 +612,7 @@ export function Map(props: MapProps) {
   const [routeReady, setRouteReady] = useState(false);
 
   // Handle map click for route planning
-  const handleRouteMapClick = (e: any) => {
+  const handleRouteMapClick = (e: L.LeafletMouseEvent) => {
     if (showRouteDialog) {
       if (!routePoints.start) {
         setRoutePoints(p => ({ ...p, start: [e.latlng.lat, e.latlng.lng] }));
@@ -624,7 +634,7 @@ export function Map(props: MapProps) {
   const [newBubble, setNewBubble] = useState({ name: '', interest_tag: '', member_count: 1, lat: null, lng: null });
 
   // Handle map click for bubble creation
-  const handleMapClick = (e: any) => {
+  const handleMapClick = (e: L.LeafletMouseEvent) => {
     if (showBubbleDialog) {
       setNewBubble(b => ({ ...b, lat: e.latlng.lat, lng: e.latlng.lng }));
     }
@@ -653,7 +663,7 @@ export function Map(props: MapProps) {
   const [annotationText, setAnnotationText] = useState('');
 
   // Handle map click for annotation
-  const handleAnnotationMapClick = (e: any) => {
+  const handleAnnotationMapClick = (e: L.LeafletMouseEvent) => {
     if (showAnnotationDialog) {
       setPendingAnnotation({ lat: e.latlng.lat, lng: e.latlng.lng });
     }
@@ -695,11 +705,21 @@ export function Map(props: MapProps) {
   )}
   {/* Listen for map clicks for annotation if dialog is open */}
   <MapEvents onClick={showAnnotationDialog ? handleAnnotationMapClick : showRouteDialog ? handleRouteMapClick : handleMapClick} />
+  {/* Listen for map clicks for route planning if dialog is open */}
+  <MapEvents onClick={showRouteDialog ? handleRouteMapClick : handleMapClick} />
+  {/* Listen for map clicks to set bubble location */}
+  <MapEvents onClick={handleMapClick} />
       {annotations.map(a => (
         <Marker key={a.id} position={[a.lat, a.lng]} icon={L.divIcon({ className: '', html: `<span style='font-size:18px;background:#6366f1;color:#fff;padding:4px 8px;border-radius:6px;'>${a.text}</span>` })} />
       ))}
   // Demo live user presence and activity feed state
-  const [liveUsers, setLiveUsers] = useState([
+  interface LiveUser {
+    id: string;
+    name: string;
+    online: boolean;
+    location?: [number, number];
+  }
+  const [liveUsers, setLiveUsers] = useState<LiveUser[]>([
     { id: '1', name: 'Alice', online: true, location: [17.385, 78.4867] },
     { id: '2', name: 'Bob', online: true, location: [17.391, 78.490] },
     { id: '3', name: 'Charlie', online: false },
@@ -773,7 +793,7 @@ export function Map(props: MapProps) {
         )
       ))}
   // Screenshot/Export logic
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<L.Map | null>(null);
   const handleExportMap = () => {
     if (mapRef.current) {
       const easyPrint = (window as any).L.easyPrint({
@@ -805,7 +825,7 @@ export function Map(props: MapProps) {
 
   // Keyboard navigation handler
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    const map = mapRef.current;
+    const map = mapRef.current as L.Map;
     if (!map) return;
 
     switch (event.key) {
@@ -896,16 +916,17 @@ export function Map(props: MapProps) {
     </div>
   )}
   // Nearby places state
-  const [nearbyPlaces, setNearbyPlaces] = useState([]);
-  const {
-  // ...existing code...
-  } = props;
+  const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   // Center map on first live location if available
   // User reactions state
-  const [reactions, setReactions] = useState([]);
+  interface Reaction {
+    lat: number;
+    lng: number;
+    emoji: string;
+  }
+  const [reactions, setReactions] = useState<Reaction[]>([]);
   const [showPicker, setShowPicker] = useState(false);
-  const [pendingEmoji, setPendingEmoji] = useState(null);
-  // ...other state declarations...
+  const [pendingEmoji, setPendingEmoji] = useState<string | null>(null);
   useEffect(() => {
     liveUsers.forEach(user => {
       if (!user.location) return;
@@ -974,7 +995,14 @@ export function Map(props: MapProps) {
   }, [liveUsers, geofences]);
   // Demo live user presence and activity feed state
 
-  const [activityEvents, setActivityEvents] = useState([
+  interface ActivityEvent {
+    id: string;
+    type: string;
+    user: string;
+    detail: string;
+    time: string;
+  }
+  const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([
     { id: '1', type: 'join', user: 'Alice', detail: '', time: '2 min ago' },
     { id: '2', type: 'message', user: 'Bob', detail: 'Hi Alice!', time: 'Just now' },
   ]);
@@ -1006,17 +1034,26 @@ export function Map(props: MapProps) {
     };
   }, [locationSharingEnabled, currentUserId]);
   // Demo notification and chat state
-  // Demo notification and chat state
-  const [notifications, setNotifications] = useState([
+  interface Notification {
+    id: string;
+    message: string;
+    time: string;
+  }
+  const [notifications, setNotifications] = useState<Notification[]>([
     { id: '1', message: 'Welcome to Proximity Play!', time: 'Just now' },
     { id: '2', message: 'User Alice joined the map.', time: '1 min ago' },
   ]);
-  const [messages, setMessages] = useState([
+  interface Message {
+    id: string;
+    user: string;
+    text: string;
+    time: string;
+  }
+  const [messages, setMessages] = useState<Message[]>([
     { id: '1', user: 'Alice', text: 'Hello everyone!', time: '1 min ago' },
     { id: '2', user: 'Bob', text: 'Hi Alice!', time: 'Just now' },
   ]);
   // Center map on first live location if available
-  // ...existing code...
 
   return (
   <div
@@ -1082,13 +1119,9 @@ export function Map(props: MapProps) {
       {showWeather && (
         <TileLayer url={weatherTileUrl} opacity={0.5} />
       )}
-  {/* Listen for map clicks for route planning if dialog is open */}
-  <MapEvents onClick={showRouteDialog ? handleRouteMapClick : handleMapClick} />
       {routeReady && routePoints.start && routePoints.end && (
         <Routing start={routePoints.start} end={routePoints.end} />
       )}
-  {/* Listen for map clicks to set bubble location */}
-  <MapEvents onClick={handleMapClick} />
       {bubbles.map((bubble, idx) => (
         <Marker key={bubble.id} position={[bubble.latitude, bubble.longitude]} icon={L.divIcon({ className: '', html: `<span style='font-size:28px;color:#22c55e;'>🫧</span>` })}>
           <Popup>

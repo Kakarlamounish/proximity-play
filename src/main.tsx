@@ -16,7 +16,7 @@ if (!rootEl) {
   // This helps identify missing/incorrect index.html root element issues.
   // If index.html doesn't have <div id="root"></div>, add it.
   // Throwing will surface the error in the terminal/console.
-  // eslint-disable-next-line no-console
+   
   console.error('Root element with id="root" not found. Ensure index.html contains <div id="root"></div>.');
   throw new Error('Root element not found');
 }

@@ -27,7 +27,13 @@ export default function Friends() {
   const navigate = useNavigate();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<any>(null);
+  interface Profile {
+    id: string;
+    first_name?: string;
+    bio?: string;
+    interests?: string[];
+  }
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [suggestedFriends, setSuggestedFriends] = useState<Friend[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Friend[]>([]);
@@ -130,7 +136,7 @@ export default function Friends() {
 
       if (!otherMembers || otherMembers.length === 0) return;
 
-      const memberIds = [...new Set(otherMembers.map(m => m.user_id))];
+      const memberIds = [...new Set(otherMembers.map(m => m.user_id as string))] as string[];
 
       // Exclude current friends
       const friendIds = friends.map(f => f.id);

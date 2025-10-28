@@ -44,9 +44,14 @@ export default function Friends() {
   useEffect(() => {
     fetchProfile();
     fetchFriends();
-    fetchSuggestedFriends();
     getUserLocation();
   }, [user]);
+
+  useEffect(() => {
+    if (user && profile) {
+      fetchSuggestedFriends();
+    }
+  }, [user, profile, friends]);
 
   const fetchProfile = async () => {
     if (!user) return;
@@ -123,7 +128,10 @@ export default function Friends() {
         .select('bubble_id')
         .eq('user_id', user.id);
 
-      if (!memberships || memberships.length === 0) return;
+      if (!memberships || memberships.length === 0) {
+        setSuggestedFriends([]);
+        return;
+      }
 
       const bubbleIds = memberships.map(m => m.bubble_id);
 
@@ -134,7 +142,10 @@ export default function Friends() {
         .in('bubble_id', bubbleIds)
         .neq('user_id', user.id);
 
-      if (!otherMembers || otherMembers.length === 0) return;
+      if (!otherMembers || otherMembers.length === 0) {
+        setSuggestedFriends([]);
+        return;
+      }
 
       const memberIds = [...new Set(otherMembers.map(m => m.user_id as string))] as string[];
 
@@ -142,7 +153,10 @@ export default function Friends() {
       const friendIds = friends.map(f => f.id);
       const potentialFriendIds = memberIds.filter(id => !friendIds.includes(id));
 
-      if (potentialFriendIds.length === 0) return;
+      if (potentialFriendIds.length === 0) {
+        setSuggestedFriends([]);
+        return;
+      }
 
       // Get profiles of potential friends
       const { data: profiles } = await supabase
@@ -154,6 +168,7 @@ export default function Friends() {
       setSuggestedFriends(profiles || []);
     } catch (error) {
       console.error('Error fetching suggested friends:', error);
+      setSuggestedFriends([]);
     }
   };
 

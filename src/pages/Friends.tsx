@@ -141,7 +141,7 @@ export default function Friends() {
       const memberIds = [...new Set(otherMembers.map(m => m.user_id).filter(id => id !== null && typeof id === 'string'))] as string[];
 
       // Exclude current friends
-      const friendIds = friends.map(f => f.id);
+      const friendIds = friends?.map(f => f.id) || [];
       const potentialFriendIds = memberIds.filter(id => !friendIds.includes(id));
 
       if (potentialFriendIds.length === 0) {
@@ -169,7 +169,7 @@ export default function Friends() {
       const { data: existingRequest } = await supabase
         .from('friend_requests')
         .select('id, status')
-        .or(`and(sender_id.eq.${user!.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user!.id})`)
+        .or(`and(sender_id.eq.${user?.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user?.id})`)
         .single();
 
       if (existingRequest) {
@@ -194,7 +194,7 @@ export default function Friends() {
       const { data: existingFriendship } = await supabase
         .from('friendships')
         .select('id')
-        .or(`and(user_id_1.eq.${user!.id},user_id_2.eq.${receiverId}),and(user_id_1.eq.${receiverId},user_id_2.eq.${user!.id})`)
+        .or(`and(user_id_1.eq.${user?.id},user_id_2.eq.${receiverId}),and(user_id_1.eq.${receiverId},user_id_2.eq.${user?.id})`)
         .single();
 
       if (existingFriendship) {
@@ -209,7 +209,7 @@ export default function Friends() {
       const { error } = await supabase
         .from('friend_requests')
         .insert({
-          sender_id: user!.id,
+          sender_id: user?.id,
           receiver_id: receiverId,
           status: 'pending'
         });
@@ -236,8 +236,8 @@ export default function Friends() {
 
   const removeFriend = async (friendId: string) => {
     try {
-      const userId1 = user!.id < friendId ? user!.id : friendId;
-      const userId2 = user!.id < friendId ? friendId : user!.id;
+      const userId1 = user?.id && user.id < friendId ? user.id : friendId;
+      const userId2 = user?.id && user.id < friendId ? friendId : user.id;
 
       const { error } = await supabase
         .from('friendships')
@@ -275,7 +275,7 @@ export default function Friends() {
       let queryBuilder = supabase
         .from('profiles')
         .select('id, first_name, profile_photo_url, bio, interests, latitude, longitude')
-        .neq('id', user!.id)
+        .neq('id', user?.id)
         .ilike('first_name', `%${query}%`)
         .limit(20);
 
@@ -341,7 +341,7 @@ export default function Friends() {
 
   useEffect(() => {
     fetchSuggestedFriends();
-  }, [fetchSuggestedFriends]);
+  }, [fetchSuggestedFriends, user, profile, friends]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
@@ -391,21 +391,21 @@ export default function Friends() {
           {searchQuery && (
             <div className="mt-6">
               <h3 className="text-lg font-semibold mb-4">
-                Search Results {searchResults.length > 0 && `(${searchResults.length})`}
+                Search Results {searchResults?.length > 0 && `(${searchResults.length})`}
               </h3>
 
               {searchLoading ? (
                 <div className="flex justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>
-              ) : searchResults.length === 0 ? (
+              ) : (searchResults?.length || 0) === 0 ? (
                 <p className="text-muted-foreground text-center py-8">
                   No users found matching "{searchQuery}"
                   {searchRange !== 'global' && ` within ${searchRange}km`}
                 </p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {searchResults.map((person) => (
+                  {searchResults?.map((person) => (
                     <Card key={person.id} className="p-4 hover:shadow-lg transition-shadow">
                       <div className="flex items-start gap-4">
                         <Avatar className="w-12 h-12">
@@ -438,10 +438,10 @@ export default function Friends() {
                             size="sm"
                             onClick={() => sendFriendRequest(person.id)}
                             className="w-full bg-gradient-to-r from-secondary to-primary"
-                            disabled={friends.some(f => f.id === person.id)}
+                            disabled={friends?.some(f => f.id === person.id)}
                           >
                             <UserPlus className="w-3 h-3 mr-1" />
-                            {friends.some(f => f.id === person.id) ? 'Already Friends' : 'Add Friend'}
+                            {friends?.some(f => f.id === person.id) ? 'Already Friends' : 'Add Friend'}
                           </Button>
                         </div>
                       </div>
@@ -460,14 +460,14 @@ export default function Friends() {
 
         <div className="lg:col-span-3 space-y-8">
           {/* Suggested Friends */}
-          {suggestedFriends.length > 0 && (
+          {suggestedFriends?.length > 0 && (
             <div>
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
                 💡 People You May Know
                 <Badge variant="secondary" className="text-xs">Suggested</Badge>
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                {suggestedFriends.map((suggested) => (
+                {suggestedFriends?.map((suggested) => (
                   <Card key={suggested.id} className="p-4 hover:shadow-lg transition-shadow">
                     <div className="flex items-start gap-4">
                       <Avatar className="w-16 h-16">
@@ -500,9 +500,9 @@ export default function Friends() {
                           size="sm"
                           onClick={() => sendFriendRequest(suggested.id)}
                           className="bg-gradient-to-r from-secondary to-primary"
-                          disabled={friends.some(f => f.id === suggested.id)}
+                          disabled={friends?.some(f => f.id === suggested.id)}
                         >
-                          {friends.some(f => f.id === suggested.id) ? 'Already Friends' : 'Add Friend'}
+                          {friends?.some(f => f.id === suggested.id) ? 'Already Friends' : 'Add Friend'}
                         </Button>
                       </div>
                     </div>
@@ -514,13 +514,13 @@ export default function Friends() {
 
           {/* My Friends */}
           <div>
-            <h2 className="text-2xl font-bold mb-4">My Friends ({friends.length})</h2>
+            <h2 className="text-2xl font-bold mb-4">My Friends ({friends?.length || 0})</h2>
 
             {loading ? (
               <div className="flex justify-center p-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
               </div>
-            ) : friends.length === 0 ? (
+            ) : (friends?.length || 0) === 0 ? (
               <Card className="p-8 text-center">
                 <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-xl font-semibold mb-2">No friends yet</h3>
@@ -533,7 +533,7 @@ export default function Friends() {
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {friends.map((friend) => (
+                {friends?.map((friend) => (
                   <Card key={friend.id} className="p-4 hover:shadow-lg transition-shadow">
                     <div className="flex items-start gap-4">
                       <Avatar className="w-16 h-16">

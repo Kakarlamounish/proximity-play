@@ -138,7 +138,7 @@ export default function Friends() {
         return;
       }
 
-      const memberIds = [...new Set(otherMembers.map(m => m.user_id as string))] as string[];
+      const memberIds = [...new Set(otherMembers.map(m => m.user_id).filter(id => id !== null && typeof id === 'string'))] as string[];
 
       // Exclude current friends
       const friendIds = friends.map(f => f.id);
@@ -264,7 +264,7 @@ export default function Friends() {
     }
   };
 
-  const searchUsers = async (query: string) => {
+  const searchUsers = useCallback(async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
       return;
@@ -319,9 +319,9 @@ export default function Friends() {
     } finally {
       setSearchLoading(false);
     }
-  };
+  }, [user, userLocation, searchRange]);
 
-  const handleSearchInput = (value: string) => {
+  const handleSearchInput = useCallback((value: string) => {
     setSearchQuery(value);
     // Clear previous timeout
     if (searchTimeoutRef.current) {
@@ -331,7 +331,7 @@ export default function Friends() {
     searchTimeoutRef.current = setTimeout(() => {
       searchUsers(value);
     }, 300);
-  };
+  }, []);
 
   useEffect(() => {
     fetchProfile();

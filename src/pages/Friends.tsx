@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card } from '@/components/ui/card';
@@ -19,6 +19,8 @@ interface Friend {
   profile_photo_url?: string;
   bio?: string;
   interests?: string[];
+  latitude?: number;
+  longitude?: number;
 }
 
 export default function Friends() {
@@ -40,18 +42,7 @@ export default function Friends() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchRange, setSearchRange] = useState('50'); // km
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
-
-  useEffect(() => {
-    fetchProfile();
-    fetchFriends();
-    getUserLocation();
-  }, [user]);
-
-  useEffect(() => {
-    if (user && profile) {
-      fetchSuggestedFriends();
-    }
-  }, [user, profile, friends]);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchProfile = async () => {
     if (!user) return;
@@ -118,7 +109,7 @@ export default function Friends() {
     }
   };
 
-  const fetchSuggestedFriends = async () => {
+  const fetchSuggestedFriends = useCallback(async () => {
     if (!user || !profile) return;
 
     try {
@@ -170,7 +161,7 @@ export default function Friends() {
       console.error('Error fetching suggested friends:', error);
       setSuggestedFriends([]);
     }
-  };
+  }, [user, profile, friends]);
 
   const sendFriendRequest = async (receiverId: string) => {
     try {
@@ -296,15 +287,15 @@ export default function Friends() {
         const { data: allUsers } = await queryBuilder;
 
         if (allUsers) {
-          const filteredUsers = allUsers.filter(user => {
-            if (!user.latitude || !user.longitude) return false;
+          const filteredUsers = allUsers.filter(person => {
+            if (!person.latitude || !person.longitude) return false;
 
             // Calculate distance using Haversine formula
             const R = 6371; // Earth's radius in km
-            const dLat = (user.latitude - userLocation.lat) * Math.PI / 180;
-            const dLon = (user.longitude - userLocation.lng) * Math.PI / 180;
+            const dLat = (person.latitude - userLocation.lat) * Math.PI / 180;
+            const dLon = (person.longitude - userLocation.lng) * Math.PI / 180;
             const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(userLocation.lat * Math.PI / 180) * Math.cos(user.latitude * Math.PI / 180) *
+              Math.cos(userLocation.lat * Math.PI / 180) * Math.cos(person.latitude * Math.PI / 180) *
               Math.sin(dLon/2) * Math.sin(dLon/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             const distance = R * c;
@@ -332,12 +323,25 @@ export default function Friends() {
 
   const handleSearchInput = (value: string) => {
     setSearchQuery(value);
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
     // Debounce search
-    const timeoutId = setTimeout(() => {
+    searchTimeoutRef.current = setTimeout(() => {
       searchUsers(value);
     }, 300);
-    return () => clearTimeout(timeoutId);
   };
+
+  useEffect(() => {
+    fetchProfile();
+    fetchFriends();
+    getUserLocation();
+  }, [user]);
+
+  useEffect(() => {
+    fetchSuggestedFriends();
+  }, [fetchSuggestedFriends]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
@@ -401,28 +405,28 @@ export default function Friends() {
                 </p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {searchResults.map((user) => (
-                    <Card key={user.id} className="p-4 hover:shadow-lg transition-shadow">
+                  {searchResults.map((person) => (
+                    <Card key={person.id} className="p-4 hover:shadow-lg transition-shadow">
                       <div className="flex items-start gap-4">
                         <Avatar className="w-12 h-12">
-                          <AvatarImage src={user.profile_photo_url} />
+                          <AvatarImage src={person.profile_photo_url} />
                           <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white">
-                            {user.first_name?.[0] || 'U'}
+                            {person.first_name?.[0] || 'U'}
                           </AvatarFallback>
                         </Avatar>
 
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold truncate">{user.first_name}</h4>
+                          <h4 className="font-semibold truncate">{person.first_name}</h4>
 
-                          {user.bio && (
+                          {person.bio && (
                             <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                              {user.bio}
+                              {person.bio}
                             </p>
                           )}
 
-                          {user.interests && user.interests.length > 0 && (
+                          {person.interests && person.interests.length > 0 && (
                             <div className="flex flex-wrap gap-1 mb-3">
-                              {user.interests.slice(0, 2).map((interest, idx) => (
+                              {person.interests.slice(0, 2).map((interest, idx) => (
                                 <Badge key={idx} variant="secondary" className="text-xs">
                                   {interest}
                                 </Badge>
@@ -432,12 +436,12 @@ export default function Friends() {
 
                           <Button
                             size="sm"
-                            onClick={() => sendFriendRequest(user.id)}
+                            onClick={() => sendFriendRequest(person.id)}
                             className="w-full bg-gradient-to-r from-secondary to-primary"
-                            disabled={friends.some(f => f.id === user.id)}
+                            disabled={friends.some(f => f.id === person.id)}
                           >
                             <UserPlus className="w-3 h-3 mr-1" />
-                            {friends.some(f => f.id === user.id) ? 'Already Friends' : 'Add Friend'}
+                            {friends.some(f => f.id === person.id) ? 'Already Friends' : 'Add Friend'}
                           </Button>
                         </div>
                       </div>

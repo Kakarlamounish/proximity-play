@@ -23,7 +23,7 @@
       "type": "image/png"
     },
     {
-      "src": "/icon-144x144.png",
+      "src": "/logo.png",
       "sizes": "144x144",
       "type": "image/png"
     }
@@ -34,7 +34,7 @@
       "short_name": "Discover",
       "description": "Find nearby communities",
       "url": "/discover",
-      "icons": [{ "src": "/icon-96x96.png", "sizes": "96x96" }]
+      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
     },
     {
       "name": "Live Map",

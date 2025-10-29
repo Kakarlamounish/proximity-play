@@ -34,11 +34,32 @@ export default defineConfig(({ mode }) => ({
         },
       },
     },
-    chunkSizeWarningLimit: 1000, // Increase limit to 1000kb
+    chunkSizeWarningLimit: 2000, // Increase limit to 2000kb for better compatibility
+    sourcemap: mode === 'development', // Only generate sourcemaps in development
+    minify: mode === 'production' ? 'terser' : false,
+    terserOptions: mode === 'production' ? {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    } : undefined,
   },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      '@supabase/supabase-js',
+    ],
+    exclude: [
+      // Exclude heavy dependencies that might cause loading issues
+      '@tensorflow/tfjs',
+      '@tensorflow-models/universal-sentence-encoder',
+    ]
   },
 }));

@@ -10,7 +10,6 @@ import SkipLinks from "@/components/SkipLinks";
 import WebVitals from "@/components/WebVitals";
 import { Loader2 } from "lucide-react";
 import './i18n';
-import { supabase } from '@/integrations/supabase/client';
 
 // Lazy load pages for better performance
 const Index = lazy(() => import("./pages/Index"));
@@ -26,58 +25,31 @@ const Maps = lazy(() => import("./pages/Maps"));
 const Discover = lazy(() => import("./pages/Discover"));
 const Friends = lazy(() => import("./pages/Friends"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const queryClient = new QueryClient();
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => {
   // Force dark mode globally on app load
-  React.useEffect(() => {
+  useEffect(() => {
     document.documentElement.classList.add('dark');
     localStorage.setItem('theme', 'dark');
-  }, []);
-  
-  useEffect(() => {
-    let mounted = true;
-    const checkSession = async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (!mounted) return;
-        if (!data?.session) {
-          // if not on auth page, redirect to /auth
-          if (!window.location.pathname.startsWith('/auth')) {
-            window.location.replace('/auth');
-          }
-        }
-      } catch (err) {
-        console.error('Error checking session', err);
-      }
-    };
-    checkSession();
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        if (!window.location.pathname.startsWith('/auth')) {
-          window.location.replace('/auth');
-        }
-      }
-    });
-
-    return () => {
-      mounted = false;
-      try {
-        // unsubscribe if available
-        if (listener && typeof listener === 'object' && 'subscription' in listener) {
-          (listener as { subscription?: { unsubscribe?: () => void } }).subscription?.unsubscribe?.();
-        }
-      } catch {
-        // Ignore cleanup errors
-      }
-    };
   }, []);
 
   // Loading component for Suspense fallback
   const PageLoader = () => (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+        <p className="text-white/70 text-sm">Loading...</p>
+      </div>
     </div>
   );
 

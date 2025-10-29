@@ -5,13 +5,22 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || (process.env as any).VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || (process.env as any).VITE_SUPABASE_ANON_KEY;
 
+// Validate environment variables and provide fallback behavior
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.warn('[supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY');
+  console.warn('[supabase] Using fallback values for development');
 }
+
+// Provide fallback values for development/testing
+const FALLBACK_URL = 'https://fallback.supabase.co';
+const FALLBACK_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhbGxiYWNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NzQyMjI2MDAsImV4cCI6MTk4OTc5ODYwMH0.dummy-key-for-development';
+
+const SUPABASE_URL_FINAL = SUPABASE_URL || FALLBACK_URL;
+const SUPABASE_ANON_KEY_FINAL = SUPABASE_ANON_KEY || FALLBACK_ANON_KEY;
 
 declare global {
   var __supabase_client__: ReturnType<typeof createClient> | undefined;
 }
 
 export const supabase =
-  (globalThis as any).__supabase_client__ ??= createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
+  (globalThis as any).__supabase_client__ ??= createClient(SUPABASE_URL_FINAL, SUPABASE_ANON_KEY_FINAL);

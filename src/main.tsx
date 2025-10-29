@@ -3,7 +3,6 @@ window.global = window;
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
 import App from '@/App';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
@@ -16,7 +15,7 @@ if (!rootEl) {
   // This helps identify missing/incorrect index.html root element issues.
   // If index.html doesn't have <div id="root"></div>, add it.
   // Throwing will surface the error in the terminal/console.
-   
+    
   console.error('Root element with id="root" not found. Ensure index.html contains <div id="root"></div>.');
   throw new Error('Root element not found');
 }
@@ -26,9 +25,7 @@ const root = ReactDOM.createRoot(rootEl);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <App />
     </ErrorBoundary>
   </React.StrictMode>
 );

@@ -21,7 +21,6 @@ const EmergencyShareButton: React.FC<EmergencyShareButtonProps> = ({ userLocatio
     }
     setLoading(true);
     setError(null);
-    // @ts-expect-error - emergency_shares table not yet created in database
     const { error: dbError } = await supabase.from("emergency_shares").insert({
       user_id: userId,
       latitude: userLocation[0],

@@ -39,7 +39,6 @@ const CreateARPinDialog: React.FC<CreateARPinDialogProps> = ({ open, onClose, us
     }
     setLoading(true);
     setError(null);
-    // @ts-expect-error - ar_pins table not yet created in database
     const { error: dbError } = await supabase.from("ar_pins").insert({
       user_id: user.id,
       note,

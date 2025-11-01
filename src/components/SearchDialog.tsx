@@ -110,7 +110,7 @@ export const SearchDialog: React.FC<SearchDialogProps> = ({ trigger }) => {
         const bubbleMap = new Map(meetupBubbles?.map(mb => [mb.id, mb.bubbles]) || []);
 
         meetupsData.forEach(meetupData => {
-          const bubble = bubbleMap.get(meetupData.id);
+          const bubble = bubbleMap.get(meetupData.id) as any;
           searchResults.push({
             id: `meetup-${meetupData.id}`,
             type: 'meetup',

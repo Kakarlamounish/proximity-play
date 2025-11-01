@@ -89,6 +89,8 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ limit = 10, showTitl
           const bubbleMap = new Map(bubbleInfo?.map(b => [b.id, b]) || []);
 
           messagesData.forEach(msg => {
+            const sender = senderMap.get(msg.sender_id) as any;
+            const bubble = bubbleMap.get(msg.bubble_id!) as any;
             activities.push({
               id: `msg-${msg.id}`,
               type: 'message',
@@ -96,8 +98,8 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ limit = 10, showTitl
               created_at: msg.created_at!,
               user_id: msg.sender_id,
               bubble_id: msg.bubble_id!,
-              user: senderMap.get(msg.sender_id),
-              bubble: bubbleMap.get(msg.bubble_id!)
+              user: sender ? { first_name: sender.first_name, profile_photo_url: sender.profile_photo_url } : undefined,
+              bubble: bubble ? { name: bubble.name, interest_tag: bubble.interest_tag } : undefined
             });
           });
         }
@@ -130,6 +132,8 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ limit = 10, showTitl
           const bubbleMap = new Map(bubbleInfo?.map(b => [b.id, b]) || []);
 
           meetupsData.forEach(meetup => {
+            const organizer = organizerMap.get(meetup.organizer_id) as any;
+            const bubble = bubbleMap.get(meetup.bubble_id) as any;
             activities.push({
               id: `meetup-${meetup.id}`,
               type: 'meetup',
@@ -138,8 +142,8 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ limit = 10, showTitl
               user_id: meetup.organizer_id,
               bubble_id: meetup.bubble_id,
               meetup_id: meetup.id,
-              user: organizerMap.get(meetup.organizer_id),
-              bubble: bubbleMap.get(meetup.bubble_id),
+              user: organizer ? { first_name: organizer.first_name, profile_photo_url: organizer.profile_photo_url } : undefined,
+              bubble: bubble ? { name: bubble.name, interest_tag: bubble.interest_tag } : undefined,
               meetup: { title: meetup.title }
             });
           });
@@ -173,7 +177,8 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ limit = 10, showTitl
           const bubbleMap = new Map(bubbleInfo?.map(b => [b.id, b]) || []);
 
           membershipsData.forEach(membership => {
-            const bubble = bubbleMap.get(membership.bubble_id);
+            const bubble = bubbleMap.get(membership.bubble_id) as any;
+            const member = memberMap.get(membership.user_id) as any;
             activities.push({
               id: `join-${membership.id}`,
               type: 'join',
@@ -181,8 +186,8 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ limit = 10, showTitl
               created_at: membership.created_at!,
               user_id: membership.user_id,
               bubble_id: membership.bubble_id,
-              user: memberMap.get(membership.user_id),
-              bubble: bubble
+              user: member ? { first_name: member.first_name, profile_photo_url: member.profile_photo_url } : undefined,
+              bubble: bubble ? { name: bubble.name, interest_tag: bubble.interest_tag } : undefined
             });
           });
         }

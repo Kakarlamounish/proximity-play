@@ -5,9 +5,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from '@/App';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-
-// Optional global styles (uncomment if present in your project)
-// import '@/styles/index.css';
+import '@/index.css';
 
 const rootEl = document.getElementById('root');
 if (!rootEl) {

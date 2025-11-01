@@ -245,8 +245,9 @@ export type Database = {
           latitude: number
           longitude: number
           text_content: string | null
+          updated_at: string
           user_id: string
-          visibility_radius: number
+          visibility_radius: number | null
         }
         Insert: {
           created_at?: string
@@ -256,8 +257,9 @@ export type Database = {
           latitude: number
           longitude: number
           text_content?: string | null
+          updated_at?: string
           user_id: string
-          visibility_radius?: number
+          visibility_radius?: number | null
         }
         Update: {
           created_at?: string
@@ -267,8 +269,9 @@ export type Database = {
           latitude?: number
           longitude?: number
           text_content?: string | null
+          updated_at?: string
           user_id?: string
-          visibility_radius?: number
+          visibility_radius?: number | null
         }
         Relationships: []
       }
@@ -397,6 +400,7 @@ export type Database = {
       }
       privacy_schedules: {
         Row: {
+          created_at: string
           end_time: string
           id: string
           start_time: string
@@ -404,6 +408,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          created_at?: string
           end_time: string
           id?: string
           start_time: string
@@ -411,21 +416,14 @@ export type Database = {
           user_id: string
         }
         Update: {
+          created_at?: string
           end_time?: string
           id?: string
           start_time?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "privacy_schedules_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -544,7 +542,7 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "status_updates_bubble_id_fkey"
-            columns: ["status_id"]
+            columns: ["bubble_id"]
             isOneToOne: false
             referencedRelation: "bubbles"
             referencedColumns: ["id"]
@@ -750,7 +748,7 @@ export type Database = {
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof DatabaseWithoutInternals, "public">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends

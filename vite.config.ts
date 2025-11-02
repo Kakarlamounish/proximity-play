@@ -5,6 +5,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  base: './',  // Use relative paths for better deployment compatibility
   define: {
     global: 'window',
     process: {
@@ -22,6 +23,9 @@ export default defineConfig(({ mode }) => ({
     componentTagger(),
   ].filter(Boolean),
   build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    emptyOutDir: true,
     rollupOptions: {
       output: {
         manualChunks: {
@@ -32,10 +36,26 @@ export default defineConfig(({ mode }) => ({
           'supabase-vendor': ['@supabase/supabase-js'],
           'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
         },
+        assetFileNames: (assetInfo) => {
+          if (!assetInfo.name) return 'assets/[name]-[hash][extname]';
+          const extType = assetInfo.name.split('.').pop();
+          if (!extType) return 'assets/[name]-[hash][extname]';
+          
+          if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(extType)) {
+            return 'assets/img/[name]-[hash][extname]';
+          } else if (/woff|woff2|ttf|otf/i.test(extType)) {
+            return 'assets/fonts/[name]-[hash][extname]';
+          } else if (/css/i.test(extType)) {
+            return 'assets/css/[name]-[hash][extname]';
+          }
+          return 'assets/[name]-[hash][extname]';
+        },
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        entryFileNames: 'assets/js/[name]-[hash].js',
       },
     },
-    chunkSizeWarningLimit: 2000, // Increase limit to 2000kb for better compatibility
-    sourcemap: mode === 'development', // Only generate sourcemaps in development
+    chunkSizeWarningLimit: 2000,
+    sourcemap: mode === 'development',
     minify: mode === 'production' ? 'terser' : false,
     terserOptions: mode === 'production' ? {
       compress: {
@@ -43,6 +63,7 @@ export default defineConfig(({ mode }) => ({
         drop_debugger: true,
       },
     } : undefined,
+    cssCodeSplit: true,
   },
   resolve: {
     alias: {

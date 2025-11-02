@@ -145,15 +145,18 @@ const Live = () => {
     if (!user) return;
     const fetchSchedule = async () => {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('privacy_schedules')
           .select('*')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
-        if (data) setPrivacySchedule({ start: data.start_time, end: data.end_time });
+        if (!error && data) {
+          setPrivacySchedule({ start: data.start_time, end: data.end_time });
+        }
       } catch (error) {
         // Silently handle error for non-existent table
+        console.warn('Privacy schedule fetch error:', error);
       }
     };
     fetchSchedule();
@@ -204,11 +207,16 @@ const Live = () => {
     const fetchData = async () => {
       if (!user) return;
       try {
-        const { data: profileData } = await supabase
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
+
+        if (profileError) {
+          console.error('Error fetching profile:', profileError);
+          return;
+        }
         setProfile(profileData);
         const { data: bubblesData } = await supabase
           .from('bubble_memberships')

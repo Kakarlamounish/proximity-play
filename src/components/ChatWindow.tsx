@@ -198,11 +198,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
           console.log('ChatWindow: Received new message:', payload.new);
           try {
             // Fetch sender info for new message
-            const { data: senderData } = await supabase
+            const { data: senderData, error: senderError } = await supabase
               .from('profiles')
               .select('first_name, profile_photo_url')
               .eq('id', payload.new.sender_id)
-              .single();
+              .maybeSingle();
+
+            if (senderError) {
+              console.error('Error fetching sender:', senderError);
+              return;
+            }
 
             const newMessage = {
               ...payload.new,

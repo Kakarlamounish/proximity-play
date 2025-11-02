@@ -55,20 +55,30 @@ export default function Discover() {
   useEffect(() => {
     const fetchProfile = async () => {
       if (!user) return;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return;
+      }
       setProfile(data);
     };
 
     const fetchMyLocation = async () => {
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('latitude, longitude')
         .eq('id', user?.id)
-        .single();
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching location:', error);
+        return;
+      }
 
       if (profile?.latitude && profile?.longitude) {
         setMyLocation({ lat: profile.latitude, lng: profile.longitude });
@@ -97,11 +107,16 @@ export default function Discover() {
   }, [myLocation, radiusKm, selectedInterest, sortBy]);
 
   const fetchMyLocation = async () => {
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from('profiles')
       .select('latitude, longitude')
       .eq('id', user?.id)
-      .single();
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching location:', error);
+      return;
+    }
 
     if (profile?.latitude && profile?.longitude) {
       setMyLocation({ lat: profile.latitude, lng: profile.longitude });

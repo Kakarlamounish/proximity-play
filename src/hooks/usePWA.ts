@@ -99,39 +99,18 @@ export const usePWA = () => {
     };
   }, [addNotification]);
 
-  // Register service worker
+  // Service worker registration disabled for better deployment compatibility
+  // Can be re-enabled later if needed for offline functionality
   useEffect(() => {
+    // Unregister any existing service workers to prevent caching issues
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((registration) => {
-          console.log('SW registered: ', registration);
-
-          // Handle updates
-          registration.addEventListener('updatefound', () => {
-            const newWorker = registration.installing;
-            if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // New version available
-                  addNotification({
-                    id: 'sw-update',
-                    type: 'system',
-                    title: 'Update Available',
-                    message: 'A new version of Proximity Play is available. Refresh to update.',
-                    read: false,
-                    createdAt: new Date().toISOString(),
-                  });
-                }
-              });
-            }
-          });
-        })
-        .catch((registrationError) => {
-          console.log('SW registration failed: ', registrationError);
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((registration) => {
+          registration.unregister();
         });
+      });
     }
-  }, [addNotification]);
+  }, []);
 
   // Request notification permission
   const requestNotificationPermission = async () => {

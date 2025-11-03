@@ -5,7 +5,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: './',  // Use relative paths for better deployment compatibility
+  base: '/',  // Use absolute paths for Netlify deployment
   define: {
     global: 'window',
     process: {
@@ -78,9 +78,14 @@ export default defineConfig(({ mode }) => ({
       '@supabase/supabase-js',
     ],
     exclude: [
-      // Exclude heavy dependencies that might cause loading issues
       '@tensorflow/tfjs',
       '@tensorflow-models/universal-sentence-encoder',
-    ]
+    ],
+    esbuildOptions: {
+      target: 'es2020',
+    },
+  },
+  esbuild: {
+    logOverride: { 'this-is-undefined-in-esm': 'silent' }
   },
 }));

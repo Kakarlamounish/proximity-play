@@ -128,7 +128,9 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    background: linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--primary)));
+    background-attachment: fixed;
   }
 
   /* Ensure consistent scrolling behavior */
@@ -136,6 +138,7 @@ All colors MUST be HSL.
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background: linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--primary)));
   }
 
   /* Mobile viewport height fix */

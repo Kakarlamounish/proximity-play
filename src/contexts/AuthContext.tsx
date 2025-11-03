@@ -30,42 +30,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
-    console.log('AuthContext initializing...');
+    let timeoutId: NodeJS.Timeout;
+    
+    console.log('Auth state change:', 'INITIAL_SESSION', { _type: typeof undefined, value: String(undefined) });
 
-    // Set up auth state listener
+    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('Auth state change:', event, session?.user?.id);
         if (mounted) {
           setSession(session);
           setUser(session?.user ?? null);
           setLoading(false);
+          if (timeoutId) clearTimeout(timeoutId);
         }
       }
     );
 
-    // Check for existing session with timeout
+    // THEN check for existing session
     const checkSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
         
-        if (error) {
-          console.warn('Session check error:', error);
-          if (mounted) {
-            setSession(null);
-            setUser(null);
-            setLoading(false);
-          }
-          return;
-        }
-
         if (mounted) {
           setSession(session);
           setUser(session?.user ?? null);
           setLoading(false);
         }
       } catch (error) {
-        console.warn('Failed to check session:', error);
         if (mounted) {
           setSession(null);
           setUser(null);
@@ -74,13 +65,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    // Add timeout to prevent indefinite loading
-    const timeoutId = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn('Auth check timeout, proceeding without session');
+    // Reduced timeout for faster initial load
+    timeoutId = setTimeout(() => {
+      if (mounted) {
         setLoading(false);
       }
-    }, 5000); // 5 second timeout
+    }, 3000);
 
     checkSession();
 

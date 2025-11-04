@@ -71,41 +71,41 @@ const Auth = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary/80 via-background/80 to-primary/80">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
+          <p className="text-sm text-foreground">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">
+          <h1 className="text-4xl font-bold text-foreground mb-2">
             Social Bubble
           </h1>
-          <p className="text-white/80">Connect with people who share your interests</p>
+          <p className="text-muted-foreground">Connect with people who share your interests</p>
         </div>
 
-        <Card className="backdrop-blur-sm bg-white/10 shadow-2xl border border-white/20">
+        <Card className="bg-card border-border shadow-2xl">
           <CardHeader className="text-center">
-            <CardTitle className="text-white">Welcome</CardTitle>
-            <CardDescription className="text-white/70">Join your local social bubbles</CardDescription>
+            <CardTitle className="text-card-foreground">Welcome</CardTitle>
+            <CardDescription className="text-muted-foreground">Join your local social bubbles</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6 bg-white/10">
-                <TabsTrigger value="signin" className="data-[state=active]:bg-white/20 text-white">Sign In</TabsTrigger>
-                <TabsTrigger value="signup" className="data-[state=active]:bg-white/20 text-white">Sign Up</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="signin">Sign In</TabsTrigger>
+                <TabsTrigger value="signup">Sign Up</TabsTrigger>
               </TabsList>
               
               <TabsContent value="signin">
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signin-email" className="text-white">Email</Label>
+                    <Label htmlFor="signin-email">Email</Label>
                     <Input
                       id="signin-email"
                       type="email"
@@ -113,11 +113,10 @@ const Auth = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signin-password" className="text-white">Password</Label>
+                    <Label htmlFor="signin-password">Password</Label>
                     <Input
                       id="signin-password"
                       type="password"
@@ -125,12 +124,11 @@ const Auth = () => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                     />
                   </div>
                   <Button 
                     type="submit" 
-                    className="w-full bg-gradient-to-r from-secondary to-primary hover:from-secondary-dark hover:to-primary-dark"
+                    className="w-full"
                     disabled={isLoading}
                   >
                     {isLoading ? (
@@ -145,17 +143,17 @@ const Auth = () => {
                   
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
-                      <Separator className="w-full bg-white/20" />
+                      <Separator />
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-white/10 px-2 text-white/70">Or continue with</span>
+                      <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
                     </div>
                   </div>
                   
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full bg-white/10 border-white/20 text-white hover:bg-white/20"
+                    className="w-full"
                     onClick={handleGoogleAuth}
                     disabled={isLoading}
                   >
@@ -173,7 +171,7 @@ const Auth = () => {
               <TabsContent value="signup">
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email" className="text-white">Email</Label>
+                    <Label htmlFor="signup-email">Email</Label>
                     <Input
                       id="signup-email"
                       type="email"
@@ -181,11 +179,10 @@ const Auth = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-password" className="text-white">Password</Label>
+                    <Label htmlFor="signup-password">Password</Label>
                     <Input
                       id="signup-password"
                       type="password"
@@ -194,12 +191,11 @@ const Auth = () => {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       minLength={6}
-                      className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                     />
                   </div>
                   <Button 
                     type="submit" 
-                    className="w-full bg-gradient-to-r from-secondary to-primary hover:from-secondary-dark hover:to-primary-dark"
+                    className="w-full"
                     disabled={isLoading}
                   >
                     {isLoading ? (
@@ -214,17 +210,17 @@ const Auth = () => {
                   
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
-                      <Separator className="w-full bg-white/20" />
+                      <Separator />
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-white/10 px-2 text-white/70">Or continue with</span>
+                      <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
                     </div>
                   </div>
                   
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full bg-white/10 border-white/20 text-white hover:bg-white/20"
+                    className="w-full"
                     onClick={handleGoogleAuth}
                     disabled={isLoading}
                   >

@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import CreateStoryDialog from '@/components/CreateStoryDialog';
 import { StoryCard } from '@/components/StoryCard';
 import { useLocation } from '@/hooks/useLocation';
+import { StorySkeleton, PageSkeleton } from '@/components/ui/skeleton-loader';
 
 const Stories = () => {
   const { user } = useAuth();
@@ -263,11 +264,7 @@ const Stories = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (

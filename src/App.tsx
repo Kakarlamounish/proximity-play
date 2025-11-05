@@ -5,9 +5,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import SkipLinks from "@/components/SkipLinks";
 import WebVitals from "@/components/WebVitals";
-import { Loader2 } from "lucide-react";
+import { PageSkeleton } from "@/components/ui/skeleton-loader";
+import { OnboardingTour } from "@/components/OnboardingTour";
 import './i18n';
 
 // Lazy load pages for better performance
@@ -36,58 +38,48 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
-  // Force dark mode globally on app load
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-    localStorage.setItem('theme', 'dark');
-  }, []);
-
   // Loading component for Suspense fallback
-  const PageLoader = () => (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary">
-      <div className="text-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-        <p className="text-white/70 text-sm">Loading...</p>
-      </div>
-    </div>
-  );
+  const PageLoader = () => <PageSkeleton />;
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <SkipLinks />
-          <WebVitals onReport={(metric) => {
-            // Send to analytics service
-            console.log('Web Vitals:', metric);
-            // In production, send to analytics like Google Analytics, Mixpanel, etc.
-          }} />
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <div className="min-h-screen pt-16 bg-gradient-to-br from-secondary via-background to-primary dark:from-secondary-dark dark:via-background dark:to-primary-dark">
-              <Suspense fallback={<PageLoader />}>
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/auth" element={<Auth />} />
-                  <Route path="/profile-setup" element={<ProfileSetup />} />
-                  <Route path="/discover" element={<Discover />} />
-                  <Route path="/friends" element={<Friends />} />
-                  <Route path="/messages" element={<Messages />} />
-                  <Route path="/live" element={<Live />} />
-                  <Route path="/calls" element={<Calls />} />
-                  <Route path="/stories" element={<Stories />} />
-                  <Route path="/maps" element={<Maps />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/settings" element={<Settings />} />
-                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-            </div>
-          </BrowserRouter>
-        </TooltipProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <TooltipProvider>
+            <SkipLinks />
+            <OnboardingTour />
+            <WebVitals onReport={(metric) => {
+              // Send to analytics service
+              console.log('Web Vitals:', metric);
+              // In production, send to analytics like Google Analytics, Mixpanel, etc.
+            }} />
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <div className="min-h-screen pt-16 bg-gradient-to-br from-secondary via-background to-primary dark:from-secondary-dark dark:via-background dark:to-primary-dark">
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/auth" element={<Auth />} />
+                    <Route path="/profile-setup" element={<ProfileSetup />} />
+                    <Route path="/discover" element={<Discover />} />
+                    <Route path="/friends" element={<Friends />} />
+                    <Route path="/messages" element={<Messages />} />
+                    <Route path="/live" element={<Live />} />
+                    <Route path="/calls" element={<Calls />} />
+                    <Route path="/stories" element={<Stories />} />
+                    <Route path="/maps" element={<Maps />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/settings" element={<Settings />} />
+                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
+              </div>
+            </BrowserRouter>
+          </TooltipProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 };

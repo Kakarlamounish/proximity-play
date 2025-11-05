@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Navigation } from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,10 +20,10 @@ import { UpdateLocationDialog } from '@/components/UpdateLocationDialog';
 
 const Settings = () => {
   const { user, loading, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
   const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState({
     messages: true,
     meetups: true,
@@ -131,23 +132,7 @@ const Settings = () => {
     }
   }, [user, loading]);
 
-  useEffect(() => {
-    // Initialize dark mode from localStorage (default to dark)
-    let isDark = true;
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'light') isDark = false;
-    setDarkMode(isDark);
-    if (isDark) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-  }, []);
-  
-  const toggleDarkMode = (checked?: boolean) => {
-    const newDarkMode = typeof checked === 'boolean' ? checked : !darkMode;
-    setDarkMode(newDarkMode);
-    localStorage.setItem('theme', newDarkMode ? 'dark' : 'light');
-    if (newDarkMode) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-  };
+  // Theme is now managed by ThemeContext - no need for local state
 
   const handleDeleteAccount = async () => {
     if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
@@ -277,7 +262,7 @@ const Settings = () => {
             <Card className="backdrop-blur-sm bg-card/95 border-0">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  {darkMode ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+                  {theme === 'dark' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
                   Appearance
                 </CardTitle>
               </CardHeader>
@@ -289,8 +274,8 @@ const Settings = () => {
                   </div>
                   <Switch
                     id="dark-mode"
-                    checked={darkMode}
-                    onCheckedChange={(checked) => toggleDarkMode(Boolean(checked))}
+                    checked={theme === 'dark'}
+                    onCheckedChange={toggleTheme}
                   />
                 </div>
               </CardContent>

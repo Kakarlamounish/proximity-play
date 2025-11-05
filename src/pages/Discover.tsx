@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BubbleFilters } from '@/components/BubbleFilters';
 import { Navigation } from '@/components/Navigation';
 import type { Database } from '@/integrations/supabase/types';
+import { CardSkeleton, BubbleSkeleton } from '@/components/ui/skeleton-loader';
 
 interface NearbyUser {
   id: string;
@@ -385,8 +386,13 @@ export default function Discover() {
 
           {/* Results */}
           {loading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <CardSkeleton />
+              <CardSkeleton />
+              <CardSkeleton />
+              <CardSkeleton />
+              <CardSkeleton />
+              <CardSkeleton />
             </div>
           ) : filteredUsers.length === 0 ? (
             <Card className="p-8 text-center">
@@ -462,8 +468,13 @@ export default function Discover() {
 
             <div className="lg:col-span-3">
               {loading ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <BubbleSkeleton />
+                  <BubbleSkeleton />
+                  <BubbleSkeleton />
+                  <BubbleSkeleton />
+                  <BubbleSkeleton />
+                  <BubbleSkeleton />
                 </div>
               ) : filteredBubbles.length === 0 ? (
                 <Card className="p-8 text-center">

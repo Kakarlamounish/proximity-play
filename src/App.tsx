@@ -10,6 +10,8 @@ import SkipLinks from "@/components/SkipLinks";
 import WebVitals from "@/components/WebVitals";
 import { PageSkeleton } from "@/components/ui/skeleton-loader";
 import { OnboardingTour } from "@/components/OnboardingTour";
+import { useServiceWorker } from '@/hooks/useServiceWorker';
+import { Button } from "@/components/ui/button";
 import './i18n';
 
 // Lazy load pages for better performance
@@ -38,6 +40,8 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
+  const { isUpdateAvailable, updateServiceWorker } = useServiceWorker();
+
   // Loading component for Suspense fallback
   const PageLoader = () => <PageSkeleton />;
 
@@ -53,6 +57,25 @@ const App = () => {
               console.log('Web Vitals:', metric);
               // In production, send to analytics like Google Analytics, Mixpanel, etc.
             }} />
+            
+            {/* Service Worker Update Notification */}
+            {isUpdateAvailable && (
+              <div className="fixed bottom-4 right-4 z-50 max-w-sm">
+                <div className="backdrop-blur-sm bg-card/95 border rounded-lg p-4 shadow-lg">
+                  <h3 className="font-semibold mb-2">Update Available</h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    A new version is available. Refresh to get the latest features and improvements.
+                  </p>
+                  <Button
+                    onClick={updateServiceWorker}
+                    className="w-full bg-gradient-to-r from-secondary to-primary"
+                  >
+                    Update Now
+                  </Button>
+                </div>
+              </div>
+            )}
+            
             <Toaster />
             <Sonner />
             <BrowserRouter>

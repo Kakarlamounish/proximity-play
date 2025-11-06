@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Loader2 } from 'lucide-react';
+import { PlusCircle, Loader2, Map } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import CreateStoryDialog from '@/components/CreateStoryDialog';
 import { StoryCard } from '@/components/StoryCard';
 import { useLocation } from '@/hooks/useLocation';
 import { StorySkeleton, PageSkeleton } from '@/components/ui/skeleton-loader';
+import { EmptyState } from '@/components/EmptyState';
 
 const Stories = () => {
   const { user } = useAuth();
@@ -361,17 +362,13 @@ const Stories = () => {
               })}
             </div>
           ) : (
-            <div className="stories-card backdrop-blur-sm bg-card/95 border-0 rounded-xl p-12">
-              <div className="text-center">
-                <div className="text-6xl mb-4">📱</div>
-                <h3 className="text-xl font-semibold mb-2">No stories nearby</h3>
-                <p className="text-muted-foreground mb-6">Be the first to share a location-based story!</p>
-                <Button onClick={() => setStoryDialogOpen(true)} className="gap-2 bg-gradient-to-r from-secondary to-primary">
-                  <PlusCircle className="h-5 w-5" />
-                  Create Your First Story
-                </Button>
-              </div>
-            </div>
+            <EmptyState
+              icon={Map}
+              title="No Stories Nearby"
+              description="Be the first to share a location-based story in your area! Stories help you connect with your community."
+              actionLabel="Create Your First Story"
+              onAction={() => setStoryDialogOpen(true)}
+            />
           )}
         </section>
       </main>

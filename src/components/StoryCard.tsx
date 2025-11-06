@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import { ProgressiveImage } from '@/components/ProgressiveImage';
 
 interface StoryCardProps {
   story: {

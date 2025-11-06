@@ -12,7 +12,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, MapPin, Users, Sparkles, RefreshCw, Search, Trophy, Star } from 'lucide-react';
+import { Loader2, MapPin, Users, Sparkles, RefreshCw, Search, Trophy, Star, Compass } from 'lucide-react';
+import { EmptyState } from '@/components/EmptyState';
+import { AdvancedFilters } from '@/components/AdvancedFilters';
+import { useSupabaseCache } from '@/hooks/useCache';
 
 interface Bubble {
   id: string;
@@ -40,6 +43,12 @@ const Index = () => {
   const [bubblesLoading, setBubblesLoading] = useState(false);
   const [radius, setRadius] = useState('2'); // km
   const [trendingBubbles, setTrendingBubbles] = useState<Bubble[]>([]);
+  const [filters, setFilters] = useState({
+    radius: 2,
+    interests: [] as string[],
+    memberCount: { min: 0, max: 1000 },
+    sortBy: 'distance' as 'distance' | 'members' | 'recent'
+  });
   const [userStats, setUserStats] = useState({
     storiesCreated: 0,
     reactionsReceived: 0,
@@ -152,8 +161,8 @@ const Index = () => {
           return;
         }
 
-        // Calculate distances
-        const bubblesWithDistance = bubblesData?.map((bubble: any) => {
+        // Calculate distances and apply filters
+        let filteredBubbles = bubblesData?.map((bubble: any) => {
           const distance = calculateDistance(
             latitude,
             longitude,
@@ -161,10 +170,34 @@ const Index = () => {
             bubble.longitude
           );
           return { ...bubble, distance };
-        }).filter((bubble: any) => bubble.distance <= parseFloat(radius));
+        }).filter((bubble: any) => {
+          // Distance filter
+          if (bubble.distance > filters.radius) return false;
+          
+          // Interest filter
+          if (filters.interests.length > 0 && !filters.interests.includes(bubble.interest_tag)) return false;
+          
+          // Member count filter
+          if (bubble.member_count < filters.memberCount.min || bubble.member_count > filters.memberCount.max) return false;
+          
+          return true;
+        });
+
+        // Sort bubbles
+        filteredBubbles?.sort((a: any, b: any) => {
+          switch (filters.sortBy) {
+            case 'members':
+              return b.member_count - a.member_count;
+            case 'recent':
+              return new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime();
+            case 'distance':
+            default:
+              return a.distance - b.distance;
+          }
+        });
 
         // Check which bubbles the user is already a member of
-        const bubbleIds = bubblesWithDistance?.map((b: any) => b.id) || [];
+        const bubbleIds = filteredBubbles?.map((b: any) => b.id) || [];
         if (bubbleIds.length > 0) {
           const { data: memberships } = await supabase
             .from('bubble_memberships')
@@ -174,7 +207,7 @@ const Index = () => {
 
           const membershipIds = new Set(memberships?.map(m => m.bubble_id));
 
-          const bubblesWithMembership = bubblesWithDistance?.map((bubble: any) => ({
+          const bubblesWithMembership = filteredBubbles?.map((bubble: any) => ({
             ...bubble,
             is_member: membershipIds.has(bubble.id)
           }));
@@ -192,7 +225,7 @@ const Index = () => {
 
     fetchNearbyBubbles();
     fetchTrendingBubbles();
-  }, [latitude, longitude, radius, user]);
+  }, [latitude, longitude, filters, user]);
 
   const fetchTrendingBubbles = async () => {
     if (!latitude || !longitude || !user) return;
@@ -305,6 +338,14 @@ const Index = () => {
               {/* Quick Actions */}
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-6">
                 <SearchDialog />
+                <AdvancedFilters
+                  filters={filters}
+                  onFiltersChange={(newFilters) => {
+                    setFilters(newFilters);
+                    setRadius(newFilters.radius.toString());
+                  }}
+                  availableInterests={['Sports', 'Gaming', 'Music', 'Art', 'Food', 'Tech', 'Travel', 'Books', 'Movies', 'Fitness']}
+                />
                 <CreateBubbleDialog onBubbleCreated={refreshBubbles} />
               </div>
             </div>
@@ -462,23 +503,17 @@ const Index = () => {
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : bubbles.length === 0 ? (
-                <Card className="backdrop-blur-sm bg-card/95 border-0">
-                  <CardContent className="p-12 text-center">
-                    <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <h3 className="text-lg font-semibold mb-2">No bubbles found nearby</h3>
-                    <p className="text-muted-foreground mb-4">
-                      {locationError
-                        ? 'Enable location access to discover bubbles near you'
-                        : 'Try expanding your search radius or check back later'
-                      }
-                    </p>
-                    {locationError && (
-                      <Button onClick={requestLocation} className="bg-gradient-to-r from-secondary to-primary">
-                        Enable Location
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
+                <EmptyState
+                  icon={locationError ? MapPin : Compass}
+                  title={locationError ? "Location Access Required" : "No Bubbles Nearby"}
+                  description={
+                    locationError
+                      ? "Enable location access to discover bubbles near you and connect with your community"
+                      : "Try expanding your search radius or create a new bubble to get started"
+                  }
+                  actionLabel={locationError ? "Enable Location" : undefined}
+                  onAction={locationError ? requestLocation : undefined}
+                />
               ) : (
                 <div className="space-y-8">
                   {/* Show trending bubbles first if available */}

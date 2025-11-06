@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Menu, X } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { NotificationCenter } from '@/components/NotificationCenter';
 
 export function Navigation(): JSX.Element {
   const [userName, setUserName] = useState<string | null>(null);
@@ -131,6 +132,7 @@ export function Navigation(): JSX.Element {
 
             {/* Right Side - Desktop */}
             <div className="hidden md:flex items-center space-x-2">
+              <NotificationCenter />
               <ThemeToggle />
               
               <Link

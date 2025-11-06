@@ -17,11 +17,9 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: any) {
-    console.error('Unhandled render error:', error, info);
-    // Report to error monitoring service in production
-    if (process.env.NODE_ENV === 'production') {
-      // Add error reporting here if needed
-    }
+    console.error('🔴 ERROR BOUNDARY CAUGHT ERROR:', error);
+    console.error('Component Stack:', info.componentStack);
+    this.setState({ error });
   }
 
   private handleRetry = () => {

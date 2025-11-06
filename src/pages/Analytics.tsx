@@ -57,16 +57,13 @@ export default function Analytics() {
     setLoading(true);
 
     try {
-      // Load all analytics data in parallel
+      // Load all analytics data in parallel with error handling
       const [
         bubblesData,
         friendsData,
         messagesData,
         storiesData,
-        viewsData,
-        reactionsData,
         badgesData,
-        activitiesData,
       ] = await Promise.all([
         supabase.from('bubble_memberships').select('*', { count: 'exact' }).eq('user_id', user.id),
         supabase
@@ -75,38 +72,52 @@ export default function Analytics() {
           .or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id}`),
         supabase.from('messages').select('*', { count: 'exact' }).eq('sender_id', user.id),
         supabase.from('location_stories').select('*', { count: 'exact' }).eq('user_id', user.id),
-        supabase
-          .from('story_views')
-          .select('*, story:location_stories!story_views_story_id_fkey(user_id)', { count: 'exact' })
-          .eq('story.user_id', user.id),
-        supabase
-          .from('story_reactions')
-          .select('*, story:location_stories!story_reactions_story_id_fkey(user_id)', { count: 'exact' })
-          .eq('story.user_id', user.id),
         supabase.from('user_badges').select('*, badge:badges(*)').eq('user_id', user.id),
-        supabase
-          .from('activities')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(10),
       ]);
+
+      // Get story views count separately
+      const storiesIds = storiesData.data?.map(s => s.id) || [];
+      let viewsCount = 0;
+      let reactionsCount = 0;
+
+      if (storiesIds.length > 0) {
+        const viewsResult = await supabase
+          .from('story_views')
+          .select('*', { count: 'exact', head: true })
+          .in('story_id', storiesIds);
+        viewsCount = viewsResult.count || 0;
+
+        const reactionsResult = await supabase
+          .from('story_reactions')
+          .select('*', { count: 'exact', head: true })
+          .in('story_id', storiesIds);
+        reactionsCount = reactionsResult.count || 0;
+      }
+
+      // Get recent activities
+      const activitiesData = await supabase
+        .from('activities')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      const createdAt = user.created_at ? new Date(user.created_at).getTime() : Date.now();
+      const activeDays = Math.max(1, Math.floor((Date.now() - createdAt) / (1000 * 60 * 60 * 24)));
 
       setAnalytics({
         totalBubbles: bubblesData.count || 0,
         totalFriends: friendsData.count || 0,
         totalMessages: messagesData.count || 0,
         totalStories: storiesData.count || 0,
-        storiesViews: viewsData.count || 0,
-        storiesReactions: reactionsData.count || 0,
+        storiesViews: viewsCount,
+        storiesReactions: reactionsCount,
         badgesEarned: badgesData.data?.length || 0,
-        activeDays: Math.floor(
-          (Date.now() - new Date(user.created_at || Date.now()).getTime()) / (1000 * 60 * 60 * 24)
-        ),
+        activeDays,
       });
 
       setBadges(badgesData.data || []);
-      setRecentActivities(activitiesData.data || []);
+      setRecentActivities(activitiesData?.data || []);
     } catch (error) {
       console.error('Error loading analytics:', error);
     } finally {

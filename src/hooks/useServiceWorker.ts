@@ -8,12 +8,12 @@ interface ServiceWorkerState {
 }
 
 export const useServiceWorker = () => {
-  const [state, setState] = useState<ServiceWorkerState>(() => ({
+  const [state, setState] = useState<ServiceWorkerState>({
     isSupported: typeof window !== 'undefined' && 'serviceWorker' in navigator,
     isRegistered: false,
     isUpdateAvailable: false,
     registration: null,
-  }));
+  });
 
   useEffect(() => {
     if (!state.isSupported) return;

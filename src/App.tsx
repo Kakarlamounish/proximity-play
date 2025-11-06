@@ -42,7 +42,17 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
-  const { isUpdateAvailable, updateServiceWorker } = useServiceWorker();
+  // Safely use service worker with error handling
+  let isUpdateAvailable = false;
+  let updateServiceWorker = () => {};
+  
+  try {
+    const swHook = useServiceWorker();
+    isUpdateAvailable = swHook.isUpdateAvailable;
+    updateServiceWorker = swHook.updateServiceWorker;
+  } catch (error) {
+    console.warn('Service Worker not available:', error);
+  }
 
   // Loading component for Suspense fallback
   const PageLoader = () => <PageSkeleton />;

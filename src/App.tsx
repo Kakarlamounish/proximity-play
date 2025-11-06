@@ -28,6 +28,7 @@ const Maps = lazy(() => import("./pages/Maps"));
 const Discover = lazy(() => import("./pages/Discover"));
 const Friends = lazy(() => import("./pages/Friends"));
 const Install = lazy(() => import("./pages/Install"));
+const Analytics = lazy(() => import("./pages/Analytics"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -95,6 +96,7 @@ const App = () => {
                     <Route path="/maps" element={<Maps />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/settings" element={<Settings />} />
+                    <Route path="/analytics" element={<Analytics />} />
                     <Route path="/install" element={<Install />} />
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route path="*" element={<NotFound />} />

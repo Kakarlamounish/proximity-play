@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Menu, X } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NotificationCenter } from '@/components/NotificationCenter';
+import { SearchDialog } from '@/components/SearchDialog';
 
 export function Navigation(): JSX.Element {
   const [userName, setUserName] = useState<string | null>(null);
@@ -82,6 +83,7 @@ export function Navigation(): JSX.Element {
     { to: '/stories', label: 'Stories' },
     { to: '/maps', label: 'Maps' },
     { to: '/friends', label: 'Friends' },
+    { to: '/analytics', label: 'Analytics' },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -132,6 +134,7 @@ export function Navigation(): JSX.Element {
 
             {/* Right Side - Desktop */}
             <div className="hidden md:flex items-center space-x-2">
+              <SearchDialog />
               <NotificationCenter />
               <ThemeToggle />
               

@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import SimplePeer from 'simple-peer';
-// removed potentially incompatible RealtimeChannel import
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
@@ -11,7 +10,8 @@ import {
   Mic, 
   MicOff,
   Volume2,
-  VolumeX
+  VolumeX,
+  RotateCcw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,41 +33,53 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   const [peer, setPeer] = useState<SimplePeer.Instance | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(callType === 'video');
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isSpeakerEnabled, setIsSpeakerEnabled] = useState(true);
-  const [callStatus, setCallStatus] = useState<'connecting' | 'connected' | 'ended'>('connecting');
+  const [callStatus, setCallStatus] = useState<'connecting' | 'connected' | 'ended' | 'failed'>('connecting');
+  const [callDuration, setCallDuration] = useState(0);
   
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  // use a loose type here to avoid runtime issues if supabase types differ
-  const channelRef = useRef<any | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
+  const channelRef = useRef<any>(null);
+  const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // Format duration as MM:SS
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const sendSignal = useCallback(async (signal: SimplePeer.SignalData) => {
-    console.log('VideoCall: Sending WebRTC signal:', signal);
+    console.log('VideoCall: Sending WebRTC signal');
     try {
       const { error } = await supabase
         .from('messages')
         .insert({
           bubble_id: bubbleId,
           sender_id: user?.id,
-          content: JSON.stringify({ type: 'webrtc_signal', signal, timestamp: Date.now() })
+          content: JSON.stringify({ 
+            type: 'webrtc_signal', 
+            signal, 
+            timestamp: Date.now(),
+            callType 
+          })
         });
       if (error) {
         console.error('VideoCall: Error sending signal:', error);
-        throw error;
       }
-      console.log('VideoCall: Signal sent successfully');
     } catch (error) {
       console.error('VideoCall: Error sending signal:', error);
     }
-  }, [bubbleId, user?.id]);
+  }, [bubbleId, user?.id, callType]);
 
   const listenForSignals = useCallback((peerInstance: SimplePeer.Instance) => {
-    console.log('VideoCall: Setting up signal listener for bubble:', bubbleId);
-    // cleanup existing channel
+    console.log('VideoCall: Setting up signal listener for:', bubbleId);
+    
     if (channelRef.current) {
       try {
         supabase.removeChannel(channelRef.current);
@@ -77,9 +89,8 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       channelRef.current = null;
     }
 
-    // create channel, attach listener, then subscribe and keep the channel ref
     try {
-      const channel = supabase.channel(`call-${bubbleId}-${Date.now()}`);
+      const channel = supabase.channel(`call-signals-${bubbleId}-${Date.now()}`);
       channel.on(
         'postgres_changes',
         {
@@ -90,139 +101,137 @@ export const VideoCall: React.FC<VideoCallProps> = ({
         },
         (payload: any) => {
           try {
-            console.log('VideoCall: Received message payload:', payload?.new);
             const message = payload?.new;
-            if (!message) return;
-            if (message.sender_id === user?.id) return; // ignore own messages
-            if (!message.content) return;
+            if (!message || message.sender_id === user?.id) return;
+            
             const parsed = JSON.parse(message.content);
-            console.log('VideoCall: Parsed message content:', parsed);
             if (parsed.type === 'webrtc_signal' && parsed.signal) {
-              // small delay to ensure peer is ready
+              console.log('VideoCall: Received signal, applying...');
               setTimeout(() => {
                 try {
                   peerInstance.signal(parsed.signal);
-                  console.log('VideoCall: Signal applied successfully');
                 } catch (signalError) {
                   console.error('VideoCall: Error applying signal:', signalError);
                 }
               }, 100);
             }
           } catch (error) {
-            console.error('VideoCall: Error processing incoming message:', error);
+            console.error('VideoCall: Error processing message:', error);
           }
         }
       );
-      // subscribe and store the channel reference for later removal
-      // subscribe may be sync or async depending on supabase version
-      const sub = channel.subscribe();
+      channel.subscribe();
       channelRef.current = channel;
-      console.log('VideoCall: Signal listener subscribed', sub);
     } catch (err) {
       console.error('VideoCall: Failed to setup realtime channel', err);
     }
   }, [bubbleId, user?.id]);
 
   const initializeCall = useCallback(async () => {
-    console.log('VideoCall: Initializing call', { callType, isInitiator, bubbleId });
+    console.log('VideoCall: Initializing', { callType, isInitiator });
+    setCallStatus('connecting');
+    
     try {
       const constraints = {
         video: callType === 'video',
         audio: true
       };
-      console.log('VideoCall: Requesting media with constraints:', constraints);
+      
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('VideoCall: Got local stream:', stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled })));
-
+      console.log('VideoCall: Got local stream');
       setLocalStream(stream);
 
       if (callType === 'video' && localVideoRef.current) {
-        try {
-          localVideoRef.current.srcObject = stream;
-          // some browsers require play() call
-          localVideoRef.current.play().catch(() => {});
-        } catch (e) {
-          console.warn('VideoCall: local video assignment failed', e);
-        }
+        localVideoRef.current.srcObject = stream;
+        localVideoRef.current.play().catch(() => {});
       }
 
       const newPeer = new SimplePeer({
         initiator: isInitiator,
-        trickle: false,
+        trickle: true,
         stream: stream,
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' }
           ]
         }
       });
-      console.log('VideoCall: Created SimplePeer instance, initiator:', isInitiator);
 
       newPeer.on('signal', (data: SimplePeer.SignalData) => {
-        console.log('VideoCall: Peer generated signal (raw):', data);
-        // avoid assuming data.type exists
         sendSignal(data);
       });
 
       newPeer.on('connect', () => {
-        console.log('VideoCall: Peer connected successfully');
+        console.log('VideoCall: Peer connected!');
         setCallStatus('connected');
+        
+        // Start duration timer
+        durationIntervalRef.current = setInterval(() => {
+          setCallDuration(prev => prev + 1);
+        }, 1000);
+        
         toast({
-          title: 'Call Connected',
-          description: 'You are now connected to the call.',
+          title: 'Connected',
+          description: 'Call connected successfully',
         });
       });
 
-      newPeer.on('stream', (incomingRemoteStream: MediaStream) => {
-        console.log('VideoCall: Received remote stream:', incomingRemoteStream?.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled })));
-        setRemoteStream(incomingRemoteStream);
+      newPeer.on('stream', (remoteMediaStream: MediaStream) => {
+        console.log('VideoCall: Received remote stream');
+        setRemoteStream(remoteMediaStream);
+        
         if (callType === 'video' && remoteVideoRef.current) {
-          try {
-            remoteVideoRef.current.srcObject = incomingRemoteStream;
-            remoteVideoRef.current.play().catch(() => {});
-          } catch (e) {
-            console.warn('VideoCall: remote video assignment failed', e);
-          }
+          remoteVideoRef.current.srcObject = remoteMediaStream;
+          remoteVideoRef.current.play().catch(() => {});
+        } else if (remoteAudioRef.current) {
+          remoteAudioRef.current.srcObject = remoteMediaStream;
+          remoteAudioRef.current.play().catch(() => {});
         }
       });
 
       newPeer.on('error', (err) => {
         console.error('VideoCall: Peer error:', err);
+        setCallStatus('failed');
         toast({
-          title: 'Call Error',
-          description: 'There was an error with the call connection.',
+          title: 'Connection Error',
+          description: 'Failed to establish call connection',
           variant: 'destructive',
         });
       });
 
       newPeer.on('close', () => {
-        console.log('VideoCall: Peer connection closed');
+        console.log('VideoCall: Peer closed');
         setCallStatus('ended');
-        onCallEnd?.();
       });
 
       setPeer(newPeer);
       listenForSignals(newPeer);
 
     } catch (error) {
-      console.error('VideoCall: Error initializing call:', error);
+      console.error('VideoCall: Init error:', error);
+      setCallStatus('failed');
       toast({
-        title: 'Call Error',
-        description: 'Could not access camera/microphone.',
+        title: 'Permission Error',
+        description: 'Could not access camera/microphone. Please check permissions.',
         variant: 'destructive',
       });
-      // mark call as ended to avoid stuck UI
-      setCallStatus('ended');
     }
-  }, [callType, isInitiator, user?.id, bubbleId, onCallEnd, toast, sendSignal, listenForSignals]);
+  }, [callType, isInitiator, sendSignal, listenForSignals, toast]);
 
   const endCall = useCallback(() => {
     console.log('VideoCall: Ending call');
+    
+    // Stop duration timer
+    if (durationIntervalRef.current) {
+      clearInterval(durationIntervalRef.current);
+      durationIntervalRef.current = null;
+    }
+
     if (peer) {
       try {
         peer.destroy();
-        console.log('VideoCall: Peer destroyed');
       } catch (error) {
         console.error('VideoCall: Error destroying peer:', error);
       }
@@ -240,15 +249,11 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       setLocalStream(null);
     }
 
-    if (remoteStream) {
-      // don't try to stop remote tracks (they belong to other peer) — just clear
-      setRemoteStream(null);
-    }
+    setRemoteStream(null);
 
     if (channelRef.current) {
       try {
         supabase.removeChannel(channelRef.current);
-        console.log('VideoCall: Channel removed');
       } catch (error) {
         console.error('VideoCall: Error removing channel:', error);
       }
@@ -257,76 +262,119 @@ export const VideoCall: React.FC<VideoCallProps> = ({
 
     setCallStatus('ended');
     onCallEnd?.();
-  }, [peer, localStream, remoteStream, onCallEnd]);
+  }, [peer, localStream, onCallEnd]);
 
   useEffect(() => {
     initializeCall();
     
     return () => {
-      endCall();
+      if (durationIntervalRef.current) {
+        clearInterval(durationIntervalRef.current);
+      }
+      if (peer) {
+        try { peer.destroy(); } catch {}
+      }
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+      if (channelRef.current) {
+        try { supabase.removeChannel(channelRef.current); } catch {}
+      }
     };
-  }, [initializeCall, endCall]);
+  }, []);
 
   const toggleVideo = useCallback(() => {
-    if (callType !== 'video') return;
-    if (localStream) {
-      localStream.getVideoTracks().forEach(track => {
-        track.enabled = !isVideoEnabled;
-      });
-      setIsVideoEnabled(!isVideoEnabled);
-    }
+    if (callType !== 'video' || !localStream) return;
+    localStream.getVideoTracks().forEach(track => {
+      track.enabled = !isVideoEnabled;
+    });
+    setIsVideoEnabled(!isVideoEnabled);
   }, [callType, localStream, isVideoEnabled]);
 
   const toggleAudio = useCallback(() => {
-    if (localStream) {
-      localStream.getAudioTracks().forEach(track => {
-        track.enabled = !isAudioEnabled;
-      });
-      setIsAudioEnabled(!isAudioEnabled);
-    }
+    if (!localStream) return;
+    localStream.getAudioTracks().forEach(track => {
+      track.enabled = !isAudioEnabled;
+    });
+    setIsAudioEnabled(!isAudioEnabled);
   }, [localStream, isAudioEnabled]);
 
   const toggleSpeaker = useCallback(() => {
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.muted = isSpeakerEnabled;
+    }
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.muted = isSpeakerEnabled;
+    }
     setIsSpeakerEnabled(!isSpeakerEnabled);
   }, [isSpeakerEnabled]);
 
+  const retryConnection = () => {
+    setCallStatus('connecting');
+    setCallDuration(0);
+    initializeCall();
+  };
+
   return (
-    <Card className="w-full max-w-4xl mx-auto bg-black/90 text-white border-0">
-      <CardContent className="p-0 relative h-[600px] flex">
-        {/* Remote Video/Audio */}
+    <Card className="w-full max-w-4xl mx-auto bg-black/95 text-white border-0 overflow-hidden">
+      <CardContent className="p-0 relative h-[600px] flex flex-col">
+        {/* Hidden audio element for audio calls */}
+        <audio ref={remoteAudioRef} autoPlay className="hidden" />
+        
+        {/* Main Video Area */}
         <div className="flex-1 relative">
           {callType === 'video' ? (
             <video
               ref={remoteVideoRef}
               autoPlay
               playsInline
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover bg-gray-900"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-900 rounded">
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800">
               <div className="text-center">
-                <Phone className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-                <p className="text-lg">Audio Call Active</p>
-                {remoteStream && (
-                  <p className="text-sm text-green-400">Remote audio connected</p>
+                <div className="w-32 h-32 mx-auto mb-6 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                  <Phone className="h-16 w-16 text-white" />
+                </div>
+                <p className="text-xl font-medium mb-2">Audio Call</p>
+                {callStatus === 'connected' && (
+                  <p className="text-green-400 animate-pulse">Connected</p>
                 )}
               </div>
             </div>
           )}
           
+          {/* Connection Status Overlay */}
           {callStatus === 'connecting' && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+            <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                <p>Connecting to {callType} call...</p>
+                <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent mx-auto mb-4" />
+                <p className="text-lg">Connecting...</p>
+                <p className="text-sm text-muted-foreground mt-2">Waiting for other party</p>
+              </div>
+            </div>
+          )}
+
+          {callStatus === 'failed' && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+              <div className="text-center">
+                <PhoneOff className="h-16 w-16 mx-auto mb-4 text-destructive" />
+                <p className="text-lg mb-4">Connection Failed</p>
+                <Button onClick={retryConnection} variant="outline" className="mr-2">
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Retry
+                </Button>
+                <Button onClick={endCall} variant="destructive">
+                  End Call
+                </Button>
               </div>
             </div>
           )}
         </div>
 
-        {/* Local Video/Audio Indicator */}
+        {/* Local Video Preview (Video calls only) */}
         {callType === 'video' ? (
-          <div className="absolute top-4 right-4 w-48 h-36 bg-black rounded-lg overflow-hidden border-2 border-white/20">
+          <div className="absolute top-4 right-4 w-32 h-24 sm:w-48 sm:h-36 bg-gray-900 rounded-lg overflow-hidden border-2 border-white/20 shadow-lg">
             <video
               ref={localVideoRef}
               autoPlay
@@ -334,23 +382,41 @@ export const VideoCall: React.FC<VideoCallProps> = ({
               muted
               className="w-full h-full object-cover"
             />
+            {!isVideoEnabled && (
+              <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
+                <VideoOff className="h-8 w-8 text-gray-400" />
+              </div>
+            )}
           </div>
         ) : (
-          <div className="absolute top-4 right-4 w-48 h-36 bg-gray-900 rounded-lg border-2 border-white/20 flex items-center justify-center">
-            <div className="text-center">
-              <Mic className={isAudioEnabled ? "h-8 w-8 text-green-400" : "h-8 w-8 text-red-400"} />
-              <p className="text-xs mt-1">{isAudioEnabled ? "Mic On" : "Mic Off"}</p>
-            </div>
+          <div className="absolute top-4 right-4 w-24 h-24 bg-gray-800 rounded-full flex items-center justify-center border-2 border-white/20">
+            <Mic className={`h-8 w-8 ${isAudioEnabled ? 'text-green-400' : 'text-red-400'}`} />
           </div>
         )}
 
+        {/* Call Status Bar */}
+        <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-sm rounded-lg px-4 py-2">
+          <div className="flex items-center gap-3">
+            <div className={`w-2 h-2 rounded-full ${
+              callStatus === 'connected' ? 'bg-green-500' : 
+              callStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' : 
+              callStatus === 'failed' ? 'bg-red-500' : 'bg-gray-500'
+            }`} />
+            <span className="text-sm capitalize">{callStatus}</span>
+            {callStatus === 'connected' && (
+              <span className="text-sm font-mono">{formatDuration(callDuration)}</span>
+            )}
+          </div>
+        </div>
+
         {/* Call Controls */}
-        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-4 bg-black/80 backdrop-blur-sm rounded-full px-6 py-3">
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-3 sm:gap-4 bg-black/80 backdrop-blur-sm rounded-full px-4 sm:px-6 py-3">
           <Button
             onClick={toggleAudio}
             size="sm"
             variant={isAudioEnabled ? "secondary" : "destructive"}
             className="rounded-full w-12 h-12"
+            title={isAudioEnabled ? 'Mute' : 'Unmute'}
           >
             {isAudioEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
           </Button>
@@ -361,6 +427,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
               size="sm"
               variant={isVideoEnabled ? "secondary" : "destructive"}
               className="rounded-full w-12 h-12"
+              title={isVideoEnabled ? 'Turn off camera' : 'Turn on camera'}
             >
               {isVideoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
             </Button>
@@ -371,6 +438,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
             size="sm"
             variant={isSpeakerEnabled ? "secondary" : "outline"}
             className="rounded-full w-12 h-12"
+            title={isSpeakerEnabled ? 'Mute speaker' : 'Unmute speaker'}
           >
             {isSpeakerEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
           </Button>
@@ -379,21 +447,11 @@ export const VideoCall: React.FC<VideoCallProps> = ({
             onClick={endCall}
             size="sm"
             variant="destructive"
-            className="rounded-full w-14 h-14"
+            className="rounded-full w-14 h-14 ml-2"
+            title="End call"
           >
             <PhoneOff className="h-6 w-6" />
           </Button>
-        </div>
-
-        {/* Call Status */}
-        <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-sm rounded-lg px-3 py-2">
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${
-              callStatus === 'connected' ? 'bg-green-500' : 
-              callStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'
-            }`} />
-            <span className="text-sm capitalize">{callStatus} {callType} call</span>
-          </div>
         </div>
       </CardContent>
     </Card>

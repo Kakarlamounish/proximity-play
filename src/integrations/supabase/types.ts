@@ -147,6 +147,53 @@ export type Database = {
         }
         Relationships: []
       }
+      call_logs: {
+        Row: {
+          bubble_id: string | null
+          call_type: string
+          caller_id: string
+          created_at: string
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          receiver_id: string | null
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          bubble_id?: string | null
+          call_type: string
+          caller_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          receiver_id?: string | null
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          bubble_id?: string | null
+          call_type?: string
+          caller_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          receiver_id?: string | null
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_logs_bubble_id_fkey"
+            columns: ["bubble_id"]
+            isOneToOne: false
+            referencedRelation: "bubbles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       friend_requests: {
         Row: {
           created_at: string

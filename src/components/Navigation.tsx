@@ -79,11 +79,11 @@ export function Navigation(): JSX.Element {
     { to: '/', label: 'Home' },
     { to: '/discover', label: 'Discover' },
     { to: '/messages', label: 'Messages' },
+    { to: '/calls', label: 'Calls' },
     { to: '/live', label: 'Live' },
     { to: '/stories', label: 'Stories' },
     { to: '/maps', label: 'Maps' },
     { to: '/friends', label: 'Friends' },
-    { to: '/analytics', label: 'Analytics' },
   ];
 
   const isActive = (path: string) => location.pathname === path;

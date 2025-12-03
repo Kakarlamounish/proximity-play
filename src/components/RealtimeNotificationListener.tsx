@@ -1,3 +1,4 @@
+import React from 'react';
 import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
 import { useAuth } from '@/contexts/AuthContext';
 

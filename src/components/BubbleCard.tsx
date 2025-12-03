@@ -3,11 +3,28 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MapPin, Users, MessageCircle, Calendar } from 'lucide-react';
+import { MapPin, Users, MessageCircle, Calendar, Trash2, MoreVertical } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useSupabaseCache } from '@/hooks/useCache';
+import { ShareBubbleDialog } from '@/components/ShareBubbleDialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 import type { Database } from '@/integrations/supabase/types';
 
@@ -31,6 +48,7 @@ interface BubbleCardProps {
   onJoin?: (bubbleId: string) => void;
   onLeave?: (bubbleId: string) => void;
   onChat?: (bubbleId: string) => void;
+  onDelete?: (bubbleId: string) => void;
   showTrendingBadge?: boolean;
 }
 
@@ -39,12 +57,48 @@ export const BubbleCard: React.FC<BubbleCardProps> = ({
   onJoin,
   onLeave,
   onChat,
+  onDelete,
   showTrendingBadge = false
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isMember, setIsMember] = useState(bubble.is_member || false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const isCreator = user?.id === bubble.creator_id;
+
+  const handleDeleteBubble = async () => {
+    if (!user || !isCreator) return;
+
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('bubbles')
+        .delete()
+        .eq('id', bubble.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Bubble deleted',
+        description: `"${bubble.name}" has been deleted`,
+      });
+
+      onDelete?.(bubble.id);
+      setShowDeleteDialog(false);
+    } catch (error: any) {
+      console.error('Error deleting bubble:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete bubble',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleJoinLeave = async () => {
     if (!user) return;
@@ -183,15 +237,55 @@ export const BubbleCard: React.FC<BubbleCardProps> = ({
               >
                 <MessageCircle className="h-4 w-4" />
               </Button>
-              <Button
-                variant="outline"
-                size="icon"
-              >
-                <Calendar className="h-4 w-4" />
-              </Button>
+              <ShareBubbleDialog 
+                bubbleId={bubble.id} 
+                bubbleName={bubble.name} 
+                isCreator={isCreator} 
+              />
+              {isCreator && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => setShowDeleteDialog(true)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Bubble
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </>
           )}
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete "{bubble.name}"?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the bubble
+                and remove all members.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteBubble}
+                disabled={isDeleting}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
   );

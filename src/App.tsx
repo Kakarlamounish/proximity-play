@@ -12,6 +12,7 @@ import { PageSkeleton } from "@/components/ui/skeleton-loader";
 import { OnboardingTour } from "@/components/OnboardingTour";
 import { useServiceWorker } from '@/hooks/useServiceWorker';
 import { Button } from "@/components/ui/button";
+import { RealtimeNotificationListener } from '@/components/RealtimeNotificationListener';
 import './i18n';
 
 // Lazy load pages for better performance
@@ -29,6 +30,7 @@ const Discover = lazy(() => import("./pages/Discover"));
 const Friends = lazy(() => import("./pages/Friends"));
 const Install = lazy(() => import("./pages/Install"));
 const Analytics = lazy(() => import("./pages/Analytics"));
+const JoinBubble = lazy(() => import("./pages/JoinBubble"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -90,6 +92,7 @@ const App = () => {
             
             <Toaster />
             <Sonner />
+            <RealtimeNotificationListener />
             <BrowserRouter>
               <div className="min-h-screen pt-16 bg-gradient-to-br from-secondary via-background to-primary dark:from-secondary-dark dark:via-background dark:to-primary-dark">
                 <Suspense fallback={<PageLoader />}>
@@ -108,6 +111,7 @@ const App = () => {
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/analytics" element={<Analytics />} />
                     <Route path="/install" element={<Install />} />
+                    <Route path="/join/:inviteCode" element={<JoinBubble />} />
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>

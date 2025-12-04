@@ -4,9 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Send, MoreVertical, Users, Calendar, ImageIcon, Paperclip, Type, Video } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Send, MoreVertical, Users, Calendar, ImageIcon, Mic } from 'lucide-react';
 import { ImageUpload } from '@/components/ImageUpload';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
+import { VoiceMessagePlayer } from '@/components/VoiceMessagePlayer';
+import { MeetupsList } from '@/components/MeetupsList';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -95,7 +98,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
   const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [showImageUpload, setShowImageUpload] = useState(false);
-  const [messageType, setMessageType] = useState<'text' | 'video'>('text');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -238,38 +240,20 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (messageType === 'text') {
-      if (!newMessage.trim() || !user) return;
-    } else if (messageType === 'video') {
-      // Video recording not implemented yet
-      toast({
-        title: 'Video recording',
-        description: 'Video message feature is coming soon!',
-        variant: 'default',
-      });
-      return;
-    }
+    if (!newMessage.trim() || !user) return;
 
     setLoading(true);
     try {
-      const content = messageType === 'text'
-        ? newMessage.trim()
-        : '🎥 Video message (feature coming soon)';
-
       const { error } = await supabase
         .from('messages')
         .insert({
-          content,
+          content: newMessage.trim(),
           sender_id: user.id,
           bubble_id: bubble.id
         });
 
       if (error) throw error;
-
-      if (messageType === 'text') {
-        setNewMessage('');
-      }
+      setNewMessage('');
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       toast({
@@ -279,6 +263,29 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVoiceMessage = async (audioUrl: string, duration: number) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          content: `🎤 Voice message (${duration}s): ${audioUrl}`,
+          sender_id: user.id,
+          bubble_id: bubble.id
+        });
+
+      if (error) throw error;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      toast({
+        title: 'Error sending voice message',
+        description: errorMessage,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -349,14 +356,28 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
         </div>
         
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onCreateMeetup}
-          >
-            <Calendar className="h-4 w-4 mr-2" />
-            Create Meetup
-          </Button>
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Calendar className="h-4 w-4 mr-2" />
+                Meetups
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="w-[400px] sm:w-[540px]">
+              <SheetHeader>
+                <SheetTitle>Upcoming Meetups</SheetTitle>
+              </SheetHeader>
+              <div className="mt-6">
+                <MeetupsList bubbleId={bubble.id} />
+              </div>
+              <div className="mt-4">
+                <Button onClick={onCreateMeetup} className="w-full bg-gradient-to-r from-secondary to-primary">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Create New Meetup
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
           <Button variant="ghost" size="icon">
             <MoreVertical className="h-4 w-4" />
           </Button>
@@ -370,20 +391,28 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
             <p>No messages yet. Start the conversation!</p>
           </div>
         ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex items-start gap-3 ${
-                message.sender_id === user?.id ? 'flex-row-reverse' : ''
-              }`}
-            >
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={message.sender?.profile_photo_url} />
-                <AvatarFallback className="bg-gradient-to-br from-secondary to-primary text-white text-sm">
-                  {message.sender?.first_name?.[0]?.toUpperCase() || 'U'}
-                </AvatarFallback>
-              </Avatar>
-              
+          messages.map((message) => {
+            // Check if message is a voice message
+            const isVoiceMessage = message.content.startsWith('🎤 Voice message');
+            const voiceUrlMatch = isVoiceMessage ? message.content.match(/https:\/\/[^\s]+/) : null;
+            const voiceUrl = voiceUrlMatch ? voiceUrlMatch[0] : null;
+            const durationMatch = isVoiceMessage ? message.content.match(/\((\d+)s\)/) : null;
+            const duration = durationMatch ? parseInt(durationMatch[1]) : 0;
+
+            return (
+              <div
+                key={message.id}
+                className={`flex items-start gap-3 ${
+                  message.sender_id === user?.id ? 'flex-row-reverse' : ''
+                }`}
+              >
+                <Avatar className="h-8 w-8 flex-shrink-0">
+                  <AvatarImage src={message.sender?.profile_photo_url || undefined} />
+                  <AvatarFallback className="bg-gradient-to-br from-secondary to-primary text-white text-sm">
+                    {message.sender?.first_name?.[0]?.toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                
                 <div
                   className={`max-w-[70%] ${
                     message.sender_id === user?.id ? 'text-right' : ''
@@ -396,48 +425,31 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
                         : 'bg-muted'
                     }`}
                   >
-                    <p className="text-sm">{message.content}</p>
+                    {isVoiceMessage && voiceUrl ? (
+                      <VoiceMessagePlayer audioUrl={voiceUrl} duration={duration} />
+                    ) : (
+                      <p className="text-sm">{message.content}</p>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                  <div className={`flex items-center gap-2 mt-1 text-xs text-muted-foreground ${
+                    message.sender_id === user?.id ? 'justify-end' : ''
+                  }`}>
                     {message.sender_id !== user?.id && (
                       <span>{message.sender?.first_name}</span>
                     )}
-                    <span>{formatMessageTime(message.created_at)}</span>
+                    <span>{formatMessageTime(message.created_at || '')}</span>
                   </div>
                 </div>
-            </div>
-          ))
+              </div>
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Message Input */}
       <form onSubmit={handleSendMessage} className="p-4 border-t">
-        {/* Message Type Selector */}
-        <div className="flex gap-2 mb-3">
-          <Button
-            type="button"
-            variant={messageType === 'text' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setMessageType('text')}
-            className="flex items-center gap-2"
-          >
-            <Type className="h-4 w-4" />
-            Text
-          </Button>
-          <Button
-            type="button"
-            variant={messageType === 'video' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setMessageType('video')}
-            className="flex items-center gap-2"
-          >
-            <Video className="h-4 w-4" />
-            Video
-          </Button>
-        </div>
-
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <Button
             type="button"
             variant="outline"
@@ -448,25 +460,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
             <ImageIcon className="h-4 w-4" />
           </Button>
 
-          {messageType === 'text' ? (
-            <Input
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type a message..."
-              disabled={loading}
-              className="flex-1"
-            />
-          ) : (
-            <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-muted rounded-md border-2 border-dashed border-muted-foreground/30">
-              <Video className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Tap to record video message</span>
-              <span className="text-xs text-muted-foreground/70">(Coming soon)</span>
-            </div>
-          )}
+          <Input
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Type a message..."
+            disabled={loading}
+            className="flex-1"
+          />
+          
+          <VoiceRecorder 
+            onVoiceMessage={handleVoiceMessage}
+            disabled={loading}
+          />
 
           <Button
             type="submit"
-            disabled={loading || (messageType === 'text' && !newMessage.trim())}
+            disabled={loading || !newMessage.trim()}
             className="bg-gradient-to-r from-secondary to-primary flex-shrink-0"
           >
             <Send className="h-4 w-4" />

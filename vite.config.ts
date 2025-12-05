@@ -127,20 +127,27 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      'react': path.resolve(__dirname, './node_modules/react'),
+      'react-dom': path.resolve(__dirname, './node_modules/react-dom'),
     },
-    dedupe: ['react', 'react-dom'],
+    dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
   },
   optimizeDeps: {
     include: [
       'react',
       'react-dom',
+      'react-dom/client',
+      'react/jsx-runtime',
+      'react/jsx-dev-runtime',
       'react-router-dom',
       '@supabase/supabase-js',
+      '@tanstack/react-query',
     ],
     exclude: [
       '@tensorflow/tfjs',
       '@tensorflow-models/universal-sentence-encoder',
     ],
+    force: true,
     esbuildOptions: {
       target: 'es2020',
     },

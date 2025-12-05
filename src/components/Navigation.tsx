@@ -100,80 +100,79 @@ export function Navigation(): JSX.Element {
       )}
 
       <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-secondary/90 via-primary/90 to-secondary/90 backdrop-blur-lg border-b border-white/10 shadow-2xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+          <div className="flex items-center justify-between h-14 gap-2">
             {/* Logo and Brand */}
-            <div className="flex items-center space-x-4">
-              <Link to="/" className="flex items-center space-x-3 group">
-                <img src="/logo.svg" alt="Social Bubble" className="h-8 w-8 transition-transform group-hover:scale-105" />
-                <span className="text-xl font-bold bg-gradient-to-r from-white to-white/90 bg-clip-text text-transparent group-hover:from-white group-hover:to-white transition-all duration-200">
+            <div className="flex items-center flex-shrink-0">
+              <Link to="/" className="flex items-center space-x-2 group">
+                <img src="/logo.svg" alt="Social Bubble" className="h-7 w-7 transition-transform group-hover:scale-105" />
+                <span className="text-lg font-bold bg-gradient-to-r from-white to-white/90 bg-clip-text text-transparent group-hover:from-white group-hover:to-white transition-all duration-200 hidden sm:inline">
                   Social Bubble
                 </span>
               </Link>
             </div>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-1">
+            <div className="hidden lg:flex items-center gap-1 flex-1 justify-center">
               {navLinks.map((link) => (
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 relative overflow-hidden ${
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                     isActive(link.to)
                       ? 'bg-white/20 text-white shadow-md'
-                      : 'text-white/80 hover:text-white hover:bg-white/10 hover:scale-105'
+                      : 'text-white/80 hover:text-white hover:bg-white/10'
                   }`}
                 >
                   {link.label}
-                  {isActive(link.to) && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent rounded-lg animate-pulse" />
-                  )}
                 </Link>
               ))}
             </div>
 
             {/* Right Side - Desktop */}
-            <div className="hidden md:flex items-center space-x-2">
+            <div className="hidden lg:flex items-center gap-1 flex-shrink-0">
               <SearchDialog />
               <NotificationCenter />
               <ThemeToggle />
               
               <Link
                 to="/settings"
-                className="p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200"
+                className="p-1.5 rounded-md text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200"
                 aria-label="Settings"
               >
                 ⚙️
               </Link>
 
-              <Link to="/profile" className="flex items-center space-x-3 p-2 rounded-lg hover:bg-white/10 transition-all duration-200 group">
-                <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white/20 group-hover:border-white/40 transition-colors">
+              <Link to="/profile" className="flex items-center gap-2 p-1.5 rounded-md hover:bg-white/10 transition-all duration-200 group">
+                <div className="w-7 h-7 rounded-full overflow-hidden border-2 border-white/20 group-hover:border-white/40 transition-colors flex-shrink-0">
                   <img
                     src={avatarUrl ?? '/placeholder.svg'}
                     alt="avatar"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    className="w-full h-full object-cover"
                   />
                 </div>
-                <span className="text-sm font-medium text-white/90 group-hover:text-white max-w-32 truncate transition-colors">
+                <span className="text-sm font-medium text-white/90 group-hover:text-white max-w-24 truncate transition-colors hidden xl:inline">
                   {userName ?? 'User'}
                 </span>
               </Link>
             </div>
 
             {/* Mobile Menu Button */}
-            <div className="md:hidden">
+            <div className="lg:hidden flex items-center gap-1">
+              <SearchDialog />
+              <NotificationCenter />
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 transform hover:scale-105"
+                className="p-2 rounded-md text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200"
                 aria-label="Toggle menu"
               >
-                <div className="relative w-6 h-6">
+                <div className="relative w-5 h-5">
                   <Menu
-                    size={24}
+                    size={20}
                     className={`absolute inset-0 transition-all duration-200 ${isMobileMenuOpen ? 'rotate-180 opacity-0 scale-75' : 'rotate-0 opacity-100 scale-100'}`}
                   />
                   <X
-                    size={24}
+                    size={20}
                     className={`absolute inset-0 transition-all duration-200 ${isMobileMenuOpen ? 'rotate-0 opacity-100 scale-100' : '-rotate-180 opacity-0 scale-75'}`}
                   />
                 </div>
@@ -183,7 +182,7 @@ export function Navigation(): JSX.Element {
         </div>
 
         {/* Mobile Navigation Menu */}
-        <div className={`md:hidden fixed top-16 left-0 right-0 z-50 bg-gradient-to-r from-secondary/98 via-primary/98 to-secondary/98 backdrop-blur-xl border-b border-white/10 shadow-2xl transition-all duration-300 ease-in-out ${
+        <div className={`lg:hidden fixed top-14 left-0 right-0 z-50 bg-gradient-to-r from-secondary/98 via-primary/98 to-secondary/98 backdrop-blur-xl border-b border-white/10 shadow-2xl transition-all duration-300 ease-in-out ${
           isMobileMenuOpen
             ? 'opacity-100 visible transform translate-y-0'
             : 'opacity-0 invisible transform -translate-y-4 pointer-events-none'

@@ -132,18 +132,52 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     setCallStatus('connecting');
     
     try {
-      const constraints = {
-        video: callType === 'video',
-        audio: true
+      // Check if mediaDevices is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Media devices not supported in this browser');
+      }
+
+      // First check permissions
+      let permissionStatus: PermissionStatus | null = null;
+      try {
+        if (navigator.permissions) {
+          const micPermission = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          console.log('VideoCall: Microphone permission:', micPermission.state);
+          if (callType === 'video') {
+            const camPermission = await navigator.permissions.query({ name: 'camera' as PermissionName });
+            console.log('VideoCall: Camera permission:', camPermission.state);
+          }
+        }
+      } catch (permError) {
+        console.log('VideoCall: Permission API not available, proceeding with getUserMedia');
+      }
+
+      const constraints: MediaStreamConstraints = {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
+        video: callType === 'video' ? {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        } : false
       };
       
+      console.log('VideoCall: Requesting media with constraints:', constraints);
+      
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('VideoCall: Got local stream');
+      console.log('VideoCall: Got local stream with tracks:', stream.getTracks().map(t => `${t.kind}:${t.enabled}`));
       setLocalStream(stream);
 
       if (callType === 'video' && localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
-        localVideoRef.current.play().catch(() => {});
+        try {
+          await localVideoRef.current.play();
+        } catch (playErr) {
+          console.warn('VideoCall: Local video autoplay failed:', playErr);
+        }
       }
 
       const newPeer = new SimplePeer({
@@ -154,7 +188,9 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' }
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' }
           ]
         }
       });
@@ -184,10 +220,10 @@ export const VideoCall: React.FC<VideoCallProps> = ({
         
         if (callType === 'video' && remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = remoteMediaStream;
-          remoteVideoRef.current.play().catch(() => {});
+          remoteVideoRef.current.play().catch((e) => console.warn('Remote video play failed:', e));
         } else if (remoteAudioRef.current) {
           remoteAudioRef.current.srcObject = remoteMediaStream;
-          remoteAudioRef.current.play().catch(() => {});
+          remoteAudioRef.current.play().catch((e) => console.warn('Remote audio play failed:', e));
         }
       });
 
@@ -196,7 +232,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
         setCallStatus('failed');
         toast({
           title: 'Connection Error',
-          description: 'Failed to establish call connection',
+          description: 'Failed to establish call connection. Please try again.',
           variant: 'destructive',
         });
       });
@@ -209,12 +245,39 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       setPeer(newPeer);
       listenForSignals(newPeer);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('VideoCall: Init error:', error);
       setCallStatus('failed');
+      
+      let errorMessage = 'Could not access camera/microphone.';
+      
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        errorMessage = 'Permission denied. Please allow camera/microphone access in your browser settings and reload the page.';
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        errorMessage = 'No camera or microphone found. Please connect a device and try again.';
+      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        errorMessage = 'Camera or microphone is already in use by another application.';
+      } else if (error.name === 'OverconstrainedError') {
+        errorMessage = 'Camera constraints could not be satisfied. Trying with default settings...';
+        // Try again with minimal constraints
+        try {
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: true, 
+            video: callType === 'video' 
+          });
+          setLocalStream(fallbackStream);
+          setCallStatus('connecting');
+          return;
+        } catch (fallbackErr) {
+          errorMessage = 'Could not access media devices.';
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: 'Permission Error',
-        description: 'Could not access camera/microphone. Please check permissions.',
+        description: errorMessage,
         variant: 'destructive',
       });
     }

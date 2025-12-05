@@ -131,14 +131,15 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     console.log('VideoCall: Initializing', { callType, isInitiator });
     setCallStatus('connecting');
     
+    let stream: MediaStream | null = null;
+    
     try {
       // Check if mediaDevices is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Media devices not supported in this browser');
       }
 
-      // First check permissions
-      let permissionStatus: PermissionStatus | null = null;
+      // First check permissions (non-blocking)
       try {
         if (navigator.permissions) {
           const micPermission = await navigator.permissions.query({ name: 'microphone' as PermissionName });
@@ -152,22 +153,36 @@ export const VideoCall: React.FC<VideoCallProps> = ({
         console.log('VideoCall: Permission API not available, proceeding with getUserMedia');
       }
 
-      const constraints: MediaStreamConstraints = {
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        },
-        video: callType === 'video' ? {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'user'
-        } : false
-      };
+      // Try to get media stream with fallback
+      try {
+        const constraints: MediaStreamConstraints = {
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          },
+          video: callType === 'video' ? {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: 'user'
+          } : false
+        };
+        
+        console.log('VideoCall: Requesting media with constraints:', constraints);
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (constraintError: any) {
+        console.warn('VideoCall: Failed with ideal constraints, trying minimal:', constraintError);
+        // Fallback to minimal constraints
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: true, 
+          video: callType === 'video' 
+        });
+      }
       
-      console.log('VideoCall: Requesting media with constraints:', constraints);
+      if (!stream) {
+        throw new Error('Failed to get media stream');
+      }
       
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       console.log('VideoCall: Got local stream with tracks:', stream.getTracks().map(t => `${t.kind}:${t.enabled}`));
       setLocalStream(stream);
 
@@ -180,20 +195,27 @@ export const VideoCall: React.FC<VideoCallProps> = ({
         }
       }
 
-      const newPeer = new SimplePeer({
-        initiator: isInitiator,
-        trickle: true,
-        stream: stream,
-        config: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' },
-            { urls: 'stun:stun4.l.google.com:19302' }
-          ]
-        }
-      });
+      // Create SimplePeer instance with error handling
+      let newPeer: SimplePeer.Instance;
+      try {
+        newPeer = new SimplePeer({
+          initiator: isInitiator,
+          trickle: true,
+          stream: stream,
+          config: {
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:stun1.l.google.com:19302' },
+              { urls: 'stun:stun2.l.google.com:19302' },
+              { urls: 'stun:stun3.l.google.com:19302' },
+              { urls: 'stun:stun4.l.google.com:19302' }
+            ]
+          }
+        });
+      } catch (peerError) {
+        console.error('VideoCall: Failed to create SimplePeer:', peerError);
+        throw new Error('Failed to initialize peer connection');
+      }
 
       newPeer.on('signal', (data: SimplePeer.SignalData) => {
         sendSignal(data);
@@ -249,6 +271,11 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       console.error('VideoCall: Init error:', error);
       setCallStatus('failed');
       
+      // Clean up stream if it was acquired
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      
       let errorMessage = 'Could not access camera/microphone.';
       
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
@@ -258,25 +285,13 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
         errorMessage = 'Camera or microphone is already in use by another application.';
       } else if (error.name === 'OverconstrainedError') {
-        errorMessage = 'Camera constraints could not be satisfied. Trying with default settings...';
-        // Try again with minimal constraints
-        try {
-          const fallbackStream = await navigator.mediaDevices.getUserMedia({ 
-            audio: true, 
-            video: callType === 'video' 
-          });
-          setLocalStream(fallbackStream);
-          setCallStatus('connecting');
-          return;
-        } catch (fallbackErr) {
-          errorMessage = 'Could not access media devices.';
-        }
+        errorMessage = 'Camera settings not supported by your device.';
       } else if (error.message) {
         errorMessage = error.message;
       }
       
       toast({
-        title: 'Permission Error',
+        title: 'Call Error',
         description: errorMessage,
         variant: 'destructive',
       });

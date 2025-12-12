@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import SimplePeer from 'simple-peer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
@@ -30,7 +29,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   isInitiator = false,
   onCallEnd
 }) => {
-  const [peer, setPeer] = useState<SimplePeer.Instance | null>(null);
+  const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [isVideoEnabled, setIsVideoEnabled] = useState(callType === 'video');
@@ -47,15 +46,14 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Format duration as MM:SS
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const sendSignal = useCallback(async (signal: SimplePeer.SignalData) => {
-    console.log('VideoCall: Sending WebRTC signal');
+  const sendSignal = useCallback(async (signal: any, signalType: string) => {
+    console.log('VideoCall: Sending signal:', signalType);
     try {
       const { error } = await supabase
         .from('messages')
@@ -63,7 +61,8 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           bubble_id: bubbleId,
           sender_id: user?.id,
           content: JSON.stringify({ 
-            type: 'webrtc_signal', 
+            type: 'webrtc_signal',
+            signalType,
             signal, 
             timestamp: Date.now(),
             callType 
@@ -77,8 +76,103 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     }
   }, [bubbleId, user?.id, callType]);
 
-  const listenForSignals = useCallback((peerInstance: SimplePeer.Instance) => {
-    console.log('VideoCall: Setting up signal listener for:', bubbleId);
+  const createPeerConnection = useCallback((stream: MediaStream): RTCPeerConnection => {
+    console.log('VideoCall: Creating RTCPeerConnection');
+    
+    const config: RTCConfiguration = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+      ]
+    };
+
+    const pc = new RTCPeerConnection(config);
+
+    // Add local tracks
+    stream.getTracks().forEach(track => {
+      console.log('VideoCall: Adding track:', track.kind);
+      pc.addTrack(track, stream);
+    });
+
+    // Handle ICE candidates
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        console.log('VideoCall: ICE candidate:', event.candidate.type);
+        sendSignal(event.candidate.toJSON(), 'ice-candidate');
+      }
+    };
+
+    pc.onicecandidateerror = (event) => {
+      console.error('VideoCall: ICE candidate error:', event);
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log('VideoCall: ICE connection state:', pc.iceConnectionState);
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        setCallStatus('connected');
+        if (!durationIntervalRef.current) {
+          durationIntervalRef.current = setInterval(() => {
+            setCallDuration(prev => prev + 1);
+          }, 1000);
+        }
+      } else if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+        console.warn('VideoCall: Connection failed/disconnected');
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log('VideoCall: Connection state:', pc.connectionState);
+      if (pc.connectionState === 'connected') {
+        setCallStatus('connected');
+        toast({
+          title: 'Connected',
+          description: 'Call connected successfully',
+        });
+      } else if (pc.connectionState === 'failed') {
+        setCallStatus('failed');
+      }
+    };
+
+    // Handle remote stream
+    pc.ontrack = (event) => {
+      console.log('VideoCall: Received remote track:', event.track.kind);
+      const [remoteMediaStream] = event.streams;
+      setRemoteStream(remoteMediaStream);
+      
+      if (callType === 'video' && remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = remoteMediaStream;
+        remoteVideoRef.current.play().catch(e => console.warn('Remote video play failed:', e));
+      } else if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = remoteMediaStream;
+        remoteAudioRef.current.play().catch(e => console.warn('Remote audio play failed:', e));
+      }
+    };
+
+    return pc;
+  }, [callType, sendSignal, toast]);
+
+  const handleSignal = useCallback(async (pc: RTCPeerConnection, signalType: string, signal: any) => {
+    console.log('VideoCall: Handling signal:', signalType);
+    
+    try {
+      if (signalType === 'offer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(signal));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        sendSignal(answer, 'answer');
+      } else if (signalType === 'answer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(signal));
+      } else if (signalType === 'ice-candidate') {
+        await pc.addIceCandidate(new RTCIceCandidate(signal));
+      }
+    } catch (error) {
+      console.error('VideoCall: Error handling signal:', error);
+    }
+  }, [sendSignal]);
+
+  const listenForSignals = useCallback((pc: RTCPeerConnection) => {
+    console.log('VideoCall: Setting up signal listener');
     
     if (channelRef.current) {
       try {
@@ -89,43 +183,32 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       channelRef.current = null;
     }
 
-    try {
-      const channel = supabase.channel(`call-signals-${bubbleId}-${Date.now()}`);
-      channel.on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `bubble_id=eq.${bubbleId}`,
-        },
-        (payload: any) => {
-          try {
-            const message = payload?.new;
-            if (!message || message.sender_id === user?.id) return;
-            
-            const parsed = JSON.parse(message.content);
-            if (parsed.type === 'webrtc_signal' && parsed.signal) {
-              console.log('VideoCall: Received signal, applying...');
-              setTimeout(() => {
-                try {
-                  peerInstance.signal(parsed.signal);
-                } catch (signalError) {
-                  console.error('VideoCall: Error applying signal:', signalError);
-                }
-              }, 100);
-            }
-          } catch (error) {
-            console.error('VideoCall: Error processing message:', error);
+    const channel = supabase.channel(`call-signals-${bubbleId}-${Date.now()}`);
+    channel.on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `bubble_id=eq.${bubbleId}`,
+      },
+      (payload: any) => {
+        try {
+          const message = payload?.new;
+          if (!message || message.sender_id === user?.id) return;
+          
+          const parsed = JSON.parse(message.content);
+          if (parsed.type === 'webrtc_signal' && parsed.signal) {
+            handleSignal(pc, parsed.signalType, parsed.signal);
           }
+        } catch (error) {
+          console.error('VideoCall: Error processing message:', error);
         }
-      );
-      channel.subscribe();
-      channelRef.current = channel;
-    } catch (err) {
-      console.error('VideoCall: Failed to setup realtime channel', err);
-    }
-  }, [bubbleId, user?.id]);
+      }
+    );
+    channel.subscribe();
+    channelRef.current = channel;
+  }, [bubbleId, user?.id, handleSignal]);
 
   const initializeCall = useCallback(async () => {
     console.log('VideoCall: Initializing', { callType, isInitiator });
@@ -134,26 +217,18 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     let stream: MediaStream | null = null;
     
     try {
+      // Check if RTCPeerConnection is available
+      if (typeof RTCPeerConnection === 'undefined') {
+        throw new Error('WebRTC is not supported in this browser');
+      }
+
       // Check if mediaDevices is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Media devices not supported in this browser');
       }
 
-      // First check permissions (non-blocking)
-      try {
-        if (navigator.permissions) {
-          const micPermission = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-          console.log('VideoCall: Microphone permission:', micPermission.state);
-          if (callType === 'video') {
-            const camPermission = await navigator.permissions.query({ name: 'camera' as PermissionName });
-            console.log('VideoCall: Camera permission:', camPermission.state);
-          }
-        }
-      } catch (permError) {
-        console.log('VideoCall: Permission API not available, proceeding with getUserMedia');
-      }
-
-      // Try to get media stream with fallback
+      // Request media stream
+      console.log('VideoCall: Requesting media stream');
       try {
         const constraints: MediaStreamConstraints = {
           audio: {
@@ -162,17 +237,15 @@ export const VideoCall: React.FC<VideoCallProps> = ({
             autoGainControl: true
           },
           video: callType === 'video' ? {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            width: { ideal: 640 },
+            height: { ideal: 480 },
             facingMode: 'user'
           } : false
         };
         
-        console.log('VideoCall: Requesting media with constraints:', constraints);
         stream = await navigator.mediaDevices.getUserMedia(constraints);
       } catch (constraintError: any) {
-        console.warn('VideoCall: Failed with ideal constraints, trying minimal:', constraintError);
-        // Fallback to minimal constraints
+        console.warn('VideoCall: Failed with ideal constraints, trying minimal:', constraintError.message);
         stream = await navigator.mediaDevices.getUserMedia({ 
           audio: true, 
           video: callType === 'video' 
@@ -186,6 +259,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       console.log('VideoCall: Got local stream with tracks:', stream.getTracks().map(t => `${t.kind}:${t.enabled}`));
       setLocalStream(stream);
 
+      // Display local video
       if (callType === 'video' && localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
         try {
@@ -195,97 +269,45 @@ export const VideoCall: React.FC<VideoCallProps> = ({
         }
       }
 
-      // Create SimplePeer instance with error handling
-      let newPeer: SimplePeer.Instance;
-      try {
-        newPeer = new SimplePeer({
-          initiator: isInitiator,
-          trickle: true,
-          stream: stream,
-          config: {
-            iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:stun1.l.google.com:19302' },
-              { urls: 'stun:stun2.l.google.com:19302' },
-              { urls: 'stun:stun3.l.google.com:19302' },
-              { urls: 'stun:stun4.l.google.com:19302' }
-            ]
-          }
+      // Create peer connection
+      const pc = createPeerConnection(stream);
+      setPeerConnection(pc);
+
+      // Set up signaling
+      listenForSignals(pc);
+
+      // If initiator, create and send offer
+      if (isInitiator) {
+        console.log('VideoCall: Creating offer');
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: callType === 'video'
         });
-      } catch (peerError) {
-        console.error('VideoCall: Failed to create SimplePeer:', peerError);
-        throw new Error('Failed to initialize peer connection');
+        await pc.setLocalDescription(offer);
+        sendSignal(offer, 'offer');
       }
 
-      newPeer.on('signal', (data: SimplePeer.SignalData) => {
-        sendSignal(data);
+      toast({
+        title: 'Connecting',
+        description: 'Waiting for the other party to join...',
       });
-
-      newPeer.on('connect', () => {
-        console.log('VideoCall: Peer connected!');
-        setCallStatus('connected');
-        
-        // Start duration timer
-        durationIntervalRef.current = setInterval(() => {
-          setCallDuration(prev => prev + 1);
-        }, 1000);
-        
-        toast({
-          title: 'Connected',
-          description: 'Call connected successfully',
-        });
-      });
-
-      newPeer.on('stream', (remoteMediaStream: MediaStream) => {
-        console.log('VideoCall: Received remote stream');
-        setRemoteStream(remoteMediaStream);
-        
-        if (callType === 'video' && remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = remoteMediaStream;
-          remoteVideoRef.current.play().catch((e) => console.warn('Remote video play failed:', e));
-        } else if (remoteAudioRef.current) {
-          remoteAudioRef.current.srcObject = remoteMediaStream;
-          remoteAudioRef.current.play().catch((e) => console.warn('Remote audio play failed:', e));
-        }
-      });
-
-      newPeer.on('error', (err) => {
-        console.error('VideoCall: Peer error:', err);
-        setCallStatus('failed');
-        toast({
-          title: 'Connection Error',
-          description: 'Failed to establish call connection. Please try again.',
-          variant: 'destructive',
-        });
-      });
-
-      newPeer.on('close', () => {
-        console.log('VideoCall: Peer closed');
-        setCallStatus('ended');
-      });
-
-      setPeer(newPeer);
-      listenForSignals(newPeer);
 
     } catch (error: any) {
       console.error('VideoCall: Init error:', error);
       setCallStatus('failed');
       
-      // Clean up stream if it was acquired
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
       
-      let errorMessage = 'Could not access camera/microphone.';
+      let errorMessage = 'Could not start call.';
       
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        errorMessage = 'Permission denied. Please allow camera/microphone access in your browser settings and reload the page.';
+        errorMessage = 'Permission denied. Please allow camera/microphone access in your browser settings.';
       } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-        errorMessage = 'No camera or microphone found. Please connect a device and try again.';
+        errorMessage = 'No camera or microphone found. Please connect a device.';
       } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-        errorMessage = 'Camera or microphone is already in use by another application.';
-      } else if (error.name === 'OverconstrainedError') {
-        errorMessage = 'Camera settings not supported by your device.';
+        errorMessage = 'Camera or microphone is in use by another application.';
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -296,34 +318,23 @@ export const VideoCall: React.FC<VideoCallProps> = ({
         variant: 'destructive',
       });
     }
-  }, [callType, isInitiator, sendSignal, listenForSignals, toast]);
+  }, [callType, isInitiator, createPeerConnection, listenForSignals, sendSignal, toast]);
 
   const endCall = useCallback(() => {
     console.log('VideoCall: Ending call');
     
-    // Stop duration timer
     if (durationIntervalRef.current) {
       clearInterval(durationIntervalRef.current);
       durationIntervalRef.current = null;
     }
 
-    if (peer) {
-      try {
-        peer.destroy();
-      } catch (error) {
-        console.error('VideoCall: Error destroying peer:', error);
-      }
-      setPeer(null);
+    if (peerConnection) {
+      peerConnection.close();
+      setPeerConnection(null);
     }
 
     if (localStream) {
-      localStream.getTracks().forEach(track => {
-        try {
-          track.stop();
-        } catch (error) {
-          console.error('VideoCall: Error stopping track:', error);
-        }
-      });
+      localStream.getTracks().forEach(track => track.stop());
       setLocalStream(null);
     }
 
@@ -340,7 +351,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
 
     setCallStatus('ended');
     onCallEnd?.();
-  }, [peer, localStream, onCallEnd]);
+  }, [peerConnection, localStream, onCallEnd]);
 
   useEffect(() => {
     initializeCall();
@@ -349,8 +360,8 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       if (durationIntervalRef.current) {
         clearInterval(durationIntervalRef.current);
       }
-      if (peer) {
-        try { peer.destroy(); } catch {}
+      if (peerConnection) {
+        peerConnection.close();
       }
       if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
@@ -390,16 +401,20 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   const retryConnection = () => {
     setCallStatus('connecting');
     setCallDuration(0);
+    if (peerConnection) {
+      peerConnection.close();
+    }
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+    }
     initializeCall();
   };
 
   return (
     <Card className="w-full max-w-4xl mx-auto bg-black/95 text-white border-0 overflow-hidden">
       <CardContent className="p-0 relative h-[600px] flex flex-col">
-        {/* Hidden audio element for audio calls */}
         <audio ref={remoteAudioRef} autoPlay className="hidden" />
         
-        {/* Main Video Area */}
         <div className="flex-1 relative">
           {callType === 'video' ? (
             <video
@@ -422,7 +437,6 @@ export const VideoCall: React.FC<VideoCallProps> = ({
             </div>
           )}
           
-          {/* Connection Status Overlay */}
           {callStatus === 'connecting' && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
               <div className="text-center">
@@ -450,7 +464,6 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           )}
         </div>
 
-        {/* Local Video Preview (Video calls only) */}
         {callType === 'video' ? (
           <div className="absolute top-4 right-4 w-32 h-24 sm:w-48 sm:h-36 bg-gray-900 rounded-lg overflow-hidden border-2 border-white/20 shadow-lg">
             <video
@@ -472,7 +485,6 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           </div>
         )}
 
-        {/* Call Status Bar */}
         <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-sm rounded-lg px-4 py-2">
           <div className="flex items-center gap-3">
             <div className={`w-2 h-2 rounded-full ${
@@ -487,14 +499,12 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           </div>
         </div>
 
-        {/* Call Controls */}
         <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-3 sm:gap-4 bg-black/80 backdrop-blur-sm rounded-full px-4 sm:px-6 py-3">
           <Button
             onClick={toggleAudio}
-            size="sm"
-            variant={isAudioEnabled ? "secondary" : "destructive"}
-            className="rounded-full w-12 h-12"
-            title={isAudioEnabled ? 'Mute' : 'Unmute'}
+            variant={isAudioEnabled ? 'outline' : 'destructive'}
+            size="icon"
+            className="h-12 w-12 rounded-full"
           >
             {isAudioEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
           </Button>
@@ -502,10 +512,9 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           {callType === 'video' && (
             <Button
               onClick={toggleVideo}
-              size="sm"
-              variant={isVideoEnabled ? "secondary" : "destructive"}
-              className="rounded-full w-12 h-12"
-              title={isVideoEnabled ? 'Turn off camera' : 'Turn on camera'}
+              variant={isVideoEnabled ? 'outline' : 'destructive'}
+              size="icon"
+              className="h-12 w-12 rounded-full"
             >
               {isVideoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
             </Button>
@@ -513,20 +522,18 @@ export const VideoCall: React.FC<VideoCallProps> = ({
 
           <Button
             onClick={toggleSpeaker}
-            size="sm"
-            variant={isSpeakerEnabled ? "secondary" : "outline"}
-            className="rounded-full w-12 h-12"
-            title={isSpeakerEnabled ? 'Mute speaker' : 'Unmute speaker'}
+            variant={isSpeakerEnabled ? 'outline' : 'secondary'}
+            size="icon"
+            className="h-12 w-12 rounded-full"
           >
             {isSpeakerEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
           </Button>
 
           <Button
             onClick={endCall}
-            size="sm"
             variant="destructive"
-            className="rounded-full w-14 h-14 ml-2"
-            title="End call"
+            size="icon"
+            className="h-14 w-14 rounded-full"
           >
             <PhoneOff className="h-6 w-6" />
           </Button>
@@ -535,3 +542,5 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     </Card>
   );
 };
+
+export default VideoCall;

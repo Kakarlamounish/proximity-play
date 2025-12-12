@@ -7,13 +7,10 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import SkipLinks from "@/components/SkipLinks";
-import WebVitals from "@/components/WebVitals";
 import { PageSkeleton } from "@/components/ui/skeleton-loader";
-import { OnboardingTour } from "@/components/OnboardingTour";
 import { RealtimeNotificationListener } from '@/components/RealtimeNotificationListener';
-import './i18n';
 
-// Lazy load pages for better performance
+// Lazy load pages
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ProfileSetup = lazy(() => import("./pages/ProfileSetup"));
@@ -43,49 +40,47 @@ const queryClient = new QueryClient({
 
 const PageLoader = () => <PageSkeleton />;
 
-const App = () => {
+function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          <TooltipProvider>
-            <SkipLinks />
-            <OnboardingTour />
-            <WebVitals onReport={(metric) => {
-              console.log('Web Vitals:', metric);
-            }} />
-            <Toaster />
-            <Sonner />
-            <RealtimeNotificationListener />
-            <BrowserRouter>
-              <div className="min-h-screen pt-16 bg-gradient-to-br from-secondary via-background to-primary dark:from-secondary-dark dark:via-background dark:to-primary-dark">
-                <Suspense fallback={<PageLoader />}>
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/auth" element={<Auth />} />
-                    <Route path="/profile-setup" element={<ProfileSetup />} />
-                    <Route path="/discover" element={<Discover />} />
-                    <Route path="/friends" element={<Friends />} />
-                    <Route path="/messages" element={<Messages />} />
-                    <Route path="/live" element={<Live />} />
-                    <Route path="/calls" element={<Calls />} />
-                    <Route path="/stories" element={<Stories />} />
-                    <Route path="/maps" element={<Maps />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/analytics" element={<Analytics />} />
-                    <Route path="/install" element={<Install />} />
-                    <Route path="/join/:inviteCode" element={<JoinBubble />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Suspense>
-              </div>
-            </BrowserRouter>
-          </TooltipProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <React.Fragment>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AuthProvider>
+            <TooltipProvider>
+              <SkipLinks />
+              <Toaster />
+              <Sonner />
+              <RealtimeNotificationListener />
+              <BrowserRouter>
+                <div className="min-h-screen pt-16 bg-gradient-to-br from-secondary via-background to-primary">
+                  <Suspense fallback={<PageLoader />}>
+                    <Routes>
+                      <Route path="/" element={<Index />} />
+                      <Route path="/auth" element={<Auth />} />
+                      <Route path="/profile-setup" element={<ProfileSetup />} />
+                      <Route path="/discover" element={<Discover />} />
+                      <Route path="/friends" element={<Friends />} />
+                      <Route path="/messages" element={<Messages />} />
+                      <Route path="/live" element={<Live />} />
+                      <Route path="/calls" element={<Calls />} />
+                      <Route path="/stories" element={<Stories />} />
+                      <Route path="/maps" element={<Maps />} />
+                      <Route path="/profile" element={<Profile />} />
+                      <Route path="/settings" element={<Settings />} />
+                      <Route path="/analytics" element={<Analytics />} />
+                      <Route path="/install" element={<Install />} />
+                      <Route path="/join/:inviteCode" element={<JoinBubble />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </Suspense>
+                </div>
+              </BrowserRouter>
+            </TooltipProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </React.Fragment>
   );
-};
+}
 
 export default App;

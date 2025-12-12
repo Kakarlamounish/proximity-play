@@ -4,15 +4,10 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from 'vite-plugin-pwa';
 
-// https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: '/',  // Use absolute paths for Netlify deployment
+  base: '/',
   define: {
-    global: 'window',
-    process: {
-      env: {},
-      version: '',
-    },
+    global: 'globalThis',
   },
   server: {
     host: "::",
@@ -59,7 +54,7 @@ export default defineConfig(({ mode }) => ({
               cacheName: 'supabase-cache',
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 // 24 hours
+                maxAgeSeconds: 60 * 60 * 24
               }
             }
           },
@@ -70,7 +65,7 @@ export default defineConfig(({ mode }) => ({
               cacheName: 'supabase-storage-cache',
               expiration: {
                 maxEntries: 200,
-                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 days
+                maxAgeSeconds: 60 * 60 * 24 * 7
               }
             }
           }
@@ -88,12 +83,9 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: {
-          // Vendor chunks
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-tabs'],
-          'map-vendor': ['leaflet', 'react-leaflet', 'leaflet-draw', 'react-leaflet-draw'],
           'supabase-vendor': ['@supabase/supabase-js'],
-          'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
         },
         assetFileNames: (assetInfo) => {
           if (!assetInfo.name) return 'assets/[name]-[hash][extname]';
@@ -127,18 +119,13 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      'react': path.resolve(__dirname, './node_modules/react'),
-      'react-dom': path.resolve(__dirname, './node_modules/react-dom'),
     },
-    dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
+    dedupe: ['react', 'react-dom'],
   },
   optimizeDeps: {
     include: [
       'react',
       'react-dom',
-      'react-dom/client',
-      'react/jsx-runtime',
-      'react/jsx-dev-runtime',
       'react-router-dom',
       '@supabase/supabase-js',
       '@tanstack/react-query',
@@ -147,10 +134,6 @@ export default defineConfig(({ mode }) => ({
       '@tensorflow/tfjs',
       '@tensorflow-models/universal-sentence-encoder',
     ],
-    force: true,
-    esbuildOptions: {
-      target: 'es2020',
-    },
   },
   esbuild: {
     logOverride: { 'this-is-undefined-in-esm': 'silent' }

@@ -1,4 +1,4 @@
-import React, { useEffect, Suspense, lazy } from "react";
+import React, { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,8 +10,6 @@ import SkipLinks from "@/components/SkipLinks";
 import WebVitals from "@/components/WebVitals";
 import { PageSkeleton } from "@/components/ui/skeleton-loader";
 import { OnboardingTour } from "@/components/OnboardingTour";
-import { useServiceWorker } from '@/hooks/useServiceWorker';
-import { Button } from "@/components/ui/button";
 import { RealtimeNotificationListener } from '@/components/RealtimeNotificationListener';
 import './i18n';
 
@@ -37,28 +35,15 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 5 * 60 * 1000,
       refetchOnWindowFocus: false,
     },
   },
 });
 
+const PageLoader = () => <PageSkeleton />;
+
 const App = () => {
-  // Safely use service worker with error handling
-  let isUpdateAvailable = false;
-  let updateServiceWorker = () => {};
-  
-  try {
-    const swHook = useServiceWorker();
-    isUpdateAvailable = swHook.isUpdateAvailable;
-    updateServiceWorker = swHook.updateServiceWorker;
-  } catch (error) {
-    console.warn('Service Worker not available:', error);
-  }
-
-  // Loading component for Suspense fallback
-  const PageLoader = () => <PageSkeleton />;
-
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
@@ -67,29 +52,8 @@ const App = () => {
             <SkipLinks />
             <OnboardingTour />
             <WebVitals onReport={(metric) => {
-              // Send to analytics service
               console.log('Web Vitals:', metric);
-              // In production, send to analytics like Google Analytics, Mixpanel, etc.
             }} />
-            
-            {/* Service Worker Update Notification */}
-            {isUpdateAvailable && (
-              <div className="fixed bottom-4 right-4 z-50 max-w-sm">
-                <div className="backdrop-blur-sm bg-card/95 border rounded-lg p-4 shadow-lg">
-                  <h3 className="font-semibold mb-2">Update Available</h3>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    A new version is available. Refresh to get the latest features and improvements.
-                  </p>
-                  <Button
-                    onClick={updateServiceWorker}
-                    className="w-full bg-gradient-to-r from-secondary to-primary"
-                  >
-                    Update Now
-                  </Button>
-                </div>
-              </div>
-            )}
-            
             <Toaster />
             <Sonner />
             <RealtimeNotificationListener />
@@ -112,7 +76,6 @@ const App = () => {
                     <Route path="/analytics" element={<Analytics />} />
                     <Route path="/install" element={<Install />} />
                     <Route path="/join/:inviteCode" element={<JoinBubble />} />
-                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

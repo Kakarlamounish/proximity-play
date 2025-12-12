@@ -1,20 +1,19 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
+
+// Import i18n after React
+import './i18n';
 
 const rootEl = document.getElementById('root');
 
 if (!rootEl) {
-  console.error('Root element with id="root" not found.');
   throw new Error('Root element not found');
 }
 
 ReactDOM.createRoot(rootEl).render(
   <React.StrictMode>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
+    <App />
   </React.StrictMode>
 );

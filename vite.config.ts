@@ -5,6 +5,9 @@ import { componentTagger } from "lovable-tagger";
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
+  const reactPath = path.resolve(__dirname, 'node_modules/react');
+  const reactDomPath = path.resolve(__dirname, 'node_modules/react-dom');
+
   return {
     base: '/',
     define: {

@@ -5,9 +5,6 @@ import { componentTagger } from "lovable-tagger";
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
-  const reactPath = path.resolve(__dirname, 'node_modules/react');
-  const reactDomPath = path.resolve(__dirname, 'node_modules/react-dom');
-
   return {
     base: '/',
     define: {
@@ -103,12 +100,8 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
-        "react": reactPath,
-        "react-dom": reactDomPath,
-        "react/jsx-runtime": path.resolve(reactPath, "jsx-runtime.js"),
-        "react/jsx-dev-runtime": path.resolve(reactPath, "jsx-dev-runtime.js"),
       },
-      dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime', '@tanstack/react-query'],
+      dedupe: ['react', 'react-dom'],
     },
     optimizeDeps: {
       include: [

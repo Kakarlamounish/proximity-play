@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRingtone } from '@/hooks/useRingtone';
 
 interface IncomingCall {
   id: string;
@@ -24,6 +25,7 @@ export const IncomingCallNotification: React.FC<IncomingCallNotificationProps> =
 }) => {
   const { user } = useAuth();
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
+  const { startRinging, stopRinging, playOnce } = useRingtone();
 
   useEffect(() => {
     if (!user) return;
@@ -66,8 +68,23 @@ export const IncomingCallNotification: React.FC<IncomingCallNotificationProps> =
     };
   }, [user]);
 
+  // Start/stop ringing based on incoming call
+  useEffect(() => {
+    if (incomingCall) {
+      startRinging('incoming');
+    } else {
+      stopRinging();
+    }
+
+    return () => {
+      stopRinging();
+    };
+  }, [incomingCall, startRinging, stopRinging]);
+
   const handleAccept = async () => {
     if (!incomingCall) return;
+    
+    stopRinging();
     
     // Update call status
     await supabase
@@ -81,6 +98,9 @@ export const IncomingCallNotification: React.FC<IncomingCallNotificationProps> =
 
   const handleDecline = async () => {
     if (!incomingCall) return;
+    
+    stopRinging();
+    playOnce('hangup');
     
     // Update call status
     await supabase

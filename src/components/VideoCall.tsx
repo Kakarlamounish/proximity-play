@@ -10,7 +10,9 @@ import {
   MicOff,
   Volume2,
   VolumeX,
-  RotateCcw
+  RotateCcw,
+  Monitor,
+  MonitorOff
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,6 +39,8 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   const [isSpeakerEnabled, setIsSpeakerEnabled] = useState(true);
   const [callStatus, setCallStatus] = useState<'connecting' | 'connected' | 'ended' | 'failed'>('connecting');
   const [callDuration, setCallDuration] = useState(0);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -407,8 +411,104 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
     }
+    if (screenStream) {
+      screenStream.getTracks().forEach(track => track.stop());
+      setScreenStream(null);
+      setIsScreenSharing(false);
+    }
     initializeCall();
   };
+
+  const toggleScreenShare = useCallback(async () => {
+    if (!peerConnection || callType !== 'video') return;
+
+    if (isScreenSharing) {
+      // Stop screen sharing and switch back to camera
+      if (screenStream) {
+        screenStream.getTracks().forEach(track => track.stop());
+        setScreenStream(null);
+      }
+
+      // Replace screen track with camera track
+      if (localStream) {
+        const videoTrack = localStream.getVideoTracks()[0];
+        if (videoTrack) {
+          const sender = peerConnection.getSenders().find(s => s.track?.kind === 'video');
+          if (sender) {
+            await sender.replaceTrack(videoTrack);
+          }
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = localStream;
+          }
+        }
+      }
+
+      setIsScreenSharing(false);
+      toast({
+        title: 'Screen Share Stopped',
+        description: 'Switched back to camera',
+      });
+    } else {
+      // Start screen sharing
+      try {
+        const displayStream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            cursor: 'always',
+            displaySurface: 'monitor'
+          } as MediaTrackConstraints,
+          audio: false
+        });
+
+        setScreenStream(displayStream);
+
+        // Replace camera track with screen track
+        const screenTrack = displayStream.getVideoTracks()[0];
+        const sender = peerConnection.getSenders().find(s => s.track?.kind === 'video');
+        if (sender && screenTrack) {
+          await sender.replaceTrack(screenTrack);
+        }
+
+        // Show screen in local preview
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = displayStream;
+        }
+
+        // Handle when user stops sharing via browser controls
+        screenTrack.onended = () => {
+          if (localStream) {
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack && sender) {
+              sender.replaceTrack(videoTrack);
+            }
+            if (localVideoRef.current) {
+              localVideoRef.current.srcObject = localStream;
+            }
+          }
+          setScreenStream(null);
+          setIsScreenSharing(false);
+          toast({
+            title: 'Screen Share Ended',
+            description: 'Switched back to camera',
+          });
+        };
+
+        setIsScreenSharing(true);
+        toast({
+          title: 'Screen Sharing',
+          description: 'Your screen is now being shared',
+        });
+      } catch (error: any) {
+        console.error('Screen share error:', error);
+        if (error.name !== 'NotAllowedError') {
+          toast({
+            title: 'Screen Share Failed',
+            description: error.message || 'Could not share screen',
+            variant: 'destructive',
+          });
+        }
+      }
+    }
+  }, [peerConnection, callType, isScreenSharing, screenStream, localStream, toast]);
 
   return (
     <Card className="w-full max-w-4xl mx-auto bg-black/95 text-white border-0 overflow-hidden">
@@ -473,9 +573,14 @@ export const VideoCall: React.FC<VideoCallProps> = ({
               muted
               className="w-full h-full object-cover"
             />
-            {!isVideoEnabled && (
+            {!isVideoEnabled && !isScreenSharing && (
               <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
                 <VideoOff className="h-8 w-8 text-gray-400" />
+              </div>
+            )}
+            {isScreenSharing && (
+              <div className="absolute bottom-1 left-1 bg-primary/80 text-xs px-1.5 py-0.5 rounded">
+                Screen
               </div>
             )}
           </div>
@@ -510,14 +615,28 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           </Button>
 
           {callType === 'video' && (
-            <Button
-              onClick={toggleVideo}
-              variant={isVideoEnabled ? 'outline' : 'destructive'}
-              size="icon"
-              className="h-12 w-12 rounded-full"
-            >
-              {isVideoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-            </Button>
+            <>
+              <Button
+                onClick={toggleVideo}
+                variant={isVideoEnabled ? 'outline' : 'destructive'}
+                size="icon"
+                className="h-12 w-12 rounded-full"
+                disabled={isScreenSharing}
+              >
+                {isVideoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+              </Button>
+
+              <Button
+                onClick={toggleScreenShare}
+                variant={isScreenSharing ? 'default' : 'outline'}
+                size="icon"
+                className="h-12 w-12 rounded-full"
+                disabled={callStatus !== 'connected'}
+                title={isScreenSharing ? 'Stop screen share' : 'Share screen'}
+              >
+                {isScreenSharing ? <MonitorOff className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
+              </Button>
+            </>
           )}
 
           <Button

@@ -17,6 +17,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRingtone } from '@/hooks/useRingtone';
 
 interface VideoCallProps {
   bubbleId: string;
@@ -49,6 +50,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { startRinging, stopRinging, playOnce } = useRingtone();
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -327,6 +329,9 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   const endCall = useCallback(() => {
     console.log('VideoCall: Ending call');
     
+    stopRinging();
+    playOnce('hangup');
+    
     if (durationIntervalRef.current) {
       clearInterval(durationIntervalRef.current);
       durationIntervalRef.current = null;
@@ -355,12 +360,26 @@ export const VideoCall: React.FC<VideoCallProps> = ({
 
     setCallStatus('ended');
     onCallEnd?.();
-  }, [peerConnection, localStream, onCallEnd]);
+  }, [peerConnection, localStream, onCallEnd, stopRinging, playOnce]);
+
+  // Start outgoing ringing sound when initiator is connecting
+  useEffect(() => {
+    if (isInitiator && callStatus === 'connecting') {
+      startRinging('outgoing');
+    } else {
+      stopRinging();
+    }
+
+    return () => {
+      stopRinging();
+    };
+  }, [isInitiator, callStatus, startRinging, stopRinging]);
 
   useEffect(() => {
     initializeCall();
     
     return () => {
+      stopRinging();
       if (durationIntervalRef.current) {
         clearInterval(durationIntervalRef.current);
       }

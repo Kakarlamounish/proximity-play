@@ -23,6 +23,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { VideoCall } from '@/components/VideoCall';
 import { IncomingCallNotification } from '@/components/IncomingCallNotification';
 import { MissedCallBanner, type MissedCallBannerData } from '@/components/MissedCallBanner';
+import { MissedCallLogDrawer } from '@/components/MissedCallLogDrawer';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -52,6 +53,8 @@ interface CallLog {
   created_at: string;
 }
 
+const CALL_TIMEOUT_STORAGE_KEY = 'call-timeout-seconds';
+
 const Calls = () => {
   const { user, loading } = useAuth();
   const { toast } = useToast();
@@ -65,6 +68,7 @@ const Calls = () => {
     friendId?: string;
     type: 'audio' | 'video';
     isInitiator: boolean;
+    callLogId?: string;
   } | null>(null);
   const [missedCall, setMissedCall] = useState<MissedCallBannerData | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
@@ -154,6 +158,46 @@ const Calls = () => {
     }
   }, [user, loading, fetchData]);
 
+  const getCallTimeoutSeconds = () => {
+    const raw = localStorage.getItem(CALL_TIMEOUT_STORAGE_KEY);
+    const n = raw ? Number(raw) : 30;
+    return Number.isFinite(n) && n > 0 ? n : 30;
+  };
+
+  const createMissedCallNotification = async (args: {
+    receiverId: string;
+    callerId: string;
+    callType: 'audio' | 'video';
+    callLogId: string;
+    bubbleId?: string | null;
+  }) => {
+    const { receiverId, callerId, callType, callLogId, bubbleId } = args;
+    try {
+      const { data: callerProfile } = await supabase
+        .from('profiles')
+        .select('first_name')
+        .eq('id', callerId)
+        .maybeSingle();
+      const callerName = callerProfile?.first_name || 'Unknown';
+
+      await supabase.from('notifications').insert({
+        user_id: receiverId,
+        type: 'missed_call',
+        title: 'Missed call',
+        body: `From ${callerName} • ${callType}`,
+        read: false,
+        data: {
+          callLogId,
+          callerId,
+          bubbleId: bubbleId ?? null,
+          callType,
+        },
+      });
+    } catch (e) {
+      console.error('Failed to create missed call notification', e);
+    }
+  };
+
   // Listen for missed calls (receiver side) and show a small in-app banner.
   useEffect(() => {
     if (!user) return;
@@ -221,9 +265,54 @@ const Calls = () => {
       console.log('Call started:', callLog);
 
       if (isBubble) {
-        setActiveCall({ bubbleId: targetId, type, isInitiator: true });
+        setActiveCall({ bubbleId: targetId, type, isInitiator: true, callLogId: callLog.id });
       } else {
-        setActiveCall({ friendId: targetId, type, isInitiator: true });
+        setActiveCall({ friendId: targetId, type, isInitiator: true, callLogId: callLog.id });
+
+        // Auto-timeout unanswered calls -> missed.
+        const timeoutSeconds = getCallTimeoutSeconds();
+        const callId = callLog.id;
+        const receiverId = targetId;
+
+        const timeoutHandle = window.setTimeout(async () => {
+          const { data: latest } = await supabase
+            .from('call_logs')
+            .select('status')
+            .eq('id', callId)
+            .maybeSingle();
+          if (!latest || latest.status !== 'ringing') return;
+
+          const endedAt = new Date().toISOString();
+          await supabase
+            .from('call_logs')
+            .update({ status: 'missed', ended_at: endedAt })
+            .eq('id', callId);
+
+          await createMissedCallNotification({
+            receiverId,
+            callerId: user.id,
+            callType: type,
+            callLogId: callId,
+            bubbleId: null,
+          });
+        }, timeoutSeconds * 1000);
+
+        // Clear timeout when call transitions away from ringing.
+        const callChannel = supabase
+          .channel(`call-timeout-${callId}`)
+          .on(
+            'postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'call_logs', filter: `id=eq.${callId}` },
+            (payload: any) => {
+              const updated = payload?.new as CallLog | undefined;
+              if (!updated) return;
+              if (updated.status !== 'ringing') {
+                window.clearTimeout(timeoutHandle);
+                supabase.removeChannel(callChannel);
+              }
+            }
+          )
+          .subscribe();
       }
 
       toast({
@@ -241,7 +330,7 @@ const Calls = () => {
   };
 
   const handleAcceptCall = (callId: string, callType: 'audio' | 'video', callerId: string) => {
-    setActiveCall({ friendId: callerId, type: callType, isInitiator: false });
+    setActiveCall({ friendId: callerId, type: callType, isInitiator: false, callLogId: callId });
   };
 
   const handleDeclineCall = (callId: string) => {
@@ -272,6 +361,16 @@ const Calls = () => {
           ended_at: endedAt,
         })
         .eq('id', c.id);
+
+      if (c.receiver_id) {
+        await createMissedCallNotification({
+          receiverId: c.receiver_id,
+          callerId: user.id,
+          callType: (activeCall?.type || 'audio'),
+          callLogId: c.id,
+          bubbleId: null,
+        });
+      }
     }
 
     setActiveCall(null);
@@ -312,12 +411,29 @@ const Calls = () => {
   }
 
   if (activeCall) {
+    const isBubble = Boolean(activeCall.bubbleId);
+    const friend = activeCall.friendId ? callerProfiles[activeCall.friendId] : null;
+    const bubble = activeCall.bubbleId ? userBubbles.find(b => b.id === activeCall.bubbleId) : null;
+
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <VideoCall
           bubbleId={activeCall.bubbleId || activeCall.friendId || ''}
           callType={activeCall.type}
           isInitiator={activeCall.isInitiator}
+          callLogId={activeCall.callLogId}
+          identity={
+            isBubble
+              ? {
+                  kind: 'bubble',
+                  title: bubble?.name || 'Bubble call',
+                }
+              : {
+                  kind: 'direct',
+                  title: friend?.first_name || 'Call',
+                  avatarUrl: friend?.profile_photo_url || undefined,
+                }
+          }
           onCallEnd={endCall}
         />
       </div>
@@ -506,6 +622,14 @@ const Calls = () => {
                   <CardTitle className="flex items-center gap-2">
                     <Clock className="h-5 w-5" />
                     Recent Calls
+                    <div className="ml-auto">
+                      <MissedCallLogDrawer
+                        onCallBack={({ friendId, bubbleId, callType }) => {
+                          if (bubbleId) startCall(bubbleId, callType, true);
+                          else if (friendId) startCall(friendId, callType, false);
+                        }}
+                      />
+                    </div>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>

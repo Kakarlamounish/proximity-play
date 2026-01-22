@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import { showSystemNotification } from '@/utils/showSystemNotification';
 
 interface Notification {
   id: string;
@@ -51,11 +52,14 @@ export function NotificationCenter() {
             description: newNotification.body,
           });
 
-          // Request notification permission if not granted
-          if (Notification.permission === 'granted') {
-            new Notification(newNotification.title, {
+          // “Push-like” notification when the app is not in the foreground.
+          if (document.visibilityState !== 'visible') {
+            showSystemNotification({
+              title: newNotification.title,
               body: newNotification.body,
               icon: '/logo.png',
+              tag: `notif:${newNotification.id}`,
+              data: newNotification.data ?? '/',
             });
           }
         }
@@ -148,6 +152,8 @@ export function NotificationCenter() {
         return '📍';
       case 'story_reaction':
         return '❤️';
+      case 'missed_call':
+        return '📞';
       default:
         return '🔔';
     }

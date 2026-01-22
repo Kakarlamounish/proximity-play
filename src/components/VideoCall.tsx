@@ -12,17 +12,24 @@ import {
   VolumeX,
   RotateCcw,
   Monitor,
-  MonitorOff
+  MonitorOff,
+  Wifi,
+  ChevronDown
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRingtone } from '@/hooks/useRingtone';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface VideoCallProps {
   bubbleId: string;
   callType?: 'audio' | 'video';
   isInitiator?: boolean;
+  callLogId?: string;
+  identity?:
+    | { kind: 'direct'; title: string; avatarUrl?: string }
+    | { kind: 'bubble'; title: string };
   onCallEnd?: () => void;
 }
 
@@ -30,6 +37,8 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   bubbleId,
   callType = 'video',
   isInitiator = false,
+  callLogId,
+  identity,
   onCallEnd
 }) => {
   const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
@@ -42,6 +51,10 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   const [callDuration, setCallDuration] = useState(0);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+  const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>('new');
+  const [iceState, setIceState] = useState<RTCIceConnectionState>('new');
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [quality, setQuality] = useState<{ rttMs?: number; packetsLost?: number; jitterMs?: number; bitrateKbps?: number }>({});
   
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -115,6 +128,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
 
     pc.oniceconnectionstatechange = () => {
       console.log('VideoCall: ICE connection state:', pc.iceConnectionState);
+      setIceState(pc.iceConnectionState);
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         setCallStatus('connected');
         if (!durationIntervalRef.current) {
@@ -129,6 +143,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
 
     pc.onconnectionstatechange = () => {
       console.log('VideoCall: Connection state:', pc.connectionState);
+      setConnectionState(pc.connectionState);
       if (pc.connectionState === 'connected') {
         setCallStatus('connected');
         toast({
@@ -325,6 +340,75 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       });
     }
   }, [callType, isInitiator, createPeerConnection, listenForSignals, sendSignal, toast]);
+
+  // Best-effort call log bookkeeping for duration.
+  useEffect(() => {
+    if (!callLogId || callStatus !== 'ended') return;
+    if (callDuration <= 0) return;
+    supabase
+      .from('call_logs')
+      .update({ duration_seconds: callDuration, ended_at: new Date().toISOString() })
+      .eq('id', callLogId)
+      .then(() => {})
+      .catch(() => {});
+  }, [callLogId, callDuration, callStatus]);
+
+  // Collect lightweight call quality metrics when connected.
+  useEffect(() => {
+    if (!peerConnection) return;
+    if (callStatus !== 'connected') return;
+
+    let lastBytesSent: number | null = null;
+    let lastTs: number | null = null;
+
+    const id = window.setInterval(async () => {
+      try {
+        const reports = await peerConnection.getStats();
+
+        let rttMs: number | undefined;
+        let packetsLost: number | undefined;
+        let jitterMs: number | undefined;
+        let bitrateKbps: number | undefined;
+
+        reports.forEach((r: any) => {
+          if (r.type === 'candidate-pair' && r.state === 'succeeded' && r.currentRoundTripTime != null) {
+            rttMs = Math.round(Number(r.currentRoundTripTime) * 1000);
+          }
+          if (r.type === 'inbound-rtp' && r.kind === 'audio') {
+            if (r.packetsLost != null) packetsLost = Number(r.packetsLost);
+            if (r.jitter != null) jitterMs = Math.round(Number(r.jitter) * 1000);
+          }
+          if (r.type === 'outbound-rtp' && (r.kind === 'video' || r.kind === 'audio')) {
+            if (r.bytesSent != null && r.timestamp != null) {
+              const bytes = Number(r.bytesSent);
+              const ts = Number(r.timestamp);
+              if (lastBytesSent != null && lastTs != null) {
+                const deltaBytes = bytes - lastBytesSent;
+                const deltaSec = (ts - lastTs) / 1000;
+                if (deltaSec > 0) {
+                  bitrateKbps = Math.round((deltaBytes * 8) / 1000 / deltaSec);
+                }
+              }
+              lastBytesSent = bytes;
+              lastTs = ts;
+            }
+          }
+        });
+
+        setQuality(prev => ({
+          ...prev,
+          ...(rttMs != null ? { rttMs } : {}),
+          ...(packetsLost != null ? { packetsLost } : {}),
+          ...(jitterMs != null ? { jitterMs } : {}),
+          ...(bitrateKbps != null ? { bitrateKbps } : {}),
+        }));
+      } catch (e) {
+        // ignore
+      }
+    }, 2000);
+
+    return () => window.clearInterval(id);
+  }, [peerConnection, callStatus]);
 
   const endCall = useCallback(() => {
     console.log('VideoCall: Ending call');
@@ -540,6 +624,23 @@ export const VideoCall: React.FC<VideoCallProps> = ({
             <div className="m-3 rounded-xl border border-border/40 bg-card/40 backdrop-blur px-3 py-2 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 min-w-0">
+                  {identity?.kind === 'direct' ? (
+                    <Avatar className="h-7 w-7">
+                      <AvatarImage src={identity.avatarUrl} />
+                      <AvatarFallback>{identity.title?.[0]?.toUpperCase() || '?'}</AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <div className="h-7 w-7 rounded-full border border-border/40 bg-background/40" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground truncate">
+                      {identity?.kind === 'bubble' ? 'Bubble call' : 'Direct call'}
+                    </p>
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {identity?.title || 'Call'}
+                    </p>
+                  </div>
+
                   <div
                     className={`h-2.5 w-2.5 rounded-full ${
                       callStatus === 'connected'
@@ -565,6 +666,20 @@ export const VideoCall: React.FC<VideoCallProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* Quality */}
+                  <button
+                    type="button"
+                    onClick={() => setStatsOpen(v => !v)}
+                    className="inline-flex items-center gap-1 rounded-md border border-border/40 px-2 py-1 text-xs text-foreground"
+                    title="Call quality"
+                  >
+                    <Wifi className="h-4 w-4" />
+                    <span className="hidden sm:inline">
+                      {connectionState}
+                    </span>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${statsOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
                   <div
                     className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs border ${
                       isAudioEnabled
@@ -602,6 +717,40 @@ export const VideoCall: React.FC<VideoCallProps> = ({
                   )}
                 </div>
               </div>
+
+              {statsOpen && (
+                <div className="mt-2 rounded-lg border border-border/40 bg-background/40 p-2 text-xs text-foreground">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <div className="text-muted-foreground">Connection</div>
+                      <div className="font-mono">{connectionState}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">ICE</div>
+                      <div className="font-mono">{iceState}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">RTT</div>
+                      <div className="font-mono">{quality.rttMs != null ? `${quality.rttMs}ms` : '—'}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Bitrate</div>
+                      <div className="font-mono">{quality.bitrateKbps != null ? `${quality.bitrateKbps}kbps` : '—'}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Jitter</div>
+                      <div className="font-mono">{quality.jitterMs != null ? `${quality.jitterMs}ms` : '—'}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Packets lost</div>
+                      <div className="font-mono">{quality.packetsLost != null ? quality.packetsLost : '—'}</div>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    Debug stats update every ~2s while connected.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

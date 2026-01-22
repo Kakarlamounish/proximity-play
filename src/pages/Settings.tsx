@@ -35,12 +35,16 @@ const Settings = () => {
   const [language, setLanguage] = useState('en');
   const [timezone, setTimezone] = useState('UTC');
   const [storageUsed, setStorageUsed] = useState(0);
+  const [callTimeoutSeconds, setCallTimeoutSeconds] = useState(30);
+
+  const CALL_TIMEOUT_STORAGE_KEY = 'call-timeout-seconds';
 
   // Load preferences from localStorage
   useEffect(() => {
     const savedNotifications = localStorage.getItem('notification-preferences');
     const savedLanguage = localStorage.getItem('app-language');
     const savedTimezone = localStorage.getItem('app-timezone');
+    const savedCallTimeout = localStorage.getItem(CALL_TIMEOUT_STORAGE_KEY);
 
     if (savedNotifications) {
       try {
@@ -52,6 +56,11 @@ const Settings = () => {
 
     if (savedLanguage) setLanguage(savedLanguage);
     if (savedTimezone) setTimezone(savedTimezone);
+
+    if (savedCallTimeout) {
+      const n = Number(savedCallTimeout);
+      if (Number.isFinite(n) && n > 0) setCallTimeoutSeconds(n);
+    }
   }, []);
 
   // Save preferences to localStorage
@@ -68,6 +77,11 @@ const Settings = () => {
   const updateTimezone = (newTimezone: string) => {
     setTimezone(newTimezone);
     localStorage.setItem('app-timezone', newTimezone);
+  };
+
+  const updateCallTimeout = (seconds: number) => {
+    setCallTimeoutSeconds(seconds);
+    localStorage.setItem(CALL_TIMEOUT_STORAGE_KEY, String(seconds));
   };
 
   useEffect(() => {
@@ -430,6 +444,28 @@ const Settings = () => {
                       <SelectItem value="America/New_York">EST</SelectItem>
                       <SelectItem value="America/Los_Angeles">PST</SelectItem>
                       <SelectItem value="Europe/London">GMT</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-base">Call timeout</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Auto-mark unanswered calls as missed after this many seconds
+                    </p>
+                  </div>
+                  <Select value={String(callTimeoutSeconds)} onValueChange={(v) => updateCallTimeout(Number(v))}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="15">15s</SelectItem>
+                      <SelectItem value="30">30s</SelectItem>
+                      <SelectItem value="45">45s</SelectItem>
+                      <SelectItem value="60">60s</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

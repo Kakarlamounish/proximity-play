@@ -22,6 +22,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { VideoCall } from '@/components/VideoCall';
 import { IncomingCallNotification } from '@/components/IncomingCallNotification';
+import { MissedCallBanner, type MissedCallBannerData } from '@/components/MissedCallBanner';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -65,6 +66,7 @@ const Calls = () => {
     type: 'audio' | 'video';
     isInitiator: boolean;
   } | null>(null);
+  const [missedCall, setMissedCall] = useState<MissedCallBannerData | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -152,6 +154,51 @@ const Calls = () => {
     }
   }, [user, loading, fetchData]);
 
+  // Listen for missed calls (receiver side) and show a small in-app banner.
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`missed-calls-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'call_logs',
+          filter: `receiver_id=eq.${user.id}`,
+        },
+        async (payload: any) => {
+          const updated = payload?.new as CallLog | undefined;
+          if (!updated) return;
+          if (updated.status !== 'missed') return;
+          if (!updated.caller_id) return;
+
+          // Fetch caller name for banner.
+          const { data: callerProfile } = await supabase
+            .from('profiles')
+            .select('id, first_name, profile_photo_url')
+            .eq('id', updated.caller_id)
+            .maybeSingle();
+
+          setMissedCall({
+            callId: updated.id,
+            callerId: updated.caller_id,
+            callType: updated.call_type,
+            callerName: callerProfile?.first_name || 'Unknown',
+          });
+
+          // Keep history fresh.
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchData]);
+
   const startCall = async (targetId: string, type: 'audio' | 'video', isBubble: boolean) => {
     if (!user) return;
 
@@ -207,15 +254,25 @@ const Calls = () => {
   const endCall = async () => {
     if (!user) return;
 
-    // Update any active calls to ended
-    await supabase
+    // If the call was never connected, treat it as a missed call for the receiver.
+    // (Bubble calls have no receiver_id, so they are just ended.)
+    const { data: ringingCalls } = await supabase
       .from('call_logs')
-      .update({ 
-        status: 'ended', 
-        ended_at: new Date().toISOString() 
-      })
+      .select('id, receiver_id')
       .eq('caller_id', user.id)
       .eq('status', 'ringing');
+
+    const endedAt = new Date().toISOString();
+    const calls = ringingCalls || [];
+    for (const c of calls) {
+      await supabase
+        .from('call_logs')
+        .update({
+          status: c.receiver_id ? 'missed' : 'ended',
+          ended_at: endedAt,
+        })
+        .eq('id', c.id);
+    }
 
     setActiveCall(null);
     fetchData(); // Refresh call history
@@ -270,6 +327,17 @@ const Calls = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
       <Navigation />
+
+      {missedCall && (
+        <MissedCallBanner
+          data={missedCall}
+          onDismiss={() => setMissedCall(null)}
+          onCallBack={(callerId, type) => {
+            setMissedCall(null);
+            startCall(callerId, type, false);
+          }}
+        />
+      )}
       
       {/* Incoming Call Notification */}
       <IncomingCallNotification

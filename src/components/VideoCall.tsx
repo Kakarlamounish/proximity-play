@@ -533,6 +533,78 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     <Card className="w-full max-w-4xl mx-auto bg-black/95 text-white border-0 overflow-hidden">
       <CardContent className="p-0 relative h-[600px] flex flex-col">
         <audio ref={remoteAudioRef} autoPlay className="hidden" />
+
+        {/* In-call status bar */}
+        <div className="absolute top-0 left-0 right-0 z-20">
+          <div className="mx-auto max-w-4xl">
+            <div className="m-3 rounded-xl border border-border/40 bg-card/40 backdrop-blur px-3 py-2 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      callStatus === 'connected'
+                        ? 'bg-primary'
+                        : callStatus === 'connecting'
+                          ? 'bg-primary/70 animate-pulse'
+                          : 'bg-muted-foreground/60'
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span className="text-sm font-medium text-foreground truncate">
+                    {callStatus === 'connecting'
+                      ? 'Ringing'
+                      : callStatus === 'connected'
+                        ? 'Connected'
+                        : 'Ended'}
+                  </span>
+                  {callStatus === 'connected' && (
+                    <span className="text-sm font-mono text-muted-foreground">
+                      {formatDuration(callDuration)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs border ${
+                      isAudioEnabled
+                        ? 'border-border/40 text-foreground'
+                        : 'border-destructive/40 text-destructive'
+                    }`}
+                    title={isAudioEnabled ? 'Microphone on' : 'Microphone muted'}
+                  >
+                    {isAudioEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+                    <span className="hidden sm:inline">Audio</span>
+                  </div>
+
+                  {callType === 'video' && (
+                    <div
+                      className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs border ${
+                        isVideoEnabled || isScreenSharing
+                          ? 'border-border/40 text-foreground'
+                          : 'border-destructive/40 text-destructive'
+                      }`}
+                      title={
+                        isScreenSharing
+                          ? 'Screen sharing'
+                          : isVideoEnabled
+                            ? 'Camera on'
+                            : 'Camera off'
+                      }
+                    >
+                      {isVideoEnabled || isScreenSharing ? (
+                        <Video className="h-4 w-4" />
+                      ) : (
+                        <VideoOff className="h-4 w-4" />
+                      )}
+                      <span className="hidden sm:inline">Video</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         
         <div className="flex-1 relative">
           {callType === 'video' ? (
@@ -608,20 +680,6 @@ export const VideoCall: React.FC<VideoCallProps> = ({
             <Mic className={`h-8 w-8 ${isAudioEnabled ? 'text-green-400' : 'text-red-400'}`} />
           </div>
         )}
-
-        <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-sm rounded-lg px-4 py-2">
-          <div className="flex items-center gap-3">
-            <div className={`w-2 h-2 rounded-full ${
-              callStatus === 'connected' ? 'bg-green-500' : 
-              callStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' : 
-              callStatus === 'failed' ? 'bg-red-500' : 'bg-gray-500'
-            }`} />
-            <span className="text-sm capitalize">{callStatus}</span>
-            {callStatus === 'connected' && (
-              <span className="text-sm font-mono">{formatDuration(callDuration)}</span>
-            )}
-          </div>
-        </div>
 
         <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-3 sm:gap-4 bg-black/80 backdrop-blur-sm rounded-full px-4 sm:px-6 py-3">
           <Button

@@ -32,7 +32,7 @@ export const BubbleCallRoster: React.FC<BubbleCallRosterProps> = ({ bubbleId }) 
     });
 
     channel.on('presence', { event: 'sync' }, () => {
-      const state = channel.presenceState<{ name: string; avatarUrl?: string; joinedAt: number }>();
+      const state = channel.presenceState() as Record<string, Array<{ name: string; avatarUrl?: string; joinedAt: number }>>;
       const list: Participant[] = [];
       for (const [userId, presences] of Object.entries(state)) {
         const p = presences[0];

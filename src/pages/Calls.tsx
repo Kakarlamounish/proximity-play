@@ -624,7 +624,34 @@ const Calls = () => {
                   <CardTitle className="flex items-center gap-2">
                     <Clock className="h-5 w-5" />
                     Recent Calls
-                    <div className="ml-auto">
+                    <div className="ml-auto flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const rows = callHistory.map(l => {
+                            const other = l.caller_id === user?.id ? l.receiver_id : l.caller_id;
+                            const p = other ? callerProfiles[other] : null;
+                            return [
+                              format(new Date(l.created_at), 'yyyy-MM-dd HH:mm'),
+                              p?.first_name || 'Unknown',
+                              l.call_type,
+                              l.status,
+                              l.duration_seconds ?? '',
+                            ].join(',');
+                          });
+                          const csv = ['Date,Name,Type,Status,Duration(s)', ...rows].join('\n');
+                          const blob = new Blob([csv], { type: 'text/csv' });
+                          const a = document.createElement('a');
+                          a.href = URL.createObjectURL(blob);
+                          a.download = 'call-history.csv';
+                          a.click();
+                        }}
+                        disabled={callHistory.length === 0}
+                      >
+                        <Download className="h-4 w-4 mr-1" />
+                        Export
+                      </Button>
                       <MissedCallLogDrawer
                         onCallBack={({ friendId, bubbleId, callType }) => {
                           if (bubbleId) startCall(bubbleId, callType, true);

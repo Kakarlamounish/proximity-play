@@ -771,6 +771,9 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           </div>
         </div>
         
+        {/* Bubble call roster */}
+        {identity?.kind === 'bubble' && <BubbleCallRoster bubbleId={bubbleId} />}
+
         <div className="flex-1 relative">
           {callType === 'video' ? (
             <video

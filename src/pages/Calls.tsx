@@ -675,35 +675,37 @@ const Calls = () => {
                         const otherUser = otherUserId ? callerProfiles[otherUserId] : null;
 
                         return (
-                          <div key={log.id} className="flex items-center justify-between p-4 border rounded-lg">
-                            <div className="flex items-center gap-3">
-                              {getCallIcon(log)}
-                              <Avatar className="h-10 w-10">
-                                <AvatarImage src={otherUser?.profile_photo_url || undefined} />
-                                <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white text-sm">
-                                  {otherUser?.first_name?.[0]?.toUpperCase() || '?'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <h4 className="font-medium text-sm">
-                                  {otherUser?.first_name || 'Unknown'}
-                                </h4>
-                                <p className="text-xs text-muted-foreground">
-                                  {log.call_type} • {formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}
-                                </p>
+                          <CallDetailDialog key={log.id} log={log} currentUserId={user!.id} profiles={callerProfiles}>
+                            <div className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-accent/30 transition-colors">
+                              <div className="flex items-center gap-3">
+                                {getCallIcon(log)}
+                                <Avatar className="h-10 w-10">
+                                  <AvatarImage src={otherUser?.profile_photo_url || undefined} />
+                                  <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white text-sm">
+                                    {otherUser?.first_name?.[0]?.toUpperCase() || '?'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <h4 className="font-medium text-sm">
+                                    {otherUser?.first_name || 'Unknown'}
+                                  </h4>
+                                  <p className="text-xs text-muted-foreground">
+                                    {log.call_type} • {formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <Badge variant={log.status === 'ended' ? 'secondary' : 'outline'} className="text-xs">
+                                  {log.status}
+                                </Badge>
+                                {log.duration_seconds && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {formatDuration(log.duration_seconds)}
+                                  </p>
+                                )}
                               </div>
                             </div>
-                            <div className="text-right">
-                              <Badge variant={log.status === 'ended' ? 'secondary' : 'outline'} className="text-xs">
-                                {log.status}
-                              </Badge>
-                              {log.duration_seconds && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {formatDuration(log.duration_seconds)}
-                                </p>
-                              )}
-                            </div>
-                          </div>
+                          </CallDetailDialog>
                         );
                       })}
                     </div>

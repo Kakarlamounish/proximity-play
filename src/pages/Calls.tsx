@@ -17,15 +17,17 @@ import {
   PhoneIncoming,
   PhoneOutgoing,
   PhoneMissed,
-  User
+  User,
+  Download
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { VideoCall } from '@/components/VideoCall';
 import { IncomingCallNotification } from '@/components/IncomingCallNotification';
 import { MissedCallBanner, type MissedCallBannerData } from '@/components/MissedCallBanner';
 import { MissedCallLogDrawer } from '@/components/MissedCallLogDrawer';
+import { CallDetailDialog } from '@/components/CallDetailDialog';
 import { useToast } from '@/hooks/use-toast';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 
 interface Profile {
   id: string;

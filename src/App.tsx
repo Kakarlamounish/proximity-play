@@ -70,6 +70,7 @@ function App() {
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/analytics" element={<Analytics />} />
                       <Route path="/install" element={<Install />} />
+                      <Route path="/missed-calls" element={<MissedCalls />} />
                       <Route path="/join/:inviteCode" element={<JoinBubble />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>

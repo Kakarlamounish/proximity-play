@@ -678,7 +678,11 @@ export const VideoCall: React.FC<VideoCallProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {/* Quality */}
+                  {/* Quality badge */}
+                  {callStatus === 'connected' && (
+                    <CallQualityBadge level={deriveQualityLevel(quality)} />
+                  )}
+                  {/* Quality details */}
                   <button
                     type="button"
                     onClick={() => setStatsOpen(v => !v)}

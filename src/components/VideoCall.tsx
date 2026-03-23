@@ -21,6 +21,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRingtone } from '@/hooks/useRingtone';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { CallQualityBadge, deriveQualityLevel, type CallQualityLevel } from '@/components/CallQualityBadge';
+import { BubbleCallRoster } from '@/components/BubbleCallRoster';
 
 interface VideoCallProps {
   bubbleId: string;

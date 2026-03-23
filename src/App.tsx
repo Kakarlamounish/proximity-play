@@ -26,6 +26,7 @@ const Friends = lazy(() => import("./pages/Friends"));
 const Install = lazy(() => import("./pages/Install"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const JoinBubble = lazy(() => import("./pages/JoinBubble"));
+const MissedCalls = lazy(() => import("./pages/MissedCalls"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -69,6 +70,7 @@ function App() {
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/analytics" element={<Analytics />} />
                       <Route path="/install" element={<Install />} />
+                      <Route path="/missed-calls" element={<MissedCalls />} />
                       <Route path="/join/:inviteCode" element={<JoinBubble />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>

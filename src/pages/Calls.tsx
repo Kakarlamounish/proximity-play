@@ -17,15 +17,17 @@ import {
   PhoneIncoming,
   PhoneOutgoing,
   PhoneMissed,
-  User
+  User,
+  Download
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { VideoCall } from '@/components/VideoCall';
 import { IncomingCallNotification } from '@/components/IncomingCallNotification';
 import { MissedCallBanner, type MissedCallBannerData } from '@/components/MissedCallBanner';
 import { MissedCallLogDrawer } from '@/components/MissedCallLogDrawer';
+import { CallDetailDialog } from '@/components/CallDetailDialog';
 import { useToast } from '@/hooks/use-toast';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 
 interface Profile {
   id: string;
@@ -622,7 +624,34 @@ const Calls = () => {
                   <CardTitle className="flex items-center gap-2">
                     <Clock className="h-5 w-5" />
                     Recent Calls
-                    <div className="ml-auto">
+                    <div className="ml-auto flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const rows = callHistory.map(l => {
+                            const other = l.caller_id === user?.id ? l.receiver_id : l.caller_id;
+                            const p = other ? callerProfiles[other] : null;
+                            return [
+                              format(new Date(l.created_at), 'yyyy-MM-dd HH:mm'),
+                              p?.first_name || 'Unknown',
+                              l.call_type,
+                              l.status,
+                              l.duration_seconds ?? '',
+                            ].join(',');
+                          });
+                          const csv = ['Date,Name,Type,Status,Duration(s)', ...rows].join('\n');
+                          const blob = new Blob([csv], { type: 'text/csv' });
+                          const a = document.createElement('a');
+                          a.href = URL.createObjectURL(blob);
+                          a.download = 'call-history.csv';
+                          a.click();
+                        }}
+                        disabled={callHistory.length === 0}
+                      >
+                        <Download className="h-4 w-4 mr-1" />
+                        Export
+                      </Button>
                       <MissedCallLogDrawer
                         onCallBack={({ friendId, bubbleId, callType }) => {
                           if (bubbleId) startCall(bubbleId, callType, true);
@@ -646,35 +675,37 @@ const Calls = () => {
                         const otherUser = otherUserId ? callerProfiles[otherUserId] : null;
 
                         return (
-                          <div key={log.id} className="flex items-center justify-between p-4 border rounded-lg">
-                            <div className="flex items-center gap-3">
-                              {getCallIcon(log)}
-                              <Avatar className="h-10 w-10">
-                                <AvatarImage src={otherUser?.profile_photo_url || undefined} />
-                                <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white text-sm">
-                                  {otherUser?.first_name?.[0]?.toUpperCase() || '?'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <h4 className="font-medium text-sm">
-                                  {otherUser?.first_name || 'Unknown'}
-                                </h4>
-                                <p className="text-xs text-muted-foreground">
-                                  {log.call_type} • {formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}
-                                </p>
+                          <CallDetailDialog key={log.id} log={log} currentUserId={user!.id} profiles={callerProfiles}>
+                            <div className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-accent/30 transition-colors">
+                              <div className="flex items-center gap-3">
+                                {getCallIcon(log)}
+                                <Avatar className="h-10 w-10">
+                                  <AvatarImage src={otherUser?.profile_photo_url || undefined} />
+                                  <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white text-sm">
+                                    {otherUser?.first_name?.[0]?.toUpperCase() || '?'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <h4 className="font-medium text-sm">
+                                    {otherUser?.first_name || 'Unknown'}
+                                  </h4>
+                                  <p className="text-xs text-muted-foreground">
+                                    {log.call_type} • {formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <Badge variant={log.status === 'ended' ? 'secondary' : 'outline'} className="text-xs">
+                                  {log.status}
+                                </Badge>
+                                {log.duration_seconds && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {formatDuration(log.duration_seconds)}
+                                  </p>
+                                )}
                               </div>
                             </div>
-                            <div className="text-right">
-                              <Badge variant={log.status === 'ended' ? 'secondary' : 'outline'} className="text-xs">
-                                {log.status}
-                              </Badge>
-                              {log.duration_seconds && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {formatDuration(log.duration_seconds)}
-                                </p>
-                              )}
-                            </div>
-                          </div>
+                          </CallDetailDialog>
                         );
                       })}
                     </div>

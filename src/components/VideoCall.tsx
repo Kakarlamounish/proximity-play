@@ -356,6 +356,8 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   }, [callLogId, callDuration, callStatus]);
 
   // Collect lightweight call quality metrics when connected.
+  const prevQualityRef = useRef<CallQualityLevel>('good');
+
   useEffect(() => {
     if (!peerConnection) return;
     if (callStatus !== 'connected') return;
@@ -397,13 +399,21 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           }
         });
 
-        setQuality(prev => ({
-          ...prev,
-          ...(rttMs != null ? { rttMs } : {}),
-          ...(packetsLost != null ? { packetsLost } : {}),
-          ...(jitterMs != null ? { jitterMs } : {}),
-          ...(bitrateKbps != null ? { bitrateKbps } : {}),
-        }));
+        const newQ = { ...quality };
+        if (rttMs != null) newQ.rttMs = rttMs;
+        if (packetsLost != null) newQ.packetsLost = packetsLost;
+        if (jitterMs != null) newQ.jitterMs = jitterMs;
+        if (bitrateKbps != null) newQ.bitrateKbps = bitrateKbps;
+        setQuality(newQ);
+
+        // Warn on quality degradation
+        const level = deriveQualityLevel(newQ);
+        if (level === 'poor' && prevQualityRef.current !== 'poor') {
+          toast({ title: 'Poor call quality', description: 'High latency or packet loss detected.', variant: 'destructive' });
+        } else if (level === 'fair' && prevQualityRef.current === 'good') {
+          toast({ title: 'Call quality degraded', description: 'Connection quality is fair.' });
+        }
+        prevQualityRef.current = level;
       } catch (e) {
         // ignore
       }

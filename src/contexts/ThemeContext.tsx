@@ -10,35 +10,37 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('dark');
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('theme') as Theme;
-      if (stored && (stored === 'light' || stored === 'dark')) {
-        setThemeState(stored);
-      } else if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches) {
-        setThemeState('light');
-      }
-    } catch (e) {
-      console.warn('Could not access localStorage:', e);
+// FIX #15: read from localStorage synchronously in the initializer so the
+// correct theme class is applied on the very first render — eliminates flash.
+function getInitialTheme(): Theme {
+  try {
+    const stored = localStorage.getItem('theme') as Theme;
+    if (stored === 'light' || stored === 'dark') return stored;
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches) {
+      return 'light';
     }
-    setMounted(true);
-  }, []);
+  } catch {
+    // localStorage unavailable (private browsing, etc.)
+  }
+  return 'dark';
+}
 
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
+
+  // Apply class and persist whenever theme changes.
+  // No need for a separate `mounted` guard because getInitialTheme() runs
+  // synchronously, so the first render already has the correct value.
   useEffect(() => {
-    if (!mounted) return;
     const root = document.documentElement;
     root.classList.remove('light', 'dark');
     root.classList.add(theme);
     try {
       localStorage.setItem('theme', theme);
-    } catch (e) {
-      console.warn('Could not save theme to localStorage:', e);
+    } catch {
+      // localStorage unavailable
     }
-  }, [theme, mounted]);
+  }, [theme]);
 
   const toggleTheme = () => {
     setThemeState(prev => prev === 'light' ? 'dark' : 'light');

@@ -136,34 +136,34 @@ export function Navigation(): JSX.Element {
         />
       )}
 
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-secondary/90 via-primary/90 to-secondary/90 backdrop-blur-lg border-b border-white/10 shadow-2xl">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/5 shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex items-center justify-between h-14 gap-2">
             {/* Logo and Brand */}
             <div className="flex items-center flex-shrink-0">
               <Link to="/" className="flex items-center space-x-2 group">
-                <img src="/logo.svg" alt="Social Bubble" className="h-7 w-7 transition-transform group-hover:scale-105" />
-                <span className="text-lg font-bold bg-gradient-to-r from-white to-white/90 bg-clip-text text-transparent group-hover:from-white group-hover:to-white transition-all duration-200 hidden sm:inline">
-                  Social Bubble
+                <span className="text-2xl select-none" aria-hidden="true">👻</span>
+                <span className="text-lg font-extrabold tracking-tight text-white group-hover:text-[hsl(51_100%_50%)] transition-colors duration-150 hidden sm:inline">
+                  Proximity Play
                 </span>
               </Link>
             </div>
 
             {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center gap-1 flex-1 justify-center">
+            <div className="hidden lg:flex items-center gap-0.5 flex-1 justify-center">
               {navLinks.map((link) => (
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`relative px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                  className={`relative px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 whitespace-nowrap ${
                     isActive(link.to)
-                      ? 'bg-white/20 text-white shadow-md'
-                      : 'text-white/80 hover:text-white hover:bg-white/10'
+                      ? 'bg-[hsl(51_100%_50%)] text-black shadow-[0_0_20px_hsl(51_100%_50%/0.4)]'
+                      : 'text-white/60 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   {link.label}
                   {'badge' in link && (link as any).badge > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1 animate-pulse">
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-[hsl(51_100%_50%)] text-black text-[10px] font-bold px-1">
                       {(link as any).badge}
                     </span>
                   )}
@@ -179,21 +179,21 @@ export function Navigation(): JSX.Element {
               
               <Link
                 to="/settings"
-                className="p-1.5 rounded-md text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200"
+                className="p-1.5 rounded-lg text-white/60 hover:text-[hsl(51_100%_50%)] hover:bg-white/8 transition-all duration-150"
                 aria-label="Settings"
               >
                 ⚙️
               </Link>
 
-              <Link to="/profile" className="flex items-center gap-2 p-1.5 rounded-md hover:bg-white/10 transition-all duration-200 group">
-                <div className="w-7 h-7 rounded-full overflow-hidden border-2 border-white/20 group-hover:border-white/40 transition-colors flex-shrink-0">
+              <Link to="/profile" className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/8 transition-all duration-150 group">
+                <div className="w-7 h-7 rounded-full overflow-hidden border-2 border-[hsl(51_100%_50%/0.4)] group-hover:border-[hsl(51_100%_50%)] transition-colors flex-shrink-0">
                   <img
                     src={avatarUrl ?? '/placeholder.svg'}
                     alt="avatar"
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <span className="text-sm font-medium text-white/90 group-hover:text-white max-w-24 truncate transition-colors hidden xl:inline">
+                <span className="text-sm font-semibold text-white/80 group-hover:text-white max-w-24 truncate transition-colors hidden xl:inline">
                   {userName ?? 'User'}
                 </span>
               </Link>
@@ -224,7 +224,7 @@ export function Navigation(): JSX.Element {
         </div>
 
         {/* Mobile Navigation Menu */}
-        <div className={`lg:hidden fixed top-14 left-0 right-0 z-50 bg-gradient-to-r from-secondary/98 via-primary/98 to-secondary/98 backdrop-blur-xl border-b border-white/10 shadow-2xl transition-all duration-300 ease-in-out ${
+        <div className={`lg:hidden fixed top-14 left-0 right-0 z-50 bg-[#0a0a0a] border-b border-[hsl(51_100%_50%/0.15)] shadow-2xl transition-all duration-300 ease-in-out ${
           isMobileMenuOpen
             ? 'opacity-100 visible transform translate-y-0'
             : 'opacity-0 invisible transform -translate-y-4 pointer-events-none'
@@ -235,15 +235,15 @@ export function Navigation(): JSX.Element {
                 key={link.to}
                 to={link.to}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className={`relative block px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
+                className={`relative block px-4 py-3 rounded-xl text-base font-semibold transition-all duration-150 ${
                   isActive(link.to)
-                    ? 'bg-white/20 text-white shadow-lg border border-white/20'
-                    : 'text-white/80 hover:text-white hover:bg-white/10 active:bg-white/20'
+                    ? 'bg-[hsl(51_100%_50%)] text-black shadow-[0_0_12px_hsl(51_100%_50%/0.4)]'
+                    : 'text-white/75 hover:text-white hover:bg-white/8 active:bg-white/15'
                 }`}
               >
                 {link.label}
                 {'badge' in link && (link as any).badge > 0 && (
-                  <span className="inline-flex ml-2 min-w-[20px] h-[20px] items-center justify-center rounded-full bg-destructive text-destructive-foreground text-xs font-bold px-1">
+                  <span className="inline-flex ml-2 min-w-[20px] h-[20px] items-center justify-center rounded-full bg-[hsl(51_100%_50%)] text-black text-xs font-bold px-1">
                     {(link as any).badge}
                   </span>
                 )}

@@ -305,8 +305,8 @@ const Index = () => {
 
   if (loading || profileLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-[#050505]">
+        <Loader2 className="h-8 w-8 animate-spin text-[hsl(51_100%_50%)]" />
       </div>
     );
   }
@@ -320,18 +320,18 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
+    <div className="min-h-screen bg-[#050505] text-white">
       <Navigation />
       <div className="pt-4">
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-6xl mx-auto">
             {/* Welcome Header */}
             <div className="text-center mb-8">
-              <h1 className="text-4xl font-bold mb-4">
+              <h1 className="text-4xl font-extrabold mb-4 tracking-tight">
                 Welcome{profile?.first_name ? `, ${profile.first_name}` : ''}!
-                <Sparkles className="inline-block ml-2 h-8 w-8 text-primary" />
+                <Sparkles className="inline-block ml-3 h-8 w-8 text-[hsl(51_100%_50%)]" />
               </h1>
-              <p className="text-lg text-muted-foreground">
+              <p className="text-lg text-white/60 font-medium">
                 Discover social bubbles near you and connect with like-minded people
               </p>
 
@@ -351,7 +351,8 @@ const Index = () => {
             </div>
 
             {/* Location Status */}
-            <Card className="backdrop-blur-sm bg-card/95 border-0 mb-8">
+            <Card className="bg-[#0f0f0f] border-white/5 shadow-2xl mb-8 overflow-hidden relative">
+              <div className="absolute top-0 left-0 w-full h-0.5 bg-[hsl(51_100%_50%/0.3)]"></div>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">

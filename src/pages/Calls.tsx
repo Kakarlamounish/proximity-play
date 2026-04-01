@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,8 +21,7 @@ import {
   Download
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { VideoCall } from '@/components/VideoCall';
-import { IncomingCallNotification } from '@/components/IncomingCallNotification';
+import { useCallContext } from '@/contexts/CallContext';
 import { MissedCallBanner, type MissedCallBannerData } from '@/components/MissedCallBanner';
 import { MissedCallLogDrawer } from '@/components/MissedCallLogDrawer';
 import { CallDetailDialog } from '@/components/CallDetailDialog';
@@ -60,18 +59,13 @@ const CALL_TIMEOUT_STORAGE_KEY = 'call-timeout-seconds';
 const Calls = () => {
   const { user, loading } = useAuth();
   const { toast } = useToast();
+  const { startCall } = useCallContext();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userBubbles, setUserBubbles] = useState<Bubble[]>([]);
   const [friends, setFriends] = useState<Profile[]>([]);
   const [callHistory, setCallHistory] = useState<CallLog[]>([]);
   const [callerProfiles, setCallerProfiles] = useState<Record<string, Profile>>({});
-  const [activeCall, setActiveCall] = useState<{ 
-    bubbleId?: string; 
-    friendId?: string;
-    type: 'audio' | 'video';
-    isInitiator: boolean;
-    callLogId?: string;
-  } | null>(null);
   const [missedCall, setMissedCall] = useState<MissedCallBannerData | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
 
@@ -79,74 +73,52 @@ const Calls = () => {
     if (!user) return;
 
     try {
-      // Fetch profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('id, first_name, profile_photo_url')
-        .eq('id', user.id)
-        .maybeSingle();
+      // FIX #10: run independent queries in parallel instead of sequentially
+      const [profileRes, bubblesRes, friendshipsRes, callLogsRes] = await Promise.all([
+        supabase.from('profiles').select('id, first_name, profile_photo_url').eq('id', user.id).maybeSingle(),
+        supabase.from('bubble_memberships').select(`bubble:bubbles(id, name, interest_tag, member_count)`).eq('user_id', user.id),
+        supabase.from('friendships').select('user_id_1, user_id_2').or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id}`),
+        supabase.from('call_logs').select('*').or(`caller_id.eq.${user.id},receiver_id.eq.${user.id}`).order('created_at', { ascending: false }).limit(20),
+      ]);
 
-      setProfile(profileData);
+      setProfile(profileRes.data ?? null);
 
-      // Fetch user bubbles
-      const { data: bubblesData } = await supabase
-        .from('bubble_memberships')
-        .select(`bubble:bubbles(id, name, interest_tag, member_count)`)
-        .eq('user_id', user.id);
-
-      const bubbles = bubblesData?.map(m => m.bubble).filter(Boolean) as Bubble[] || [];
+      const bubbles = bubblesRes.data?.map(m => m.bubble).filter(Boolean) as Bubble[] || [];
       setUserBubbles(bubbles);
 
-      // Fetch friends
-      const { data: friendships } = await supabase
-        .from('friendships')
-        .select('user_id_1, user_id_2')
-        .or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id}`);
+      // Fetch friend profiles and call participant profiles in parallel
+      const friendIds = (friendshipsRes.data ?? []).map(f =>
+        f.user_id_1 === user.id ? f.user_id_2 : f.user_id_1
+      );
 
-      if (friendships && friendships.length > 0) {
-        const friendIds = friendships.map(f => 
-          f.user_id_1 === user.id ? f.user_id_2 : f.user_id_1
+      const callLogs = callLogsRes.data ?? [];
+      setCallHistory(callLogs);
+
+      const participantIds = new Set<string>();
+      callLogs.forEach(log => {
+        if (log.caller_id) participantIds.add(log.caller_id);
+        if (log.receiver_id) participantIds.add(log.receiver_id);
+      });
+
+      const profileFetches: Promise<any>[] = [];
+      if (friendIds.length > 0) {
+        profileFetches.push(
+          supabase.from('profiles').select('id, first_name, profile_photo_url').in('id', friendIds)
+            .then(({ data }) => { setFriends(data || []); })
         );
-
-        const { data: friendProfiles } = await supabase
-          .from('profiles')
-          .select('id, first_name, profile_photo_url')
-          .in('id', friendIds);
-
-        setFriends(friendProfiles || []);
       }
-
-      // Fetch call history
-      const { data: callLogs } = await supabase
-        .from('call_logs')
-        .select('*')
-        .or(`caller_id.eq.${user.id},receiver_id.eq.${user.id}`)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (callLogs) {
-        setCallHistory(callLogs);
-        
-        // Fetch profiles for call participants
-        const participantIds = new Set<string>();
-        callLogs.forEach(log => {
-          if (log.caller_id) participantIds.add(log.caller_id);
-          if (log.receiver_id) participantIds.add(log.receiver_id);
-        });
-
-        if (participantIds.size > 0) {
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('id, first_name, profile_photo_url')
-            .in('id', Array.from(participantIds));
-
-          const profileMap: Record<string, Profile> = {};
-          profiles?.forEach(p => {
-            profileMap[p.id] = p;
-          });
-          setCallerProfiles(profileMap);
-        }
+      if (participantIds.size > 0) {
+        profileFetches.push(
+          supabase.from('profiles').select('id, first_name, profile_photo_url').in('id', Array.from(participantIds))
+            .then(({ data }) => {
+              const profileMap: Record<string, Profile> = {};
+              data?.forEach(p => { profileMap[p.id] = p; });
+              setCallerProfiles(profileMap);
+            })
+        );
       }
+      await Promise.all(profileFetches);
+
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -160,224 +132,7 @@ const Calls = () => {
     }
   }, [user, loading, fetchData]);
 
-  const getCallTimeoutSeconds = () => {
-    const raw = localStorage.getItem(CALL_TIMEOUT_STORAGE_KEY);
-    const n = raw ? Number(raw) : 30;
-    return Number.isFinite(n) && n > 0 ? n : 30;
-  };
-
-  const createMissedCallNotification = async (args: {
-    receiverId: string;
-    callerId: string;
-    callType: 'audio' | 'video';
-    callLogId: string;
-    bubbleId?: string | null;
-  }) => {
-    const { receiverId, callerId, callType, callLogId, bubbleId } = args;
-    try {
-      const { data: callerProfile } = await supabase
-        .from('profiles')
-        .select('first_name')
-        .eq('id', callerId)
-        .maybeSingle();
-      const callerName = callerProfile?.first_name || 'Unknown';
-
-      await supabase.from('notifications').insert({
-        user_id: receiverId,
-        type: 'missed_call',
-        title: 'Missed call',
-        body: `From ${callerName} • ${callType}`,
-        read: false,
-        data: {
-          callLogId,
-          callerId,
-          bubbleId: bubbleId ?? null,
-          callType,
-        },
-      });
-    } catch (e) {
-      console.error('Failed to create missed call notification', e);
-    }
-  };
-
-  // Listen for missed calls (receiver side) and show a small in-app banner.
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel(`missed-calls-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'call_logs',
-          filter: `receiver_id=eq.${user.id}`,
-        },
-        async (payload: any) => {
-          const updated = payload?.new as CallLog | undefined;
-          if (!updated) return;
-          if (updated.status !== 'missed') return;
-          if (!updated.caller_id) return;
-
-          // Fetch caller name for banner.
-          const { data: callerProfile } = await supabase
-            .from('profiles')
-            .select('id, first_name, profile_photo_url')
-            .eq('id', updated.caller_id)
-            .maybeSingle();
-
-          setMissedCall({
-            callId: updated.id,
-            callerId: updated.caller_id,
-            callType: updated.call_type,
-            callerName: callerProfile?.first_name || 'Unknown',
-          });
-
-          // Keep history fresh.
-          fetchData();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, fetchData]);
-
-  const startCall = async (targetId: string, type: 'audio' | 'video', isBubble: boolean) => {
-    if (!user) return;
-
-    try {
-      // Create call log
-      const { data: callLog, error } = await supabase
-        .from('call_logs')
-        .insert({
-          caller_id: user.id,
-          receiver_id: isBubble ? null : targetId,
-          bubble_id: isBubble ? targetId : null,
-          call_type: type,
-          status: 'ringing'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      console.log('Call started:', callLog);
-
-      if (isBubble) {
-        setActiveCall({ bubbleId: targetId, type, isInitiator: true, callLogId: callLog.id });
-      } else {
-        setActiveCall({ friendId: targetId, type, isInitiator: true, callLogId: callLog.id });
-
-        // Auto-timeout unanswered calls -> missed.
-        const timeoutSeconds = getCallTimeoutSeconds();
-        const callId = callLog.id;
-        const receiverId = targetId;
-
-        const timeoutHandle = window.setTimeout(async () => {
-          const { data: latest } = await supabase
-            .from('call_logs')
-            .select('status')
-            .eq('id', callId)
-            .maybeSingle();
-          if (!latest || latest.status !== 'ringing') return;
-
-          const endedAt = new Date().toISOString();
-          await supabase
-            .from('call_logs')
-            .update({ status: 'missed', ended_at: endedAt })
-            .eq('id', callId);
-
-          await createMissedCallNotification({
-            receiverId,
-            callerId: user.id,
-            callType: type,
-            callLogId: callId,
-            bubbleId: null,
-          });
-        }, timeoutSeconds * 1000);
-
-        // Clear timeout when call transitions away from ringing.
-        const callChannel = supabase
-          .channel(`call-timeout-${callId}`)
-          .on(
-            'postgres_changes',
-            { event: 'UPDATE', schema: 'public', table: 'call_logs', filter: `id=eq.${callId}` },
-            (payload: any) => {
-              const updated = payload?.new as CallLog | undefined;
-              if (!updated) return;
-              if (updated.status !== 'ringing') {
-                window.clearTimeout(timeoutHandle);
-                supabase.removeChannel(callChannel);
-              }
-            }
-          )
-          .subscribe();
-      }
-
-      toast({
-        title: 'Calling...',
-        description: `Starting ${type} call`,
-      });
-    } catch (error) {
-      console.error('Error starting call:', error);
-      toast({
-        title: 'Error',
-        description: 'Could not start call',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleAcceptCall = (callId: string, callType: 'audio' | 'video', callerId: string) => {
-    setActiveCall({ friendId: callerId, type: callType, isInitiator: false, callLogId: callId });
-  };
-
-  const handleDeclineCall = (callId: string) => {
-    toast({
-      title: 'Call Declined',
-      description: 'You declined the incoming call',
-    });
-  };
-
-  const endCall = async () => {
-    if (!user) return;
-
-    // If the call was never connected, treat it as a missed call for the receiver.
-    // (Bubble calls have no receiver_id, so they are just ended.)
-    const { data: ringingCalls } = await supabase
-      .from('call_logs')
-      .select('id, receiver_id')
-      .eq('caller_id', user.id)
-      .eq('status', 'ringing');
-
-    const endedAt = new Date().toISOString();
-    const calls = ringingCalls || [];
-    for (const c of calls) {
-      await supabase
-        .from('call_logs')
-        .update({
-          status: c.receiver_id ? 'missed' : 'ended',
-          ended_at: endedAt,
-        })
-        .eq('id', c.id);
-
-      if (c.receiver_id) {
-        await createMissedCallNotification({
-          receiverId: c.receiver_id,
-          callerId: user.id,
-          callType: (activeCall?.type || 'audio'),
-          callLogId: c.id,
-          bubbleId: null,
-        });
-      }
-    }
-
-    setActiveCall(null);
-    fetchData(); // Refresh call history
-  };
+  // Removed local startCall, handleAcceptCall, handleDeclineCall, endCall
 
   const getCallIcon = (log: CallLog) => {
     const isOutgoing = log.caller_id === user?.id;
@@ -406,44 +161,16 @@ const Calls = () => {
 
   if (loading || pageLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-[#050505]">
+        <Loader2 className="h-8 w-8 animate-spin text-[hsl(51_100%_50%)]" />
       </div>
     );
   }
 
-  if (activeCall) {
-    const isBubble = Boolean(activeCall.bubbleId);
-    const friend = activeCall.friendId ? callerProfiles[activeCall.friendId] : null;
-    const bubble = activeCall.bubbleId ? userBubbles.find(b => b.id === activeCall.bubbleId) : null;
-
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <VideoCall
-          bubbleId={activeCall.bubbleId || activeCall.friendId || ''}
-          callType={activeCall.type}
-          isInitiator={activeCall.isInitiator}
-          callLogId={activeCall.callLogId}
-          identity={
-            isBubble
-              ? {
-                  kind: 'bubble',
-                  title: bubble?.name || 'Bubble call',
-                }
-              : {
-                  kind: 'direct',
-                  title: friend?.first_name || 'Call',
-                  avatarUrl: friend?.profile_photo_url || undefined,
-                }
-          }
-          onCallEnd={endCall}
-        />
-      </div>
-    );
-  }
+  // VideoCall is now rendered globally inside CallContext
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
+    <div className="min-h-screen bg-[#050505] text-white">
       <Navigation />
 
       {missedCall && (
@@ -457,20 +184,16 @@ const Calls = () => {
         />
       )}
       
-      {/* Incoming Call Notification */}
-      <IncomingCallNotification
-        onAccept={handleAcceptCall}
-        onDecline={handleDeclineCall}
-      />
+      {/* Incoming Call Notification is now handled by CallContext */}
       
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold mb-4">
-              Voice & Video Calls
-              <PhoneCall className="inline-block ml-2 h-8 w-8 text-primary" />
+          <div className="text-center mb-10">
+            <h1 className="text-4xl font-extrabold mb-4 tracking-tight">
+              Calls
+              <PhoneCall className="inline-block ml-3 h-8 w-8 text-[hsl(51_100%_50%)]" />
             </h1>
-            <p className="text-lg text-muted-foreground">
+            <p className="text-lg text-white/60 font-medium">
               Connect with friends and bubble members through calls
             </p>
           </div>
@@ -493,7 +216,8 @@ const Calls = () => {
 
             {/* Friends Tab */}
             <TabsContent value="friends">
-              <Card className="backdrop-blur-sm bg-card/95 border-0">
+              <Card className="bg-[#0f0f0f] border-white/5 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-0.5 bg-[hsl(51_100%_50%/0.3)]"></div>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <User className="h-5 w-5" />
@@ -505,7 +229,7 @@ const Calls = () => {
                     <div className="text-center py-8">
                       <User className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                       <p className="text-muted-foreground mb-4">No friends yet</p>
-                      <Button onClick={() => window.location.href = '/friends'}>
+                      <Button onClick={() => navigate('/friends')}>
                         Find Friends
                       </Button>
                     </div>
@@ -553,7 +277,8 @@ const Calls = () => {
 
             {/* Bubbles Tab */}
             <TabsContent value="bubbles">
-              <Card className="backdrop-blur-sm bg-card/95 border-0">
+              <Card className="bg-[#0f0f0f] border-white/5 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-0.5 bg-[hsl(51_100%_50%/0.3)]"></div>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Users className="h-5 w-5" />

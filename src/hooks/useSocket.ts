@@ -8,7 +8,9 @@ interface UseSocketOptions {
 }
 
 export const useSocket = (options: UseSocketOptions = {}) => {
-  const { url = 'wss://api.proximity-play.com', enabled = true } = options;
+  // FIX #7: default enabled to false — the Socket.IO server is not deployed;
+  // callers must explicitly opt-in when the server is available.
+  const { url = 'wss://api.proximity-play.com', enabled = false } = options;
   const { user, isAuthenticated } = useAppStore();
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);

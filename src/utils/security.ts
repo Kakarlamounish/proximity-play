@@ -259,6 +259,12 @@ export const validateInput = (value: string, rules: typeof validationRules.usern
   return true;
 };
 
+// Generate a single CSRF token per session.
+// Note: Supabase handles its own auth; this header is a defence-in-depth
+// measure for any custom endpoints. Generating a new token per-call would
+// be meaningless because the server can't validate against a changing value.
+const SESSION_CSRF_TOKEN = generateCSRFToken();
+
 // Security headers for fetch requests
 export const secureFetchOptions = (options: RequestInit = {}): RequestInit => {
   return {
@@ -266,7 +272,7 @@ export const secureFetchOptions = (options: RequestInit = {}): RequestInit => {
     headers: {
       ...options.headers,
       'X-Requested-With': 'XMLHttpRequest',
-      'X-CSRF-Token': generateCSRFToken(),
+      'X-CSRF-Token': SESSION_CSRF_TOKEN,
     },
     credentials: 'same-origin',
   };
@@ -305,7 +311,11 @@ export class SecureStorage {
   private encryptionKey: string;
 
   private constructor() {
-    this.encryptionKey = 'proximity-play-secure-key'; // In production, use a proper key management system
+    // TODO: Replace with a proper key management solution (e.g., env var or
+    // Web Crypto API key derivation). This plaintext key in source code
+    // provides no real security — it is readable by anyone with access to
+    // the compiled bundle.
+    this.encryptionKey = import.meta.env.VITE_STORAGE_KEY ?? 'proximity-play-secure-key';
   }
 
   static getInstance(): SecureStorage {

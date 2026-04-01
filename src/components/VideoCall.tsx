@@ -63,6 +63,9 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const channelRef = useRef<any>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // FIX #5: ref mirrors of state so mount-cleanup closures see live values
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
   const { startRinging, stopRinging, playOnce } = useRingtone();
@@ -281,6 +284,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       
       console.log('VideoCall: Got local stream with tracks:', stream.getTracks().map(t => `${t.kind}:${t.enabled}`));
       setLocalStream(stream);
+      localStreamRef.current = stream; // FIX #5: keep ref in sync with state
 
       // Display local video
       if (callType === 'video' && localVideoRef.current) {
@@ -295,6 +299,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       // Create peer connection
       const pc = createPeerConnection(stream);
       setPeerConnection(pc);
+      peerConnectionRef.current = pc; // FIX #5: keep ref in sync with state
 
       // Set up signaling
       listenForSignals(pc);
@@ -399,15 +404,17 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           }
         });
 
-        const newQ = { ...quality };
-        if (rttMs != null) newQ.rttMs = rttMs;
-        if (packetsLost != null) newQ.packetsLost = packetsLost;
-        if (jitterMs != null) newQ.jitterMs = jitterMs;
-        if (bitrateKbps != null) newQ.bitrateKbps = bitrateKbps;
-        setQuality(newQ);
+        // FIX #4: use functional updater so we never close over stale `quality`
+        setQuality(prev => ({
+          ...prev,
+          ...(rttMs != null && { rttMs }),
+          ...(packetsLost != null && { packetsLost }),
+          ...(jitterMs != null && { jitterMs }),
+          ...(bitrateKbps != null && { bitrateKbps }),
+        }));
 
-        // Warn on quality degradation
-        const level = deriveQualityLevel(newQ);
+        // Warn on quality degradation — derive from local vars (newQ removed by fix #4)
+        const level = deriveQualityLevel({ rttMs, packetsLost, jitterMs });
         if (level === 'poor' && prevQualityRef.current !== 'poor') {
           toast({ title: 'Poor call quality', description: 'High latency or packet loss detected.', variant: 'destructive' });
         } else if (level === 'fair' && prevQualityRef.current === 'good') {
@@ -479,11 +486,12 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       if (durationIntervalRef.current) {
         clearInterval(durationIntervalRef.current);
       }
-      if (peerConnection) {
-        peerConnection.close();
+      // FIX #5: use refs instead of stale state values in the cleanup closure
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
       }
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => track.stop());
       }
       if (channelRef.current) {
         try { supabase.removeChannel(channelRef.current); } catch {}

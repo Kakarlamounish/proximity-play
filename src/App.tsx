@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { CallProvider } from "@/contexts/CallContext";
 import SkipLinks from "@/components/SkipLinks";
 import { PageSkeleton } from "@/components/ui/skeleton-loader";
 import { RealtimeNotificationListener } from '@/components/RealtimeNotificationListener';
@@ -48,15 +49,16 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <AuthProvider>
-            <TooltipProvider>
-              <SkipLinks />
-              <Toaster />
-              <Sonner />
-              <RealtimeNotificationListener />
-              <BrowserRouter>
-                <FriendRequestNotifier />
-                <div className="min-h-screen pt-16 bg-gradient-to-br from-secondary via-background to-primary">
-                  <Suspense fallback={<PageLoader />}>
+            <CallProvider>
+              <TooltipProvider>
+                <SkipLinks />
+                <Toaster />
+                <Sonner />
+                <RealtimeNotificationListener />
+                <BrowserRouter>
+                  <FriendRequestNotifier />
+                  <div id="main-content" role="main" className="min-h-screen pt-16 bg-background">
+                    <Suspense fallback={<PageLoader />}>
                     <Routes>
                       <Route path="/" element={<Index />} />
                       <Route path="/auth" element={<Auth />} />
@@ -80,9 +82,10 @@ function App() {
                 </div>
               </BrowserRouter>
             </TooltipProvider>
-          </AuthProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
+          </CallProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
     </React.Fragment>
   );
 }

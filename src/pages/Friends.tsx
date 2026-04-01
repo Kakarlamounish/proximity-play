@@ -8,11 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { MessageSquare, UserMinus, Users, Search, MapPin, UserPlus } from 'lucide-react';
+import { MessageSquare, UserMinus, Users, Search, MapPin, UserPlus, Phone, Video } from 'lucide-react';
 import { getMutualFriendsCountBatch } from '@/utils/mutualFriends';
 import { useNavigate } from 'react-router-dom';
 import { FriendRequests } from '@/components/FriendRequests';
 import { Navigation } from '@/components/Navigation';
+import { useCallContext } from '@/contexts/CallContext';
 
 interface Friend {
   id: string;
@@ -28,6 +29,7 @@ interface Friend {
 export default function Friends() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { startCall } = useCallContext();
   const navigate = useNavigate();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
@@ -359,14 +361,14 @@ export default function Friends() {
   }, [fetchSuggestedFriends, user, profile, friends]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
+    <div className="min-h-screen bg-[#0a0a0a]">
       <Navigation />
       <div className="container mx-auto p-6 max-w-6xl">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">
+          <h1 className="text-4xl font-extrabold mb-2 text-white">
             Friends
           </h1>
-          <p className="text-muted-foreground">Find and manage your connections</p>
+          <p className="text-white/60">Find and manage your connections</p>
         </div>
 
         {/* Search Section */}
@@ -582,16 +584,41 @@ export default function Friends() {
                         )}
 
                         <div className="flex gap-2">
-                          <Button size="sm" variant="outline">
-                            <MessageSquare className="w-3 h-3 mr-1" />
+                          <Button 
+                            size="sm" 
+                            variant="secondary"
+                            className="bg-white/10 text-white hover:bg-white/20 border-0"
+                            onClick={() => navigate('/messages', { state: { selectedFriendId: friend.id } })}
+                          >
+                            <MessageSquare className="w-4 h-4 mr-1.5" />
                             Message
                           </Button>
+                          
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="bg-[hsl(51_100%_50%)] text-black hover:bg-[hsl(51_100%_60%)] border-0"
+                            onClick={() => startCall(friend.id, 'audio', false)}
+                          >
+                            <Phone className="w-4 h-4" />
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="bg-[hsl(51_100%_50%)] text-black hover:bg-[hsl(51_100%_60%)] border-0"
+                            onClick={() => startCall(friend.id, 'video', false)}
+                          >
+                            <Video className="w-4 h-4" />
+                          </Button>
+
                           <Button
                             size="sm"
                             variant="ghost"
+                            className="text-white/40 hover:text-red-500 hover:bg-red-500/10"
                             onClick={() => removeFriend(friend.id)}
                           >
-                            <UserMinus className="w-3 h-3" />
+                            <UserMinus className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>

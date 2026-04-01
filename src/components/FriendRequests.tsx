@@ -67,6 +67,33 @@ export const FriendRequests = memo(() => {
     }
   }, [user]);
 
+  // Fetch on mount and subscribe to realtime changes
+  useEffect(() => {
+    fetchRequests();
+
+    if (!user) return;
+
+    const channel = supabase
+      .channel('friend-requests-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'friend_requests',
+          filter: `receiver_id=eq.${user.id}`,
+        },
+        () => {
+          fetchRequests();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchRequests, user]);
+
   const handleRequest = useCallback(async (requestId: string, action: 'accepted' | 'rejected') => {
     try {
       const { error } = await supabase

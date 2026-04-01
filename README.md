@@ -42,11 +42,6 @@ A modern social application that connects people based on proximity, featuring r
 
 There are several ways of editing your application.
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/f2623349-59e4-45c4-b335-edfd930572a1) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
 
 **Use your preferred IDE**
 
@@ -228,7 +223,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
-- Built with [Lovable](https://lovable.dev)
 - UI components from [shadcn/ui](https://ui.shadcn.com)
 - Maps powered by [Leaflet](https://leafletjs.com) and [Mapbox](https://mapbox.com)
 - Backend by [Supabase](https://supabase.com)

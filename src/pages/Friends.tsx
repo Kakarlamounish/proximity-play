@@ -22,6 +22,7 @@ interface Friend {
   interests?: string[];
   latitude?: number;
   longitude?: number;
+  mutualFriendsCount?: number;
 }
 
 export default function Friends() {

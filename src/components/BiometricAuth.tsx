@@ -191,14 +191,15 @@ export const BiometricAuth: React.FC<BiometricAuthProps> = ({
         setSuccess('Authentication successful!');
         onSuccess?.(credential);
 
-        // Update last used timestamp (localStorage for demo)
-        const updatedAuthenticators = authenticators.map(auth =>
-          auth.credentialId === credential.id
-            ? { ...auth, lastUsed: new Date().toISOString(), counter: auth.counter + 1 }
-            : auth
-        );
-        localStorage.setItem(`authenticators_${user.id}`, JSON.stringify(updatedAuthenticators));
-        setAuthenticators(updatedAuthenticators);
+        // Update last used timestamp server-side
+        if (user) {
+          await supabase
+            .from('webauthn_credentials')
+            .update({ last_used: new Date().toISOString(), counter: authenticators.find(a => a.credentialId === credential.id)?.counter ? (authenticators.find(a => a.credentialId === credential.id)!.counter + 1) : 1 })
+            .eq('user_id', user.id)
+            .eq('credential_id', credential.id);
+        }
+        await loadAuthenticators();
       } else {
         throw new Error('Authentication verification failed');
       }

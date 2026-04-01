@@ -494,7 +494,11 @@ export default function Friends() {
 
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold mb-1">{suggested.first_name}</h3>
-
+                        {(suggested.mutualFriendsCount ?? 0) > 0 && (
+                          <p className="text-xs text-muted-foreground mb-1">
+                            👥 {suggested.mutualFriendsCount} mutual friend{suggested.mutualFriendsCount! > 1 ? 's' : ''}
+                          </p>
+                        )}
                         {suggested.bio && (
                           <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
                             {suggested.bio}

@@ -75,16 +75,25 @@ export const BiometricAuth: React.FC<BiometricAuthProps> = ({
   }, [user, mode]);
 
   const loadAuthenticators = async () => {
+    if (!user) return;
     try {
-      // For demo purposes, we'll use localStorage to store authenticator info
-      // In production, this would be stored securely on the server
-      const stored = localStorage.getItem(`authenticators_${user?.id}`);
-      if (stored) {
-        const data = JSON.parse(stored);
-        setAuthenticators(data);
-      } else {
-        setAuthenticators([]);
-      }
+      const { data, error } = await supabase
+        .from('webauthn_credentials')
+        .select('credential_id, name, type, created_at, last_used, counter')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setAuthenticators(
+        (data || []).map((row: any) => ({
+          credentialId: row.credential_id,
+          name: row.name,
+          type: row.type,
+          createdAt: row.created_at,
+          lastUsed: row.last_used,
+          counter: row.counter,
+        }))
+      );
     } catch (err) {
       console.error('Failed to load authenticators:', err);
       setAuthenticators([]);

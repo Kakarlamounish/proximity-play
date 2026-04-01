@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { MessageSquare, UserMinus, Users, Search, MapPin, UserPlus } from 'lucide-react';
+import { getMutualFriendsCountBatch } from '@/utils/mutualFriends';
 import { useNavigate } from 'react-router-dom';
 import { FriendRequests } from '@/components/FriendRequests';
 import { Navigation } from '@/components/Navigation';

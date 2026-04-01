@@ -5,11 +5,14 @@ import { Menu, X } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { SearchDialog } from '@/components/SearchDialog';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function Navigation(): JSX.Element {
+  const { user: authUser } = useAuth();
   const [userName, setUserName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [pendingRequestCount, setPendingRequestCount] = useState(0);
   const location = useLocation();
 
   useEffect(() => {
@@ -75,6 +78,40 @@ export function Navigation(): JSX.Element {
     };
   }, []);
 
+  // Fetch pending friend request count + realtime subscription
+  useEffect(() => {
+    if (!authUser) return;
+
+    const fetchCount = async () => {
+      const { count } = await supabase
+        .from('friend_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('receiver_id', authUser.id)
+        .eq('status', 'pending');
+      setPendingRequestCount(count ?? 0);
+    };
+
+    fetchCount();
+
+    const channel = supabase
+      .channel('nav-friend-request-count')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'friend_requests',
+          filter: `receiver_id=eq.${authUser.id}`,
+        },
+        () => fetchCount()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [authUser]);
+
   const navLinks = [
     { to: '/', label: 'Home' },
     { to: '/discover', label: 'Discover' },
@@ -83,7 +120,7 @@ export function Navigation(): JSX.Element {
     { to: '/live', label: 'Live' },
     { to: '/stories', label: 'Stories' },
     { to: '/maps', label: 'Maps' },
-    { to: '/friends', label: 'Friends' },
+    { to: '/friends', label: 'Friends', badge: pendingRequestCount },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -118,13 +155,18 @@ export function Navigation(): JSX.Element {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                  className={`relative px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                     isActive(link.to)
                       ? 'bg-white/20 text-white shadow-md'
                       : 'text-white/80 hover:text-white hover:bg-white/10'
                   }`}
                 >
                   {link.label}
+                  {'badge' in link && (link as any).badge > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1 animate-pulse">
+                      {(link as any).badge}
+                    </span>
+                  )}
                 </Link>
               ))}
             </div>
@@ -193,13 +235,18 @@ export function Navigation(): JSX.Element {
                 key={link.to}
                 to={link.to}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className={`block px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
+                className={`relative block px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
                   isActive(link.to)
                     ? 'bg-white/20 text-white shadow-lg border border-white/20'
                     : 'text-white/80 hover:text-white hover:bg-white/10 active:bg-white/20'
                 }`}
               >
                 {link.label}
+                {'badge' in link && (link as any).badge > 0 && (
+                  <span className="inline-flex ml-2 min-w-[20px] h-[20px] items-center justify-center rounded-full bg-destructive text-destructive-foreground text-xs font-bold px-1">
+                    {(link as any).badge}
+                  </span>
+                )}
               </Link>
             ))}
 

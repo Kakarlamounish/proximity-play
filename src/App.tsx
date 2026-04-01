@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import SkipLinks from "@/components/SkipLinks";
 import { PageSkeleton } from "@/components/ui/skeleton-loader";
 import { RealtimeNotificationListener } from '@/components/RealtimeNotificationListener';
+import { FriendRequestNotifier } from '@/components/FriendRequestNotifier';
 
 // Lazy load pages
 const Index = lazy(() => import("./pages/Index"));
@@ -53,6 +54,7 @@ function App() {
               <Sonner />
               <RealtimeNotificationListener />
               <BrowserRouter>
+                <FriendRequestNotifier />
                 <div className="min-h-screen pt-16 bg-gradient-to-br from-secondary via-background to-primary">
                   <Suspense fallback={<PageLoader />}>
                     <Routes>

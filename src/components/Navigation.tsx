@@ -78,6 +78,40 @@ export function Navigation(): JSX.Element {
     };
   }, []);
 
+  // Fetch pending friend request count + realtime subscription
+  useEffect(() => {
+    if (!authUser) return;
+
+    const fetchCount = async () => {
+      const { count } = await supabase
+        .from('friend_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('receiver_id', authUser.id)
+        .eq('status', 'pending');
+      setPendingRequestCount(count ?? 0);
+    };
+
+    fetchCount();
+
+    const channel = supabase
+      .channel('nav-friend-request-count')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'friend_requests',
+          filter: `receiver_id=eq.${authUser.id}`,
+        },
+        () => fetchCount()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [authUser]);
+
   const navLinks = [
     { to: '/', label: 'Home' },
     { to: '/discover', label: 'Discover' },
@@ -86,7 +120,7 @@ export function Navigation(): JSX.Element {
     { to: '/live', label: 'Live' },
     { to: '/stories', label: 'Stories' },
     { to: '/maps', label: 'Maps' },
-    { to: '/friends', label: 'Friends' },
+    { to: '/friends', label: 'Friends', badge: pendingRequestCount },
   ];
 
   const isActive = (path: string) => location.pathname === path;

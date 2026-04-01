@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { getMutualFriendsCountBatch } from '@/utils/mutualFriends';
 
 interface FriendRequest {
   id: string;
   sender_id: string;
   status: string;
   created_at: string;
+  mutualFriendsCount?: number;
   sender: {
     first_name: string;
     profile_photo_url?: string;

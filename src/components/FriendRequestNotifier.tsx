@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { getMutualFriendsCount } from '@/utils/mutualFriends';
+import { useNotificationSound } from '@/hooks/useNotificationSound';
 
 /**
  * Global component that listens for incoming friend requests in realtime
@@ -12,10 +14,9 @@ import { useNavigate } from 'react-router-dom';
 export function FriendRequestNotifier() {
   const { user } = useAuth();
   const { toast } = useToast();
-  // useNavigate must be called inside <BrowserRouter>, so this component
-  // must be rendered inside the router.
   const navigate = useNavigate();
   const seenIds = useRef<Set<string>>(new Set());
+  const { playNotificationSound } = useNotificationSound();
 
   useEffect(() => {
     if (!user) return;
@@ -37,20 +38,25 @@ export function FriendRequestNotifier() {
             status: string;
           };
 
-          // Deduplicate in case of reconnects
           if (seenIds.current.has(req.id)) return;
           seenIds.current.add(req.id);
 
-          // Fetch sender profile for the toast
-          const { data: sender } = await supabase
-            .from('profiles')
-            .select('first_name, profile_photo_url')
-            .eq('id', req.sender_id)
-            .maybeSingle();
+          // Play notification sound
+          playNotificationSound();
 
+          // Fetch sender profile + mutual friends count in parallel
+          const [senderResult, mutualCount] = await Promise.all([
+            supabase
+              .from('profiles')
+              .select('first_name, profile_photo_url')
+              .eq('id', req.sender_id)
+              .maybeSingle(),
+            getMutualFriendsCount(user.id, req.sender_id),
+          ]);
+
+          const sender = senderResult.data;
           const senderName = sender?.first_name || 'Someone';
 
-          // Accept helper
           const handleAccept = async () => {
             const { error } = await supabase
               .from('friend_requests')
@@ -65,10 +71,13 @@ export function FriendRequestNotifier() {
             }
           };
 
-          // Show the notification toast
+          const mutualText = mutualCount > 0
+            ? ` · ${mutualCount} mutual friend${mutualCount > 1 ? 's' : ''}`
+            : '';
+
           toast({
             title: '👋 New Friend Request',
-            description: `${senderName} wants to be your friend`,
+            description: `${senderName} wants to be your friend${mutualText}`,
             duration: 15000,
             action: (
               <div className="flex gap-2 mt-1">
@@ -94,7 +103,7 @@ export function FriendRequestNotifier() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, toast, navigate]);
+  }, [user, toast, navigate, playNotificationSound]);
 
   return null;
 }

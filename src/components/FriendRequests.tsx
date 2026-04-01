@@ -159,6 +159,11 @@ export const FriendRequests = memo(() => {
               </Avatar>
               <div>
                 <h3 className="font-semibold">{request.sender.first_name}</h3>
+                {(request.mutualFriendsCount ?? 0) > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    👥 {request.mutualFriendsCount} mutual friend{request.mutualFriendsCount! > 1 ? 's' : ''}
+                  </p>
+                )}
                 {request.sender.interests && request.sender.interests.length > 0 && (
                   <div className="flex gap-1 mt-1">
                     {request.sender.interests.slice(0, 2).map((interest, idx) => (

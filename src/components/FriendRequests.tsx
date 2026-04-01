@@ -49,8 +49,12 @@ export const FriendRequests = memo(() => {
           .select('id, first_name, profile_photo_url, interests')
           .in('id', senderIds);
 
+        // Fetch mutual friends counts
+        const mutualCounts = await getMutualFriendsCountBatch(user.id, senderIds);
+
         const requestsWithProfiles = data.map(request => ({
           ...request,
+          mutualFriendsCount: mutualCounts.get(request.sender_id) || 0,
           sender: profiles?.find(p => p.id === request.sender_id) || {
             first_name: 'Unknown',
             profile_photo_url: undefined,

@@ -54,6 +54,7 @@ function App() {
               <Sonner />
               <RealtimeNotificationListener />
               <BrowserRouter>
+                <FriendRequestNotifier />
                 <div className="min-h-screen pt-16 bg-gradient-to-br from-secondary via-background to-primary">
                   <Suspense fallback={<PageLoader />}>
                     <Routes>

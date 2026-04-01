@@ -235,13 +235,18 @@ export function Navigation(): JSX.Element {
                 key={link.to}
                 to={link.to}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className={`block px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
+                className={`relative block px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
                   isActive(link.to)
                     ? 'bg-white/20 text-white shadow-lg border border-white/20'
                     : 'text-white/80 hover:text-white hover:bg-white/10 active:bg-white/20'
                 }`}
               >
                 {link.label}
+                {'badge' in link && (link as any).badge > 0 && (
+                  <span className="inline-flex ml-2 min-w-[20px] h-[20px] items-center justify-center rounded-full bg-destructive text-destructive-foreground text-xs font-bold px-1">
+                    {(link as any).badge}
+                  </span>
+                )}
               </Link>
             ))}
 

@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import SkipLinks from "@/components/SkipLinks";
 import { PageSkeleton } from "@/components/ui/skeleton-loader";
 import { RealtimeNotificationListener } from '@/components/RealtimeNotificationListener';
+import { FriendRequestNotifier } from '@/components/FriendRequestNotifier';
 
 // Lazy load pages
 const Index = lazy(() => import("./pages/Index"));

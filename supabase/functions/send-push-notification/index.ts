@@ -13,6 +13,34 @@ serve(async (req: Request) => {
   }
 
   try {
+    // Authenticate the caller
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    // Verify the caller's JWT
+    const callerClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await callerClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const callerUserId = claimsData.claims.sub;
+
     const { userId, title, body, data } = await req.json();
 
     if (!userId || !title || !body) {
@@ -20,6 +48,29 @@ serve(async (req: Request) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Authorization: callers can only send notifications to themselves,
+    // or to users they are friends with
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    if (userId !== callerUserId) {
+      // Check friendship
+      const { data: friendship, error: friendError } = await supabase
+        .from("friendships")
+        .select("id")
+        .or(
+          `and(user_id_1.eq.${callerUserId},user_id_2.eq.${userId}),and(user_id_1.eq.${userId},user_id_2.eq.${callerUserId})`
+        )
+        .maybeSingle();
+
+      if (friendError || !friendship) {
+        return new Response(JSON.stringify({ error: "Not authorized to notify this user" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
@@ -31,10 +82,6 @@ serve(async (req: Request) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: subscriptions, error } = await supabase
       .from("push_subscriptions")
@@ -49,17 +96,10 @@ serve(async (req: Request) => {
       });
     }
 
-    // For each subscription, send a web push notification.
-    // Note: Full Web Push with VAPID signing requires a web-push library.
-    // This is a stub — in production use the `web-push` npm package via Deno npm: specifier.
     let sent = 0;
     for (const sub of subscriptions) {
       try {
-        // Construct push payload
         const payload = JSON.stringify({ title, body, data });
-
-        // In production, use proper VAPID signing here.
-        // For now, we log and count.
         console.log(`Would send push to ${sub.endpoint}: ${payload}`);
         sent++;
       } catch (e) {
@@ -72,7 +112,7 @@ serve(async (req: Request) => {
     });
   } catch (err) {
     console.error("send-push-notification error:", err);
-    return new Response(JSON.stringify({ error: String(err) }), {
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -163,7 +163,15 @@ export default function Friends() {
         .in('id', potentialFriendIds)
         .limit(6);
 
-      setSuggestedFriends(profiles || []);
+      if (profiles && profiles.length > 0) {
+        const mutualCounts = await getMutualFriendsCountBatch(user.id, profiles.map(p => p.id));
+        setSuggestedFriends(profiles.map(p => ({
+          ...p,
+          mutualFriendsCount: mutualCounts.get(p.id) || 0,
+        })));
+      } else {
+        setSuggestedFriends([]);
+      }
     } catch (error) {
       console.error('Error fetching suggested friends:', error);
       setSuggestedFriends([]);

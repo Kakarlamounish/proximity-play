@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { getMutualFriendsCountBatch } from '@/utils/mutualFriends';
 
 interface FriendRequest {
   id: string;
   sender_id: string;
   status: string;
   created_at: string;
+  mutualFriendsCount?: number;
   sender: {
     first_name: string;
     profile_photo_url?: string;
@@ -47,8 +49,12 @@ export const FriendRequests = memo(() => {
           .select('id, first_name, profile_photo_url, interests')
           .in('id', senderIds);
 
+        // Fetch mutual friends counts
+        const mutualCounts = await getMutualFriendsCountBatch(user.id, senderIds);
+
         const requestsWithProfiles = data.map(request => ({
           ...request,
+          mutualFriendsCount: mutualCounts.get(request.sender_id) || 0,
           sender: profiles?.find(p => p.id === request.sender_id) || {
             first_name: 'Unknown',
             profile_photo_url: undefined,
@@ -153,6 +159,11 @@ export const FriendRequests = memo(() => {
               </Avatar>
               <div>
                 <h3 className="font-semibold">{request.sender.first_name}</h3>
+                {(request.mutualFriendsCount ?? 0) > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    👥 {request.mutualFriendsCount} mutual friend{request.mutualFriendsCount! > 1 ? 's' : ''}
+                  </p>
+                )}
                 {request.sender.interests && request.sender.interests.length > 0 && (
                   <div className="flex gap-1 mt-1">
                     {request.sender.interests.slice(0, 2).map((interest, idx) => (

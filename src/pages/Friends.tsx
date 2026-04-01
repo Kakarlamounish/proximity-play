@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { MessageSquare, UserMinus, Users, Search, MapPin, UserPlus } from 'lucide-react';
+import { getMutualFriendsCountBatch } from '@/utils/mutualFriends';
 import { useNavigate } from 'react-router-dom';
 import { FriendRequests } from '@/components/FriendRequests';
 import { Navigation } from '@/components/Navigation';
@@ -21,6 +22,7 @@ interface Friend {
   interests?: string[];
   latitude?: number;
   longitude?: number;
+  mutualFriendsCount?: number;
 }
 
 export default function Friends() {
@@ -161,7 +163,15 @@ export default function Friends() {
         .in('id', potentialFriendIds)
         .limit(6);
 
-      setSuggestedFriends(profiles || []);
+      if (profiles && profiles.length > 0) {
+        const mutualCounts = await getMutualFriendsCountBatch(user.id, profiles.map(p => p.id));
+        setSuggestedFriends(profiles.map(p => ({
+          ...p,
+          mutualFriendsCount: mutualCounts.get(p.id) || 0,
+        })));
+      } else {
+        setSuggestedFriends([]);
+      }
     } catch (error) {
       console.error('Error fetching suggested friends:', error);
       setSuggestedFriends([]);
@@ -484,7 +494,11 @@ export default function Friends() {
 
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold mb-1">{suggested.first_name}</h3>
-
+                        {(suggested.mutualFriendsCount ?? 0) > 0 && (
+                          <p className="text-xs text-muted-foreground mb-1">
+                            👥 {suggested.mutualFriendsCount} mutual friend{suggested.mutualFriendsCount! > 1 ? 's' : ''}
+                          </p>
+                        )}
                         {suggested.bio && (
                           <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
                             {suggested.bio}

@@ -155,13 +155,18 @@ export function Navigation(): JSX.Element {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                  className={`relative px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                     isActive(link.to)
                       ? 'bg-white/20 text-white shadow-md'
                       : 'text-white/80 hover:text-white hover:bg-white/10'
                   }`}
                 >
                   {link.label}
+                  {'badge' in link && (link as any).badge > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1 animate-pulse">
+                      {(link as any).badge}
+                    </span>
+                  )}
                 </Link>
               ))}
             </div>

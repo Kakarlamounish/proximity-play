@@ -215,12 +215,15 @@ export const BiometricAuth: React.FC<BiometricAuthProps> = ({
   // Remove authenticator
   const handleRemoveAuthenticator = async (credentialId: string) => {
     try {
-      // Remove from localStorage for demo
-      const updatedAuthenticators = authenticators.filter(
-        auth => auth.credentialId !== credentialId
-      );
-      localStorage.setItem(`authenticators_${user?.id}`, JSON.stringify(updatedAuthenticators));
-      setAuthenticators(updatedAuthenticators);
+      const { error } = await supabase
+        .from('webauthn_credentials')
+        .delete()
+        .eq('user_id', user?.id)
+        .eq('credential_id', credentialId);
+
+      if (error) throw error;
+
+      setAuthenticators(prev => prev.filter(auth => auth.credentialId !== credentialId));
       setSuccess('Authenticator removed successfully');
     } catch (err: any) {
       setError('Failed to remove authenticator');

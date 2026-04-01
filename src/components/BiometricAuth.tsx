@@ -75,16 +75,25 @@ export const BiometricAuth: React.FC<BiometricAuthProps> = ({
   }, [user, mode]);
 
   const loadAuthenticators = async () => {
+    if (!user) return;
     try {
-      // For demo purposes, we'll use localStorage to store authenticator info
-      // In production, this would be stored securely on the server
-      const stored = localStorage.getItem(`authenticators_${user?.id}`);
-      if (stored) {
-        const data = JSON.parse(stored);
-        setAuthenticators(data);
-      } else {
-        setAuthenticators([]);
-      }
+      const { data, error } = await supabase
+        .from('webauthn_credentials')
+        .select('credential_id, name, type, created_at, last_used, counter')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setAuthenticators(
+        (data || []).map((row: any) => ({
+          credentialId: row.credential_id,
+          name: row.name,
+          type: row.type,
+          createdAt: row.created_at,
+          lastUsed: row.last_used,
+          counter: row.counter,
+        }))
+      );
     } catch (err) {
       console.error('Failed to load authenticators:', err);
       setAuthenticators([]);
@@ -182,14 +191,15 @@ export const BiometricAuth: React.FC<BiometricAuthProps> = ({
         setSuccess('Authentication successful!');
         onSuccess?.(credential);
 
-        // Update last used timestamp (localStorage for demo)
-        const updatedAuthenticators = authenticators.map(auth =>
-          auth.credentialId === credential.id
-            ? { ...auth, lastUsed: new Date().toISOString(), counter: auth.counter + 1 }
-            : auth
-        );
-        localStorage.setItem(`authenticators_${user.id}`, JSON.stringify(updatedAuthenticators));
-        setAuthenticators(updatedAuthenticators);
+        // Update last used timestamp server-side
+        if (user) {
+          await supabase
+            .from('webauthn_credentials')
+            .update({ last_used: new Date().toISOString(), counter: authenticators.find(a => a.credentialId === credential.id)?.counter ? (authenticators.find(a => a.credentialId === credential.id)!.counter + 1) : 1 })
+            .eq('user_id', user.id)
+            .eq('credential_id', credential.id);
+        }
+        await loadAuthenticators();
       } else {
         throw new Error('Authentication verification failed');
       }
@@ -205,12 +215,15 @@ export const BiometricAuth: React.FC<BiometricAuthProps> = ({
   // Remove authenticator
   const handleRemoveAuthenticator = async (credentialId: string) => {
     try {
-      // Remove from localStorage for demo
-      const updatedAuthenticators = authenticators.filter(
-        auth => auth.credentialId !== credentialId
-      );
-      localStorage.setItem(`authenticators_${user?.id}`, JSON.stringify(updatedAuthenticators));
-      setAuthenticators(updatedAuthenticators);
+      const { error } = await supabase
+        .from('webauthn_credentials')
+        .delete()
+        .eq('user_id', user?.id)
+        .eq('credential_id', credentialId);
+
+      if (error) throw error;
+
+      setAuthenticators(prev => prev.filter(auth => auth.credentialId !== credentialId));
       setSuccess('Authenticator removed successfully');
     } catch (err: any) {
       setError('Failed to remove authenticator');

@@ -5,11 +5,14 @@ import { Menu, X } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { SearchDialog } from '@/components/SearchDialog';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function Navigation(): JSX.Element {
+  const { user: authUser } = useAuth();
   const [userName, setUserName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [pendingRequestCount, setPendingRequestCount] = useState(0);
   const location = useLocation();
 
   useEffect(() => {

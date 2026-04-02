@@ -306,7 +306,7 @@ const Index = () => {
   if (loading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#050505]">
-        <Loader2 className="h-8 w-8 animate-spin text-[hsl(51_100%_50%)]" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -329,7 +329,7 @@ const Index = () => {
             <div className="text-center mb-8">
               <h1 className="text-4xl font-extrabold mb-4 tracking-tight">
                 Welcome{profile?.first_name ? `, ${profile.first_name}` : ''}!
-                <Sparkles className="inline-block ml-3 h-8 w-8 text-[hsl(51_100%_50%)]" />
+                <Sparkles className="inline-block ml-3 h-8 w-8 text-primary" />
               </h1>
               <p className="text-lg text-white/60 font-medium">
                 Discover social bubbles near you and connect with like-minded people
@@ -352,7 +352,7 @@ const Index = () => {
 
             {/* Location Status */}
             <Card className="bg-[#0f0f0f] border-white/5 shadow-2xl mb-8 overflow-hidden relative">
-              <div className="absolute top-0 left-0 w-full h-0.5 bg-[hsl(51_100%_50%/0.3)]"></div>
+              <div className="absolute top-0 left-0 w-full h-0.5 bg-primary/30"></div>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">

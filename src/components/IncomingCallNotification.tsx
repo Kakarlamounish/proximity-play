@@ -232,17 +232,16 @@ export const IncomingCallNotification: React.FC<Props> = ({ onAccept, onDecline 
             border: '1.5px solid rgba(255,212,0,0.25)',
           }}
         >
-          {/* ── Snap-yellow top stripe ── */}
+          {/* ── Monochrome top stripe ── */}
           <div
-            className="h-1 w-full"
-            style={{ background: 'linear-gradient(90deg, hsl(51 100% 50%), hsl(51 100% 65%))' }}
+            className="h-1 w-full bg-primary"
           />
 
           <div className="px-6 py-7 flex flex-col items-center gap-5">
             {/* Ghost + app label */}
             <div className="flex items-center gap-1.5">
               <span className="text-xl" aria-hidden="true">👻</span>
-              <span className="text-xs font-bold tracking-widest uppercase" style={{ color: 'hsl(51 100% 50%)' }}>
+              <span className="text-xs font-bold tracking-widest uppercase text-primary">
                 {isVideo ? 'Video Call' : 'Audio Call'}
               </span>
             </div>
@@ -253,7 +252,7 @@ export const IncomingCallNotification: React.FC<Props> = ({ onAccept, onDecline 
               <div
                 className="absolute inset-0 rounded-full"
                 style={{
-                  border: '2px solid hsl(51 100% 50% / 0.4)',
+                  border: '2px solid hsl(var(--primary) / 0.4)',
                   animation: 'ringPulse 1.6s ease-out infinite',
                 }}
               />
@@ -262,7 +261,7 @@ export const IncomingCallNotification: React.FC<Props> = ({ onAccept, onDecline 
                 className="absolute rounded-full"
                 style={{
                   inset: 10,
-                  border: '2px solid hsl(51 100% 50% / 0.55)',
+                  border: '2px solid hsl(var(--primary) / 0.55)',
                   animation: 'ringPulse 1.6s ease-out infinite 0.4s',
                 }}
               />
@@ -271,12 +270,12 @@ export const IncomingCallNotification: React.FC<Props> = ({ onAccept, onDecline 
                   src={incomingCall.caller_avatar}
                   alt={incomingCall.caller_name}
                   className="rounded-full object-cover"
-                  style={{ width: 84, height: 84, border: '3px solid hsl(51 100% 50%)' }}
+                  style={{ width: 84, height: 84, border: '3px solid hsl(var(--primary))' }}
                 />
               ) : (
                 <div
-                  className="rounded-full flex items-center justify-center text-3xl font-extrabold text-black"
-                  style={{ width: 84, height: 84, background: 'hsl(51 100% 50%)', border: '3px solid hsl(51 100% 50%)' }}
+                  className="rounded-full flex items-center justify-center text-3xl font-extrabold text-primary-foreground bg-primary"
+                  style={{ width: 84, height: 84, border: '3px solid hsl(var(--primary))' }}
                 >
                   {initials}
                 </div>
@@ -294,9 +293,8 @@ export const IncomingCallNotification: React.FC<Props> = ({ onAccept, onDecline 
                 {[0, 180, 360].map((delay) => (
                   <span
                     key={delay}
-                    className="w-1 h-1 rounded-full"
+                    className="w-1 h-1 rounded-full bg-primary"
                     style={{
-                      background: 'hsl(51 100% 50%)',
                       animation: `dotBounce 1.2s ease-in-out infinite ${delay}ms`,
                     }}
                   />
@@ -328,23 +326,21 @@ export const IncomingCallNotification: React.FC<Props> = ({ onAccept, onDecline 
               <div className="flex flex-col items-center gap-2">
                 <button
                   onClick={handleAccept}
-                  className="flex items-center justify-center rounded-full transition-all duration-150 active:scale-90 focus:outline-none focus-visible:ring-2"
+                  className="flex items-center justify-center rounded-full transition-all duration-150 active:scale-90 focus:outline-none focus-visible:ring-2 bg-primary text-primary-foreground shadow-[0_6px_24px_hsl(var(--primary)/0.55)]"
                   style={{
                     width: 64,
                     height: 64,
-                    background: 'hsl(51 100% 50%)',
-                    boxShadow: '0 6px 24px hsl(51 100% 50% / 0.55)',
                     // @ts-ignore
-                    '--tw-ring-color': 'hsl(51 100% 50%)',
+                    '--tw-ring-color': 'hsl(var(--primary))',
                   }}
                   aria-label="Accept call"
                 >
                   {isVideo
-                    ? <Video className="w-7 h-7 text-black" />
-                    : <Phone className="w-7 h-7 text-black" />
+                    ? <Video className="w-7 h-7" />
+                    : <Phone className="w-7 h-7" />
                   }
                 </button>
-                <span className="text-xs font-semibold" style={{ color: 'hsl(51 100% 50%)' }}>
+                <span className="text-xs font-semibold text-primary">
                   {isVideo ? 'Accept' : 'Answer'}
                 </span>
               </div>

@@ -597,7 +597,7 @@ export default function Friends() {
                           <Button
                             size="sm"
                             variant="secondary"
-                            className="bg-[hsl(51_100%_50%)] text-black hover:bg-[hsl(51_100%_60%)] border-0"
+                            className="bg-primary text-primary-foreground hover:bg-primary/80 border-0"
                             onClick={() => startCall(friend.id, 'audio', false)}
                           >
                             <Phone className="w-4 h-4" />
@@ -606,7 +606,7 @@ export default function Friends() {
                           <Button
                             size="sm"
                             variant="secondary"
-                            className="bg-[hsl(51_100%_50%)] text-black hover:bg-[hsl(51_100%_60%)] border-0"
+                            className="bg-primary text-primary-foreground hover:bg-primary/80 border-0"
                             onClick={() => startCall(friend.id, 'video', false)}
                           >
                             <Video className="w-4 h-4" />

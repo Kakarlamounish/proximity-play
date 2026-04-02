@@ -162,7 +162,7 @@ const Calls = () => {
   if (loading || pageLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#050505]">
-        <Loader2 className="h-8 w-8 animate-spin text-[hsl(51_100%_50%)]" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -191,7 +191,7 @@ const Calls = () => {
           <div className="text-center mb-10">
             <h1 className="text-4xl font-extrabold mb-4 tracking-tight">
               Calls
-              <PhoneCall className="inline-block ml-3 h-8 w-8 text-[hsl(51_100%_50%)]" />
+              <PhoneCall className="inline-block ml-3 h-8 w-8 text-primary" />
             </h1>
             <p className="text-lg text-white/60 font-medium">
               Connect with friends and bubble members through calls
@@ -217,7 +217,7 @@ const Calls = () => {
             {/* Friends Tab */}
             <TabsContent value="friends">
               <Card className="bg-[#0f0f0f] border-white/5 shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-0.5 bg-[hsl(51_100%_50%/0.3)]"></div>
+                <div className="absolute top-0 left-0 w-full h-0.5 bg-primary/30"></div>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <User className="h-5 w-5" />
@@ -278,7 +278,7 @@ const Calls = () => {
             {/* Bubbles Tab */}
             <TabsContent value="bubbles">
               <Card className="bg-[#0f0f0f] border-white/5 shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-0.5 bg-[hsl(51_100%_50%/0.3)]"></div>
+                <div className="absolute top-0 left-0 w-full h-0.5 bg-primary/30"></div>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Users className="h-5 w-5" />

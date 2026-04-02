@@ -14,6 +14,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { Database } from '@/integrations/supabase/types';
 // (Removed unused RealtimeChannel import)
 import { Map } from '@/components/Map';
@@ -93,6 +94,7 @@ const Live = () => {
 
   // Refs
   const locationWatchId = useRef<number | null>(null);
+  const chatChannelRef = useRef<RealtimeChannel | null>(null);
 
   // Detect activity using device sensors (demo: use geolocation speed)
   useEffect(() => {
@@ -334,6 +336,30 @@ const Live = () => {
     channel.subscribe();
     return () => {
       supabase.removeChannel(channel);
+    };
+  }, [selectedBubble]);
+
+  // Subscribe to chat messages for the selected bubble using Supabase Broadcast
+  useEffect(() => {
+    if (!selectedBubble) return;
+    // Clean up any existing channel
+    if (chatChannelRef.current) {
+      supabase.removeChannel(chatChannelRef.current);
+    }
+    const chatChannel = supabase.channel(`bubble-chat-${selectedBubble.id}`);
+    chatChannel.on('broadcast', { event: 'chat' }, (payload) => {
+      const msg = payload.payload?.message;
+      if (msg && msg.user && msg.message && msg.time) {
+        setChatLog((log) => [...log, msg]);
+      }
+    });
+    chatChannel.subscribe();
+    chatChannelRef.current = chatChannel;
+    return () => {
+      if (chatChannelRef.current) {
+        supabase.removeChannel(chatChannelRef.current);
+        chatChannelRef.current = null;
+      }
     };
   }, [selectedBubble]);
 

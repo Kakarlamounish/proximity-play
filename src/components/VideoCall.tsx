@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRingtone } from '@/hooks/useRingtone';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -50,6 +51,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isSpeakerEnabled, setIsSpeakerEnabled] = useState(true);
   const [callStatus, setCallStatus] = useState<'connecting' | 'connected' | 'ended' | 'failed'>('connecting');
+  const [hasAnswered, setHasAnswered] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
@@ -61,8 +63,10 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
-  const channelRef = useRef<any>(null);
-  const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const readyIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   // FIX #5: ref mirrors of state so mount-cleanup closures see live values
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -76,29 +80,25 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const sendSignal = useCallback(async (signal: any, signalType: string) => {
+  const sendSignal = useCallback(async (signal: unknown, signalType: string) => {
     console.log('VideoCall: Sending signal:', signalType);
+    if (!channelRef.current) return;
     try {
-      const { error } = await supabase
-        .from('messages')
-        .insert({
-          bubble_id: bubbleId,
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: 'webrtc_signal',
+        payload: {
           sender_id: user?.id,
-          content: JSON.stringify({ 
-            type: 'webrtc_signal',
-            signalType,
-            signal, 
-            timestamp: Date.now(),
-            callType 
-          })
-        });
-      if (error) {
-        console.error('VideoCall: Error sending signal:', error);
-      }
+          signalType,
+          signal,
+          timestamp: Date.now(),
+          callType
+        }
+      });
     } catch (error) {
       console.error('VideoCall: Error sending signal:', error);
     }
-  }, [bubbleId, user?.id, callType]);
+  }, [user?.id, callType]);
 
   const createPeerConnection = useCallback((stream: MediaStream): RTCPeerConnection => {
     console.log('VideoCall: Creating RTCPeerConnection');
@@ -178,63 +178,106 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     return pc;
   }, [callType, sendSignal, toast]);
 
-  const handleSignal = useCallback(async (pc: RTCPeerConnection, signalType: string, signal: any) => {
+  const handleSignal = useCallback(async (pc: RTCPeerConnection, signalType: string, signal: unknown) => {
     console.log('VideoCall: Handling signal:', signalType);
     
     try {
-      if (signalType === 'offer') {
-        await pc.setRemoteDescription(new RTCSessionDescription(signal));
+      if (signalType === 'ready' && isInitiator) {
+        if (pc.signalingState !== 'stable') return;
+        console.log('VideoCall: Receiver is ready, creating offer');
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: callType === 'video'
+        });
+        await pc.setLocalDescription(offer);
+        sendSignal(offer, 'offer');
+      } else if (signalType === 'offer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(signal as RTCSessionDescriptionInit));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         sendSignal(answer, 'answer');
+        
+        while (pendingCandidatesRef.current.length > 0) {
+          const candidate = pendingCandidatesRef.current.shift();
+          if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        }
       } else if (signalType === 'answer') {
-        await pc.setRemoteDescription(new RTCSessionDescription(signal));
+        await pc.setRemoteDescription(new RTCSessionDescription(signal as RTCSessionDescriptionInit));
+        
+        while (pendingCandidatesRef.current.length > 0) {
+          const candidate = pendingCandidatesRef.current.shift();
+          if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        }
       } else if (signalType === 'ice-candidate') {
-        await pc.addIceCandidate(new RTCIceCandidate(signal));
+        if (pc.remoteDescription) {
+          await pc.addIceCandidate(new RTCIceCandidate(signal as RTCIceCandidateInit));
+        } else {
+          pendingCandidatesRef.current.push(signal as RTCIceCandidateInit);
+        }
       }
     } catch (error) {
       console.error('VideoCall: Error handling signal:', error);
     }
-  }, [sendSignal]);
+  }, [sendSignal, isInitiator, callType]);
 
   const listenForSignals = useCallback((pc: RTCPeerConnection) => {
-    console.log('VideoCall: Setting up signal listener');
-    
-    if (channelRef.current) {
-      try {
-        supabase.removeChannel(channelRef.current);
-      } catch (e) {
-        console.warn('VideoCall: Failed to remove existing channel', e);
-      }
-      channelRef.current = null;
-    }
-
-    const channel = supabase.channel(`call-signals-${bubbleId}-${Date.now()}`);
-    channel.on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `bubble_id=eq.${bubbleId}`,
-      },
-      (payload: any) => {
+    return new Promise<void>((resolve) => {
+      console.log('VideoCall: Setting up signal listener');
+      
+      if (channelRef.current) {
         try {
-          const message = payload?.new;
-          if (!message || message.sender_id === user?.id) return;
-          
-          const parsed = JSON.parse(message.content);
-          if (parsed.type === 'webrtc_signal' && parsed.signal) {
-            handleSignal(pc, parsed.signalType, parsed.signal);
-          }
-        } catch (error) {
-          console.error('VideoCall: Error processing message:', error);
+          supabase.removeChannel(channelRef.current);
+        } catch (e) {
+          console.debug('VideoCall: cleanup exception', e);
         }
+        channelRef.current = null;
       }
-    );
-    channel.subscribe();
-    channelRef.current = channel;
-  }, [bubbleId, user?.id, handleSignal]);
+
+      const roomExt = callLogId || bubbleId;
+      const channel = supabase.channel(`call-broadcast-${roomExt}`);
+      
+      channel.on(
+        'broadcast',
+        { event: 'webrtc_signal' },
+        (payload: { payload?: { sender_id?: string; signalType?: string; signal?: unknown } }) => {
+          try {
+            const message = payload.payload;
+            if (!message || message.sender_id === user?.id) return;
+            handleSignal(pc, message.signalType, message.signal);
+          } catch (error) {
+            console.error('VideoCall: Error processing message:', error);
+          }
+        }
+      );
+      
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('VideoCall: Channel subscribed');
+          if (!isInitiator) {
+            const sendReady = () => {
+              if (pc.signalingState === 'stable') {
+                channel.send({
+                  type: 'broadcast',
+                  event: 'webrtc_signal',
+                  payload: { sender_id: user?.id, signalType: 'ready', signal: {} }
+                });
+              } else if (readyIntervalRef.current) {
+                clearInterval(readyIntervalRef.current);
+                readyIntervalRef.current = null;
+              }
+            };
+            sendReady();
+            readyIntervalRef.current = setInterval(sendReady, 2000);
+          }
+          resolve();
+        } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+          resolve();
+        }
+      });
+      
+      channelRef.current = channel;
+    });
+  }, [bubbleId, callLogId, user?.id, handleSignal, isInitiator]);
 
   const initializeCall = useCallback(async () => {
     console.log('VideoCall: Initializing', { callType, isInitiator });
@@ -270,8 +313,9 @@ export const VideoCall: React.FC<VideoCallProps> = ({
         };
         
         stream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (constraintError: any) {
-        console.warn('VideoCall: Failed with ideal constraints, trying minimal:', constraintError.message);
+      } catch (constraintError: unknown) {
+        const err = constraintError as Error;
+        console.warn('VideoCall: Failed with ideal constraints, trying minimal:', err.message);
         stream = await navigator.mediaDevices.getUserMedia({ 
           audio: true, 
           video: callType === 'video' 
@@ -301,18 +345,12 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       setPeerConnection(pc);
       peerConnectionRef.current = pc; // FIX #5: keep ref in sync with state
 
-      // Set up signaling
-      listenForSignals(pc);
+      // Set up signaling and wait for subscription
+      await listenForSignals(pc);
 
-      // If initiator, create and send offer
+      // Only the receiver sends a ready signal to prompt the initiator
       if (isInitiator) {
-        console.log('VideoCall: Creating offer');
-        const offer = await pc.createOffer({
-          offerToReceiveAudio: true,
-          offerToReceiveVideo: callType === 'video'
-        });
-        await pc.setLocalDescription(offer);
-        sendSignal(offer, 'offer');
+        console.log('VideoCall: Waiting for receiver ready loop');
       }
 
       toast({
@@ -320,8 +358,9 @@ export const VideoCall: React.FC<VideoCallProps> = ({
         description: 'Waiting for the other party to join...',
       });
 
-    } catch (error: any) {
-      console.error('VideoCall: Init error:', error);
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error('VideoCall: Init error:', err);
       setCallStatus('failed');
       
       if (stream) {
@@ -330,14 +369,14 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       
       let errorMessage = 'Could not start call.';
       
-      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         errorMessage = 'Permission denied. Please allow camera/microphone access in your browser settings.';
-      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         errorMessage = 'No camera or microphone found. Please connect a device.';
-      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
         errorMessage = 'Camera or microphone is in use by another application.';
-      } else if (error.message) {
-        errorMessage = error.message;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
       
       toast({
@@ -346,7 +385,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
         variant: 'destructive',
       });
     }
-  }, [callType, isInitiator, createPeerConnection, listenForSignals, sendSignal, toast]);
+  }, [callType, isInitiator, createPeerConnection, listenForSignals, toast]);
 
   // Best-effort call log bookkeeping for duration.
   useEffect(() => {
@@ -379,7 +418,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
         let jitterMs: number | undefined;
         let bitrateKbps: number | undefined;
 
-        reports.forEach((r: any) => {
+        reports.forEach((r: Record<string, unknown>) => {
           if (r.type === 'candidate-pair' && r.state === 'succeeded' && r.currentRoundTripTime != null) {
             rttMs = Math.round(Number(r.currentRoundTripTime) * 1000);
           }
@@ -427,7 +466,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     }, 2000);
 
     return () => window.clearInterval(id);
-  }, [peerConnection, callStatus]);
+  }, [peerConnection, callStatus, toast]);
 
   const endCall = useCallback(() => {
     console.log('VideoCall: Ending call');
@@ -438,6 +477,11 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     if (durationIntervalRef.current) {
       clearInterval(durationIntervalRef.current);
       durationIntervalRef.current = null;
+    }
+
+    if (readyIntervalRef.current) {
+      clearInterval(readyIntervalRef.current);
+      readyIntervalRef.current = null;
     }
 
     if (peerConnection) {
@@ -486,6 +530,9 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       if (durationIntervalRef.current) {
         clearInterval(durationIntervalRef.current);
       }
+      if (readyIntervalRef.current) {
+        clearInterval(readyIntervalRef.current);
+      }
       // FIX #5: use refs instead of stale state values in the cleanup closure
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
@@ -494,10 +541,10 @@ export const VideoCall: React.FC<VideoCallProps> = ({
         localStreamRef.current.getTracks().forEach(track => track.stop());
       }
       if (channelRef.current) {
-        try { supabase.removeChannel(channelRef.current); } catch {}
+        try { supabase.removeChannel(channelRef.current); } catch { console.debug('Cleanup error handle'); }
       }
     };
-  }, []);
+  }, [initializeCall, stopRinging]);
 
   const toggleVideo = useCallback(() => {
     if (callType !== 'video' || !localStream) return;
@@ -620,12 +667,13 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           title: 'Screen Sharing',
           description: 'Your screen is now being shared',
         });
-      } catch (error: any) {
-        console.error('Screen share error:', error);
-        if (error.name !== 'NotAllowedError') {
+      } catch (error: unknown) {
+        const err = error as Error;
+        console.error('Screen share error:', err);
+        if (err.name !== 'NotAllowedError') {
           toast({
             title: 'Screen Share Failed',
-            description: error.message || 'Could not share screen',
+            description: err.message || 'Could not share screen',
             variant: 'destructive',
           });
         }
@@ -678,6 +726,18 @@ export const VideoCall: React.FC<VideoCallProps> = ({
                         ? 'Connected'
                         : 'Ended'}
                   </span>
+                  {/* Answer button for incoming calls */}
+                  {!isInitiator && callStatus === 'connecting' && !hasAnswered && (
+                    <Button size="sm" variant="secondary" onClick={() => {
+                      setHasAnswered(true);
+                      if (readyIntervalRef.current) {
+                        clearInterval(readyIntervalRef.current);
+                        readyIntervalRef.current = null;
+                      }
+                    }}>
+                      Answer
+                    </Button>
+                  )}
                   {callStatus === 'connected' && (
                     <span className="text-sm font-mono text-muted-foreground">
                       {formatDuration(callDuration)}

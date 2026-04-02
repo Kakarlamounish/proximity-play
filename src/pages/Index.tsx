@@ -60,8 +60,12 @@ const Index = () => {
   // All hooks must be called before any conditional returns
   useEffect(() => {
     const checkProfile = async () => {
-      if (!user) return;
+      if (!user) {
+        console.log('[Index] No user, skipping profile check');
+        return;
+      }
 
+      console.log('[Index] Checking profile for user:', user.id);
       try {
         const { data, error } = await supabase
           .from('profiles')
@@ -70,20 +74,22 @@ const Index = () => {
           .maybeSingle();
 
         if (error) {
-          console.error('Error fetching profile:', error);
+          console.error('[Index] Error fetching profile:', error);
         }
 
+        console.log('[Index] Profile data:', data);
         setProfile(data);
 
         // If no profile exists, redirect to profile setup
         if (!data) {
+          console.log('[Index] No profile found, redirecting to profile-setup');
           navigate('/profile-setup');
         } else {
           // Fetch user stats for gamification
           fetchUserStats();
         }
       } catch (error) {
-        console.error('Error checking profile:', error);
+        console.error('[Index] Error checking profile:', error);
       } finally {
         setProfileLoading(false);
       }
@@ -91,6 +97,8 @@ const Index = () => {
 
     if (user && !loading) {
       checkProfile();
+    } else if (!loading && !user) {
+      setProfileLoading(false);
     }
   }, [user, loading, navigate]);
 

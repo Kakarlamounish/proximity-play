@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/Navigation';
 import { Map } from '@/components/MapboxMap';
+import { FriendsMap } from '@/components/FriendsMap';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -304,6 +305,10 @@ const Maps = () => {
             </div>
           </Card>
 
+          {/* Friends on Map */}
+          <div className="mt-8">
+            <FriendsMap />
+          </div>
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
             <Card className="backdrop-blur-sm bg-card/95 border-0">

@@ -11,6 +11,7 @@ import SkipLinks from "@/components/SkipLinks";
 import { PageSkeleton } from "@/components/ui/skeleton-loader";
 import { RealtimeNotificationListener } from '@/components/RealtimeNotificationListener';
 import { FriendRequestNotifier } from '@/components/FriendRequestNotifier';
+import { PresenceTracker } from '@/components/PresenceTracker';
 
 // Lazy load pages
 const Index = lazy(() => import("./pages/Index"));
@@ -59,6 +60,7 @@ function App() {
                 <BrowserRouter>
                   <RealtimeNotificationListener />
                   <FriendRequestNotifier />
+                  <PresenceTracker />
                   <div id="main-content" role="main" className="min-h-screen pt-16 bg-background">
                     <Suspense fallback={<PageLoader />}>
                       <Routes>

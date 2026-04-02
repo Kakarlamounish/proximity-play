@@ -14,15 +14,19 @@ export function usePresence() {
     if (!user) return;
 
     const upsert = async (status: string) => {
-      await supabase.from('user_presence').upsert(
-        {
-          user_id: user.id,
-          status,
-          last_seen: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' }
-      );
+      try {
+        await supabase.from('user_presence').upsert(
+          {
+            user_id: user.id,
+            status,
+            last_seen: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        );
+      } catch (err) {
+        console.warn('[usePresence] upsert failed:', err);
+      }
     };
 
     // Go online immediately
@@ -40,10 +44,6 @@ export function usePresence() {
     };
 
     const handleBeforeUnload = () => {
-      // Use sendBeacon for reliability
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_presence?user_id=eq.${user.id}`;
-      const body = JSON.stringify({ status: 'offline', last_seen: new Date().toISOString() });
-      navigator.sendBeacon?.(url); // best-effort
       upsert('offline');
     };
 

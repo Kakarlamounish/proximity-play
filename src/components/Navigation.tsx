@@ -32,18 +32,17 @@ export function Navigation(): JSX.Element {
 
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name, username, avatar_url')
+          .select('first_name, profile_photo_url')
           .eq('id', user.id)
           .maybeSingle();
 
         const display =
-          profile?.full_name ||
-          profile?.username ||
+          profile?.first_name ||
           user.email ||
           user.id ||
           'User';
         const avatar =
-          profile?.avatar_url || user.user_metadata?.avatar_url || null;
+          profile?.profile_photo_url || user.user_metadata?.avatar_url || null;
 
         if (mounted) {
           setUserName(display);

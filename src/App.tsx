@@ -11,6 +11,7 @@ import SkipLinks from "@/components/SkipLinks";
 import { PageSkeleton } from "@/components/ui/skeleton-loader";
 import { RealtimeNotificationListener } from '@/components/RealtimeNotificationListener';
 import { FriendRequestNotifier } from '@/components/FriendRequestNotifier';
+import { PresenceTracker } from '@/components/PresenceTracker';
 
 // Lazy load pages
 const Index = lazy(() => import("./pages/Index"));

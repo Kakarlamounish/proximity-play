@@ -58,6 +58,7 @@ function App() {
                 <RealtimeNotificationListener />
                 <BrowserRouter>
                   <FriendRequestNotifier />
+                  <PresenceTracker />
                   <div id="main-content" role="main" className="min-h-screen pt-16 bg-background">
                     <Suspense fallback={<PageLoader />}>
                     <Routes>

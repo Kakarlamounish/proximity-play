@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/Navigation';
 import { Map } from '@/components/MapboxMap';
+import { FriendsMap } from '@/components/FriendsMap';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';

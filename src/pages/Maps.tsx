@@ -305,6 +305,10 @@ const Maps = () => {
             </div>
           </Card>
 
+          {/* Friends on Map */}
+          <div className="mt-8">
+            <FriendsMap />
+          </div>
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
             <Card className="backdrop-blur-sm bg-card/95 border-0">

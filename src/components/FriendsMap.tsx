@@ -102,7 +102,9 @@ export function FriendsMap() {
         .select('user_id, status, last_seen')
         .in('user_id', friendIds);
 
-      const presenceMap = new Map(presenceData?.map(p => [p.user_id, p]) || []);
+      const presenceMap = new Map(
+        presenceData?.map(p => [p.user_id, p as { user_id: string; status: string; last_seen: string }]) || []
+      );
 
       const mapped: FriendOnMap[] = (profiles || []).map(p => {
         const presence = presenceMap.get(p.id);

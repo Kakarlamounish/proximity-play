@@ -2,28 +2,51 @@ import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { Database } from '@/integrations/supabase/types';
+import { RealtimeChannel, RealtimePostgresInsertPayload } from '@supabase/supabase-js';
+
+type Message = Database['public']['Tables']['messages']['Row'];
+type Membership = Database['public']['Tables']['bubble_memberships']['Row'];
+type Notification = Database['public']['Tables']['notifications']['Row'];
 
 interface UseRealtimeNotificationsOptions {
-  onNewMessage?: (message: any) => void;
-  onBubbleJoin?: (membership: any) => void;
-  onNewNotification?: (notification: any) => void;
+  onNewMessage?: (message: Message) => void;
+  onBubbleJoin?: (membership: Membership) => void;
+  onNewNotification?: (notification: Notification) => void;
 }
 
 export const useRealtimeNotifications = (options: UseRealtimeNotificationsOptions = {}) => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const channelsRef = useRef<any[]>([]);
+  const channelsRef = useRef<RealtimeChannel[]>([]);
+  const optionsRef = useRef(options);
+
+  // Keep options ref in sync
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      console.log('useRealtimeNotifications: No user, skipping subscription');
+      return;
+    }
 
-    // Clean up existing channels
-    channelsRef.current.forEach(channel => {
-      supabase.removeChannel(channel);
-    });
-    channelsRef.current = [];
+    console.log('useRealtimeNotifications: Initializing subscriptions for user', user.id);
 
-    // Subscribe to notifications for the current user
+    let isMounted = true;
+    const activeChannels: RealtimeChannel[] = [];
+
+    const cleanup = () => {
+      console.log('useRealtimeNotifications: Cleaning up subscriptions');
+      isMounted = false;
+      activeChannels.forEach(channel => {
+        supabase.removeChannel(channel);
+      });
+      channelsRef.current = channelsRef.current.filter(c => !activeChannels.includes(c));
+    };
+
+    // 1. Subscribe to notifications for the current user
     const notificationsChannel = supabase
       .channel('notifications-realtime')
       .on(
@@ -35,17 +58,16 @@ export const useRealtimeNotifications = (options: UseRealtimeNotificationsOption
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
+          if (!isMounted) return;
           console.log('New notification:', payload);
-          const notification = payload.new as any;
+          const notification = payload.new as Notification;
           
-          // Show toast notification
           toast({
-            title: notification.title,
-            description: notification.body,
+            title: notification.title || 'New Notification',
+            description: notification.body || '',
           });
 
-          // Show browser notification if permission granted
-          if (Notification.permission === 'granted') {
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
             new Notification(notification.title, {
               body: notification.body,
               icon: '/logo.png',
@@ -53,24 +75,34 @@ export const useRealtimeNotifications = (options: UseRealtimeNotificationsOption
             });
           }
 
-          options.onNewNotification?.(notification);
+          optionsRef.current.onNewNotification?.(notification);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('useRealtimeNotifications: notificationsChannel status', status);
+      });
 
+    activeChannels.push(notificationsChannel);
     channelsRef.current.push(notificationsChannel);
 
-    // Subscribe to messages in user's bubbles
-    const fetchUserBubbles = async () => {
-      const { data: memberships } = await supabase
-        .from('bubble_memberships')
-        .select('bubble_id')
-        .eq('user_id', user.id);
+    // 2. Subscribe to messages and memberships in user's bubbles
+    const setupBubbleSubscriptions = async () => {
+      try {
+        const { data: memberships } = await supabase
+          .from('bubble_memberships')
+          .select('bubble_id')
+          .eq('user_id', user.id);
 
-      if (memberships && memberships.length > 0) {
+        if (!isMounted) return;
+        if (!memberships || memberships.length === 0) {
+          console.log('useRealtimeNotifications: No bubble memberships found');
+          return;
+        }
+
         const bubbleIds = memberships.map(m => m.bubble_id);
+        console.log('useRealtimeNotifications: Setting up subscriptions for', bubbleIds.length, 'bubbles');
 
-        // Subscribe to new messages in user's bubbles
+        // Subscribe to new messages
         const messagesChannel = supabase
           .channel('messages-realtime')
           .on(
@@ -81,33 +113,23 @@ export const useRealtimeNotifications = (options: UseRealtimeNotificationsOption
               table: 'messages',
             },
             async (payload) => {
-              const message = payload.new as any;
+              if (!isMounted) return;
+              const message = payload.new as Message;
               
-              // Only process if message is in user's bubble and not from current user
               if (bubbleIds.includes(message.bubble_id) && message.sender_id !== user.id) {
                 console.log('New message in bubble:', message);
 
-                // Fetch sender info
-                const { data: sender } = await supabase
-                  .from('profiles')
-                  .select('first_name')
-                  .eq('id', message.sender_id)
-                  .single();
-
-                // Fetch bubble info
-                const { data: bubble } = await supabase
-                  .from('bubbles')
-                  .select('name')
-                  .eq('id', message.bubble_id)
-                  .single();
+                const [{ data: sender }, { data: bubble }] = await Promise.all([
+                  supabase.from('profiles').select('first_name').eq('id', message.sender_id).single(),
+                  supabase.from('bubbles').select('name').eq('id', message.bubble_id).single()
+                ]);
 
                 toast({
                   title: `New message in ${bubble?.name || 'bubble'}`,
                   description: `${sender?.first_name || 'Someone'}: ${message.content.substring(0, 50)}${message.content.length > 50 ? '...' : ''}`,
                 });
 
-                // Browser notification
-                if (Notification.permission === 'granted') {
+                if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
                   new Notification(`New message in ${bubble?.name || 'bubble'}`, {
                     body: `${sender?.first_name || 'Someone'}: ${message.content.substring(0, 100)}`,
                     icon: '/logo.png',
@@ -115,22 +137,26 @@ export const useRealtimeNotifications = (options: UseRealtimeNotificationsOption
                   });
                 }
 
-                options.onNewMessage?.(message);
+                optionsRef.current.onNewMessage?.(message);
               }
             }
           )
-          .subscribe();
+          .subscribe((status) => {
+            console.log('useRealtimeNotifications: messagesChannel status', status);
+          });
 
+        activeChannels.push(messagesChannel);
         channelsRef.current.push(messagesChannel);
 
-        // Subscribe to new members joining user's bubbles (for creators)
+        // Subscribe to new members (for creators)
         const { data: createdBubbles } = await supabase
           .from('bubbles')
           .select('id')
           .eq('creator_id', user.id);
 
-        if (createdBubbles && createdBubbles.length > 0) {
+        if (isMounted && createdBubbles && createdBubbles.length > 0) {
           const createdBubbleIds = createdBubbles.map(b => b.id);
+          console.log('useRealtimeNotifications: Watching memberships for', createdBubbleIds.length, 'created bubbles');
 
           const membershipsChannel = supabase
             .channel('memberships-realtime')
@@ -142,33 +168,21 @@ export const useRealtimeNotifications = (options: UseRealtimeNotificationsOption
                 table: 'bubble_memberships',
               },
               async (payload) => {
-                const membership = payload.new as any;
+                if (!isMounted) return;
+                const membership = payload.new as Membership;
 
-                // Only notify if someone joins a bubble the user created
                 if (createdBubbleIds.includes(membership.bubble_id) && membership.user_id !== user.id) {
-                  console.log('New member joined bubble:', membership);
-
-                  // Fetch new member info
-                  const { data: newMember } = await supabase
-                    .from('profiles')
-                    .select('first_name')
-                    .eq('id', membership.user_id)
-                    .single();
-
-                  // Fetch bubble info
-                  const { data: bubble } = await supabase
-                    .from('bubbles')
-                    .select('name')
-                    .eq('id', membership.bubble_id)
-                    .single();
+                  const [{ data: newMember }, { data: bubble }] = await Promise.all([
+                    supabase.from('profiles').select('first_name').eq('id', membership.user_id).single(),
+                    supabase.from('bubbles').select('name').eq('id', membership.bubble_id).single()
+                  ]);
 
                   toast({
                     title: 'New member joined!',
                     description: `${newMember?.first_name || 'Someone'} joined "${bubble?.name || 'your bubble'}"`,
                   });
 
-                  // Browser notification
-                  if (Notification.permission === 'granted') {
+                  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
                     new Notification('New member joined!', {
                       body: `${newMember?.first_name || 'Someone'} joined "${bubble?.name || 'your bubble'}"`,
                       icon: '/logo.png',
@@ -176,29 +190,28 @@ export const useRealtimeNotifications = (options: UseRealtimeNotificationsOption
                     });
                   }
 
-                  options.onBubbleJoin?.(membership);
+                  optionsRef.current.onBubbleJoin?.(membership);
                 }
               }
             )
-            .subscribe();
+            .subscribe((status) => {
+              console.log('useRealtimeNotifications: membershipsChannel status', status);
+            });
 
+          activeChannels.push(membershipsChannel);
           channelsRef.current.push(membershipsChannel);
         }
+      } catch (error) {
+        console.error('Error setting up bubble subscriptions:', error);
       }
     };
 
-    fetchUserBubbles();
+    setupBubbleSubscriptions();
 
-    // Request notification permission
-    if (Notification.permission === 'default') {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission();
     }
 
-    return () => {
-      channelsRef.current.forEach(channel => {
-        supabase.removeChannel(channel);
-      });
-      channelsRef.current = [];
-    };
-  }, [user, toast, options.onNewMessage, options.onBubbleJoin, options.onNewNotification]);
+    return cleanup;
+  }, [user, toast]);
 };

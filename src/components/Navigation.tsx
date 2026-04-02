@@ -19,38 +19,46 @@ export function Navigation(): JSX.Element {
     let mounted = true;
 
     const loadUserAndProfile = async () => {
-      try {
-        const { data } = await supabase.auth.getUser();
-        const user = data?.user ?? null;
-        if (!user) {
-          if (mounted) {
-            setUserName(null);
-            setAvatarUrl(null);
-          }
-          return;
+      if (!authUser) {
+        console.log('Navigation: No authenticated user');
+        if (mounted) {
+          setUserName(null);
+          setAvatarUrl(null);
         }
+        return;
+      }
 
-        const { data: profile } = await supabase
+      console.log('Navigation: Loading profile for', authUser.id);
+      try {
+        const { data: profile, error } = await supabase
           .from('profiles')
-          .select('full_name, username, avatar_url')
-          .eq('id', user.id)
+          .select('first_name, profile_photo_url')
+          .eq('id', authUser.id)
           .maybeSingle();
 
+        if (error) {
+          console.error('Navigation: Profile fetch error', error);
+        }
+
         const display =
-          profile?.full_name ||
-          profile?.username ||
-          user.email ||
-          user.id ||
+          profile?.first_name ||
+          authUser.email ||
+          authUser.id.substring(0, 8) ||
           'User';
+        
         const avatar =
-          profile?.avatar_url || user.user_metadata?.avatar_url || null;
+          profile?.profile_photo_url || 
+          authUser.user_metadata?.avatar_url || 
+          authUser.user_metadata?.profile_photo_url || 
+          null;
 
         if (mounted) {
+          console.log('Navigation: Setting user data', { display, avatar });
           setUserName(display);
           setAvatarUrl(avatar);
         }
       } catch (err) {
-        console.error('Navigation load error', err);
+        console.error('Navigation: Unexpected load error', err);
         if (mounted) {
           setUserName(null);
           setAvatarUrl(null);
@@ -76,7 +84,7 @@ export function Navigation(): JSX.Element {
       // eslint-disable-next-line no-empty
       } catch {}
     };
-  }, []);
+  }, [authUser]);
 
   // Fetch pending friend request count + realtime subscription
   useEffect(() => {
@@ -112,7 +120,13 @@ export function Navigation(): JSX.Element {
     };
   }, [authUser]);
 
-  const navLinks = [
+  interface NavItem {
+    to: string;
+    label: string;
+    badge?: number;
+  }
+
+  const navLinks: NavItem[] = [
     { to: '/', label: 'Home' },
     { to: '/discover', label: 'Discover' },
     { to: '/messages', label: 'Messages' },
@@ -162,9 +176,9 @@ export function Navigation(): JSX.Element {
                   }`}
                 >
                   {link.label}
-                  {'badge' in link && (link as any).badge > 0 && (
+                  {link.badge !== undefined && link.badge > 0 && (
                     <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold px-1">
-                      {(link as any).badge}
+                      {link.badge}
                     </span>
                   )}
                 </Link>
@@ -242,9 +256,9 @@ export function Navigation(): JSX.Element {
                 }`}
               >
                 {link.label}
-                {'badge' in link && (link as any).badge > 0 && (
+                {link.badge !== undefined && link.badge > 0 && (
                   <span className="inline-flex ml-2 min-w-[20px] h-[20px] items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold px-1">
-                    {(link as any).badge}
+                    {link.badge}
                   </span>
                 )}
               </Link>

@@ -31,6 +31,8 @@ const JoinBubble = lazy(() => import("./pages/JoinBubble"));
 const MissedCalls = lazy(() => import("./pages/MissedCalls"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -45,7 +47,7 @@ const PageLoader = () => <PageSkeleton />;
 
 function App() {
   return (
-    <React.Fragment>
+    <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <AuthProvider>
@@ -54,39 +56,39 @@ function App() {
                 <SkipLinks />
                 <Toaster />
                 <Sonner />
-                <RealtimeNotificationListener />
                 <BrowserRouter>
+                  <RealtimeNotificationListener />
                   <FriendRequestNotifier />
                   <div id="main-content" role="main" className="min-h-screen pt-16 bg-background">
                     <Suspense fallback={<PageLoader />}>
-                    <Routes>
-                      <Route path="/" element={<Index />} />
-                      <Route path="/auth" element={<Auth />} />
-                      <Route path="/profile-setup" element={<ProfileSetup />} />
-                      <Route path="/discover" element={<Discover />} />
-                      <Route path="/friends" element={<Friends />} />
-                      <Route path="/messages" element={<Messages />} />
-                      <Route path="/live" element={<Live />} />
-                      <Route path="/calls" element={<Calls />} />
-                      <Route path="/stories" element={<Stories />} />
-                      <Route path="/maps" element={<Maps />} />
-                      <Route path="/profile" element={<Profile />} />
-                      <Route path="/settings" element={<Settings />} />
-                      <Route path="/analytics" element={<Analytics />} />
-                      <Route path="/install" element={<Install />} />
-                      <Route path="/missed-calls" element={<MissedCalls />} />
-                      <Route path="/join/:inviteCode" element={<JoinBubble />} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </Suspense>
-                </div>
-              </BrowserRouter>
-            </TooltipProvider>
-          </CallProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
-    </React.Fragment>
+                      <Routes>
+                        <Route path="/" element={<Index />} />
+                        <Route path="/auth" element={<Auth />} />
+                        <Route path="/profile-setup" element={<ProfileSetup />} />
+                        <Route path="/discover" element={<Discover />} />
+                        <Route path="/friends" element={<Friends />} />
+                        <Route path="/messages" element={<Messages />} />
+                        <Route path="/live" element={<Live />} />
+                        <Route path="/calls" element={<Calls />} />
+                        <Route path="/stories" element={<Stories />} />
+                        <Route path="/maps" element={<Maps />} />
+                        <Route path="/profile" element={<Profile />} />
+                        <Route path="/settings" element={<Settings />} />
+                        <Route path="/analytics" element={<Analytics />} />
+                        <Route path="/install" element={<Install />} />
+                        <Route path="/missed-calls" element={<MissedCalls />} />
+                        <Route path="/join/:inviteCode" element={<JoinBubble />} />
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </Suspense>
+                  </div>
+                </BrowserRouter>
+              </TooltipProvider>
+            </CallProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

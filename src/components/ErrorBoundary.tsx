@@ -1,74 +1,80 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import { Button } from './ui/button';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 
-type Props = { children: React.ReactNode };
-type State = { hasError: boolean; error?: Error };
+interface Props {
+  children?: ReactNode;
+  fallback?: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error: Error | null;
+}
 
 export class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: Error, info: any) {
-    console.error('🔴 ERROR BOUNDARY CAUGHT ERROR:', error);
-    console.error('Component Stack:', info.componentStack);
-    this.setState({ error });
-  }
-
-  private handleRetry = () => {
-    this.setState({ hasError: false, error: undefined });
+  public state: State = {
+    hasError: false,
+    error: null,
   };
 
-  private handleGoHome = () => {
+  public static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
+  }
+
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Uncaught error:', error, errorInfo);
+  }
+
+  private handleReset = () => {
+    this.setState({ hasError: false, error: null });
     window.location.href = '/';
   };
 
   public render() {
     if (this.state.hasError) {
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
+
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary p-4">
-          <Card className="backdrop-blur-sm bg-card/95 border-0 max-w-md w-full">
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
-                <AlertTriangle className="h-6 w-6 text-destructive" />
+        <div className="min-h-screen flex items-center justify-center bg-[#050505] text-white p-6">
+          <div className="max-w-md w-full space-y-6 text-center">
+            <div className="flex justify-center">
+              <div className="p-4 bg-red-500/10 rounded-full">
+                <AlertTriangle className="h-12 w-12 text-red-500" />
               </div>
-              <CardTitle className="text-xl">Something went wrong</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center space-y-4">
-              <p className="text-muted-foreground text-sm">
-                We encountered an unexpected error. This might be due to network issues or browser compatibility.
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold tracking-tight">Something went wrong</h1>
+              <p className="text-white/60">
+                The application encountered an unexpected error. We've been notified and are working on it.
               </p>
-              {process.env.NODE_ENV === 'development' && this.state.error && (
-                <details className="text-left bg-muted/50 p-3 rounded-lg">
-                  <summary className="cursor-pointer font-medium">Error Details</summary>
-                  <pre className="text-xs mt-2 overflow-auto max-h-32">
-                    {this.state.error.message}
-                    {this.state.error.stack && `\n\n${this.state.error.stack}`}
-                  </pre>
-                </details>
-              )}
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Button onClick={this.handleRetry} className="flex-1" variant="default">
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Try Again
-                </Button>
-                <Button onClick={this.handleGoHome} className="flex-1" variant="outline">
-                  <Home className="h-4 w-4 mr-2" />
-                  Go Home
-                </Button>
+            </div>
+            {this.state.error && (
+              <div className="p-4 bg-white/5 rounded-lg border border-white/10 text-left overflow-auto max-h-40">
+                <p className="text-xs font-mono text-red-400 break-all">
+                  {this.state.error.toString()}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                If this problem persists, try clearing your browser cache or using a different browser.
-              </p>
-            </CardContent>
-          </Card>
+            )}
+            <div className="flex flex-col gap-3">
+              <Button 
+                onClick={this.handleReset}
+                className="w-full bg-primary hover:bg-primary-dark"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Reload Application
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={() => window.location.href = '/auth'}
+                className="text-white/60 hover:text-white"
+              >
+                Go to Login
+              </Button>
+            </div>
+          </div>
         </div>
       );
     }
@@ -76,5 +82,3 @@ export class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
-
-export default ErrorBoundary;

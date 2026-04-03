@@ -277,7 +277,7 @@ const Calls = () => {
 
             {/* Bubbles Tab */}
             <TabsContent value="bubbles">
-              <Card className="bg-[#0f0f0f] border-white/5 shadow-2xl relative overflow-hidden">
+              <Card className="bg-card border-border shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-0.5 bg-primary/30"></div>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">

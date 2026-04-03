@@ -174,7 +174,7 @@ const Messages = () => {
                               }}
                             >
                               <Avatar className="h-10 w-10 bg-gradient-to-br from-secondary to-primary">
-                                <AvatarFallback className="text-white font-semibold">
+                                <AvatarFallback className="text-primary-foreground font-semibold">
                                   {(bubble.interest_tag?.[0] ?? 'B').toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
@@ -227,7 +227,7 @@ const Messages = () => {
                               }}
                             >
                               <Avatar className="h-10 w-10">
-                                <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white">
+                                <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground">
                                   {friend.first_name?.[0] || 'U'}
                                 </AvatarFallback>
                               </Avatar>

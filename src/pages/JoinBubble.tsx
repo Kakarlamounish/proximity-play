@@ -239,7 +239,7 @@ const JoinBubble = () => {
           {/* Bubble Info */}
           <div className="text-center space-y-3">
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-secondary to-primary mx-auto flex items-center justify-center">
-              <span className="text-3xl text-white font-bold">
+              <span className="text-3xl text-primary-foreground font-bold">
                 {bubble.interest_tag[0].toUpperCase()}
               </span>
             </div>

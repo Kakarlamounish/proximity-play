@@ -136,7 +136,7 @@ const Profile = () => {
               <div className="flex flex-col md:flex-row items-start gap-6">
                 <Avatar className="h-24 w-24 mx-auto md:mx-0">
                   <AvatarImage src={profile?.profile_photo_url} />
-                  <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white text-2xl">
+                  <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground text-2xl">
                     {profile?.first_name?.[0]?.toUpperCase() || 'U'}
                   </AvatarFallback>
                 </Avatar>
@@ -222,7 +222,7 @@ const Profile = () => {
                     {bubbles.map((membership) => (
                       <div key={membership.bubble_id} className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
                         <Avatar className="h-12 w-12 bg-gradient-to-br from-secondary to-primary">
-                          <AvatarFallback className="text-white font-semibold">
+                          <AvatarFallback className="text-primary-foreground font-semibold">
                             {membership.bubbles.interest_tag[0].toUpperCase()}
                           </AvatarFallback>
                         </Avatar>

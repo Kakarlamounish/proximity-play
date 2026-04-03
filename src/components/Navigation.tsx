@@ -20,15 +20,10 @@ export function Navigation(): JSX.Element {
 
     const loadUserAndProfile = async () => {
       if (!authUser) {
-        console.log('Navigation: No authenticated user');
-        if (mounted) {
-          setUserName(null);
-          setAvatarUrl(null);
-        }
+        if (mounted) { setUserName(null); setAvatarUrl(null); }
         return;
       }
 
-      console.log('Navigation: Loading profile for', authUser.id);
       try {
         const { data: profile, error } = await supabase
           .from('profiles')
@@ -36,57 +31,31 @@ export function Navigation(): JSX.Element {
           .eq('id', authUser.id)
           .maybeSingle();
 
-        if (error) {
-          console.error('Navigation: Profile fetch error', error);
-        }
+        if (error) console.error('Navigation: Profile fetch error', error);
 
-        const display =
-          profile?.first_name ||
-          authUser.email ||
-          authUser.id.substring(0, 8) ||
-          'User';
-        
-        const avatar =
-          profile?.profile_photo_url || 
-          authUser.user_metadata?.avatar_url || 
-          authUser.user_metadata?.profile_photo_url || 
-          null;
+        const display = profile?.first_name || authUser.email || 'User';
+        const avatar = profile?.profile_photo_url || authUser.user_metadata?.avatar_url || null;
 
-        if (mounted) {
-          console.log('Navigation: Setting user data', { display, avatar });
-          setUserName(display);
-          setAvatarUrl(avatar);
-        }
+        if (mounted) { setUserName(display); setAvatarUrl(avatar); }
       } catch (err) {
         console.error('Navigation: Unexpected load error', err);
-        if (mounted) {
-          setUserName(null);
-          setAvatarUrl(null);
-        }
+        if (mounted) { setUserName(null); setAvatarUrl(null); }
       }
     };
 
     loadUserAndProfile();
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        setUserName(null);
-        setAvatarUrl(null);
-      } else {
-        loadUserAndProfile();
-      }
+      if (!session) { setUserName(null); setAvatarUrl(null); }
+      else loadUserAndProfile();
     });
 
     return () => {
       mounted = false;
-      try {
-        listener?.subscription?.unsubscribe?.();
-      // eslint-disable-next-line no-empty
-      } catch {}
+      try { listener?.subscription?.unsubscribe?.(); } catch {}
     };
   }, [authUser]);
 
-  // Fetch pending friend request count + realtime subscription
   useEffect(() => {
     if (!authUser) return;
 
@@ -103,28 +72,13 @@ export function Navigation(): JSX.Element {
 
     const channel = supabase
       .channel('nav-friend-request-count')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'friend_requests',
-          filter: `receiver_id=eq.${authUser.id}`,
-        },
-        () => fetchCount()
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'friend_requests', filter: `receiver_id=eq.${authUser.id}` }, () => fetchCount())
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [authUser]);
 
-  interface NavItem {
-    to: string;
-    label: string;
-    badge?: number;
-  }
+  interface NavItem { to: string; label: string; badge?: number; }
 
   const navLinks: NavItem[] = [
     { to: '/', label: 'Home' },
@@ -141,23 +95,22 @@ export function Navigation(): JSX.Element {
 
   return (
     <>
-      {/* Mobile Menu Backdrop */}
       {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+        <div
+          className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40 md:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
           aria-hidden="true"
         />
       )}
 
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/5 shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-card/90 backdrop-blur-md border-b border-border shadow-lg">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex items-center justify-between h-14 gap-2">
-            {/* Logo and Brand */}
+            {/* Logo */}
             <div className="flex items-center flex-shrink-0">
               <Link to="/" className="flex items-center space-x-2 group">
                 <span className="text-2xl select-none" aria-hidden="true">👻</span>
-                <span className="text-lg font-extrabold tracking-tight text-white group-hover:text-primary transition-colors duration-150 hidden sm:inline">
+                <span className="text-lg font-extrabold tracking-tight text-foreground group-hover:text-primary transition-colors duration-150 hidden sm:inline">
                   Proximity Play
                 </span>
               </Link>
@@ -171,13 +124,13 @@ export function Navigation(): JSX.Element {
                   to={link.to}
                   className={`relative px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 whitespace-nowrap ${
                     isActive(link.to)
-                      ? 'bg-primary text-primary-foreground shadow-[0_0_20px_hsl(var(--primary)/0.4)]'
-                      : 'text-white/60 hover:text-white hover:bg-white/5'
+                      ? 'bg-primary text-primary-foreground shadow-snap'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                   }`}
                 >
                   {link.label}
                   {link.badge !== undefined && link.badge > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold px-1">
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1">
                       {link.badge}
                     </span>
                   )}
@@ -190,24 +143,20 @@ export function Navigation(): JSX.Element {
               <SearchDialog />
               <NotificationCenter />
               <ThemeToggle />
-              
+
               <Link
                 to="/settings"
-                className="p-1.5 rounded-lg text-white/60 hover:text-primary hover:bg-white/8 transition-all duration-150"
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-muted transition-all duration-150"
                 aria-label="Settings"
               >
                 ⚙️
               </Link>
 
-              <Link to="/profile" className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/8 transition-all duration-150 group">
+              <Link to="/profile" className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-muted transition-all duration-150 group">
                 <div className="w-7 h-7 rounded-full overflow-hidden border-2 border-primary/40 group-hover:border-primary transition-colors flex-shrink-0">
-                  <img
-                    src={avatarUrl ?? '/placeholder.svg'}
-                    alt="avatar"
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={avatarUrl ?? '/placeholder.svg'} alt="avatar" className="w-full h-full object-cover" />
                 </div>
-                <span className="text-sm font-semibold text-white/80 group-hover:text-white max-w-24 truncate transition-colors hidden xl:inline">
+                <span className="text-sm font-semibold text-muted-foreground group-hover:text-foreground max-w-24 truncate transition-colors hidden xl:inline">
                   {userName ?? 'User'}
                 </span>
               </Link>
@@ -219,18 +168,12 @@ export function Navigation(): JSX.Element {
               <NotificationCenter />
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2 rounded-md text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200"
+                className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
                 aria-label="Toggle menu"
               >
                 <div className="relative w-5 h-5">
-                  <Menu
-                    size={20}
-                    className={`absolute inset-0 transition-all duration-200 ${isMobileMenuOpen ? 'rotate-180 opacity-0 scale-75' : 'rotate-0 opacity-100 scale-100'}`}
-                  />
-                  <X
-                    size={20}
-                    className={`absolute inset-0 transition-all duration-200 ${isMobileMenuOpen ? 'rotate-0 opacity-100 scale-100' : '-rotate-180 opacity-0 scale-75'}`}
-                  />
+                  <Menu size={20} className={`absolute inset-0 transition-all duration-200 ${isMobileMenuOpen ? 'rotate-180 opacity-0 scale-75' : 'rotate-0 opacity-100 scale-100'}`} />
+                  <X size={20} className={`absolute inset-0 transition-all duration-200 ${isMobileMenuOpen ? 'rotate-0 opacity-100 scale-100' : '-rotate-180 opacity-0 scale-75'}`} />
                 </div>
               </button>
             </div>
@@ -238,7 +181,7 @@ export function Navigation(): JSX.Element {
         </div>
 
         {/* Mobile Navigation Menu */}
-        <div className={`lg:hidden fixed top-14 left-0 right-0 z-50 bg-[#0a0a0a] border-b border-primary/15 shadow-2xl transition-all duration-300 ease-in-out ${
+        <div className={`lg:hidden fixed top-14 left-0 right-0 z-50 bg-card border-b border-border shadow-2xl transition-all duration-300 ease-in-out ${
           isMobileMenuOpen
             ? 'opacity-100 visible transform translate-y-0'
             : 'opacity-0 invisible transform -translate-y-4 pointer-events-none'
@@ -251,24 +194,24 @@ export function Navigation(): JSX.Element {
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={`relative block px-4 py-3 rounded-xl text-base font-semibold transition-all duration-150 ${
                   isActive(link.to)
-                    ? 'bg-primary text-primary-foreground shadow-[0_0_12px_hsl(var(--primary)/0.4)]'
-                    : 'text-white/75 hover:text-white hover:bg-white/8 active:bg-white/15'
+                    ? 'bg-primary text-primary-foreground shadow-snap'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 }`}
               >
                 {link.label}
                 {link.badge !== undefined && link.badge > 0 && (
-                  <span className="inline-flex ml-2 min-w-[20px] h-[20px] items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold px-1">
+                  <span className="inline-flex ml-2 min-w-[20px] h-[20px] items-center justify-center rounded-full bg-destructive text-destructive-foreground text-xs font-bold px-1">
                     {link.badge}
                   </span>
                 )}
               </Link>
             ))}
 
-            <div className="border-t border-white/10 pt-4 mt-4">
+            <div className="border-t border-border pt-4 mt-4">
               <Link
                 to="/settings"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-white/80 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all duration-200"
+                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
               >
                 <span className="text-lg">⚙️</span>
                 <span className="font-medium">Settings</span>
@@ -277,18 +220,14 @@ export function Navigation(): JSX.Element {
               <Link
                 to="/profile"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-white/80 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all duration-200"
+                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
               >
-                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20 flex-shrink-0">
-                  <img
-                    src={avatarUrl ?? '/placeholder.svg'}
-                    alt="avatar"
-                    className="w-full h-full object-cover"
-                  />
+                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-border flex-shrink-0">
+                  <img src={avatarUrl ?? '/placeholder.svg'} alt="avatar" className="w-full h-full object-cover" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="font-medium block truncate text-white">{userName ?? 'User'}</span>
-                  <span className="text-xs text-white/60">View Profile</span>
+                  <span className="font-medium block truncate text-foreground">{userName ?? 'User'}</span>
+                  <span className="text-xs text-muted-foreground">View Profile</span>
                 </div>
               </Link>
             </div>
@@ -299,5 +238,4 @@ export function Navigation(): JSX.Element {
   );
 }
 
-// keep default export for existing default imports
 export default Navigation;

@@ -161,7 +161,7 @@ const Calls = () => {
 
   if (loading || pageLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#050505]">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -170,7 +170,7 @@ const Calls = () => {
   // VideoCall is now rendered globally inside CallContext
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white">
+    <div className="min-h-screen bg-background text-foreground">
       <Navigation />
 
       {missedCall && (
@@ -193,7 +193,7 @@ const Calls = () => {
               Calls
               <PhoneCall className="inline-block ml-3 h-8 w-8 text-primary" />
             </h1>
-            <p className="text-lg text-white/60 font-medium">
+            <p className="text-lg text-muted-foreground font-medium">
               Connect with friends and bubble members through calls
             </p>
           </div>
@@ -216,7 +216,7 @@ const Calls = () => {
 
             {/* Friends Tab */}
             <TabsContent value="friends">
-              <Card className="bg-[#0f0f0f] border-white/5 shadow-2xl relative overflow-hidden">
+              <Card className="bg-card border-border shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-0.5 bg-primary/30"></div>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -240,7 +240,7 @@ const Calls = () => {
                           <div className="flex items-center gap-3">
                             <Avatar className="h-12 w-12">
                               <AvatarImage src={friend.profile_photo_url || undefined} />
-                              <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white">
+                              <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground">
                                 {friend.first_name?.[0]?.toUpperCase() || '?'}
                               </AvatarFallback>
                             </Avatar>
@@ -277,7 +277,7 @@ const Calls = () => {
 
             {/* Bubbles Tab */}
             <TabsContent value="bubbles">
-              <Card className="bg-[#0f0f0f] border-white/5 shadow-2xl relative overflow-hidden">
+              <Card className="bg-card border-border shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-0.5 bg-primary/30"></div>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -300,7 +300,7 @@ const Calls = () => {
                         <div key={bubble.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors">
                           <div className="flex items-center gap-3">
                             <Avatar className="h-12 w-12">
-                              <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white">
+                              <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground">
                                 {bubble.name[0]?.toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
@@ -406,7 +406,7 @@ const Calls = () => {
                                 {getCallIcon(log)}
                                 <Avatar className="h-10 w-10">
                                   <AvatarImage src={otherUser?.profile_photo_url || undefined} />
-                                  <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white text-sm">
+                                  <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground text-sm">
                                     {otherUser?.first_name?.[0]?.toUpperCase() || '?'}
                                   </AvatarFallback>
                                 </Avatar>

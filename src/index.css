@@ -9,7 +9,7 @@
  *  SNAPCHAT DESIGN SYSTEM — Proximity Play
  * ==========================================
  *
- * Primary accent : Snapchat Yellow  hsl(51 100% 50%)
+ * Primary accent : Snapchat Yellow  hsl(60 100% 50%)
  * Dark surfaces  : Near-black       hsl(0 0% 5–10%)
  * Light surfaces : Pure white + grey
  * Accent blue    : hsl(220 91% 60%)  (secondary actions)
@@ -24,11 +24,11 @@
 @layer base {
   /* ── Light mode ── */
   :root {
-    /* Plain Black/White primary */
-    --primary: 0 0% 0%;
-    --primary-foreground: 0 0% 100%;
-    --primary-light: 0 0% 20%;
-    --primary-dark: 0 0% 0%;
+    /* Snapchat Yellow primary */
+    --primary: 60 100% 50%;
+    --primary-foreground: 0 0% 0%;
+    --primary-light: 60 100% 62%;
+    --primary-dark: 50 100% 45%;
 
     /* Blue secondary (messages / info badges) */
     --secondary: 220 91% 60%;
@@ -37,58 +37,58 @@
     --secondary-dark: 220 91% 48%;
 
     /* Surfaces */
-    --background: 0 0% 98%;
-    --foreground: 0 0% 5%;
+    --background: 0 0% 100%;
+    --foreground: 0 0% 8%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 5%;
+    --card: 0 0% 98%;
+    --card-foreground: 0 0% 8%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 5%;
+    --popover-foreground: 0 0% 8%;
 
     --muted: 0 0% 94%;
     --muted-foreground: 0 0% 42%;
 
-    --accent: 0 0% 0%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 60 100% 50%;
+    --accent-foreground: 0 0% 0%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 88%;
-    --input: 0 0% 88%;
-    --ring: 0 0% 0%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 60 100% 50%;
 
     --radius: 0.875rem;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(0 0% 10%), hsl(0 0% 30%));
-    --gradient-snap: linear-gradient(135deg, hsl(0 0% 0%) 0%, hsl(0 0% 40%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(60 100% 50%), hsl(50 100% 45%));
+    --gradient-snap: linear-gradient(135deg, hsl(60 100% 50%) 0%, hsl(50 100% 42%) 100%);
     --gradient-card: linear-gradient(135deg, hsl(var(--background)), hsl(var(--muted)));
 
     /* Shadows */
     --shadow-bubble: 0 4px 24px hsl(0 0% 0% / 0.06);
     --shadow-card: 0 2px 12px hsl(0 0% 0% / 0.08);
-    --shadow-snap: 0 4px 20px hsl(0 0% 0% / 0.35);
+    --shadow-snap: 0 4px 20px hsl(60 100% 50% / 0.25);
 
     /* Sidebar */
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 0 0% 20%;
-    --sidebar-primary: 0 0% 0%;
-    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-primary: 60 100% 50%;
+    --sidebar-primary-foreground: 0 0% 0%;
     --sidebar-accent: 0 0% 94%;
     --sidebar-accent-foreground: 0 0% 10%;
-    --sidebar-border: 0 0% 88%;
-    --sidebar-ring: 0 0% 0%;
+    --sidebar-border: 0 0% 90%;
+    --sidebar-ring: 60 100% 50%;
   }
 
   /* ── Dark mode ── */
   .dark {
-    /* White pops on dark */
-    --primary: 0 0% 100%;
+    /* Snapchat Yellow pops on dark */
+    --primary: 60 100% 50%;
     --primary-foreground: 0 0% 0%;
-    --primary-light: 0 0% 80%;
-    --primary-dark: 0 0% 100%;
+    --primary-light: 60 100% 62%;
+    --primary-dark: 50 100% 45%;
 
     --secondary: 220 91% 62%;
     --secondary-foreground: 0 0% 100%;
@@ -108,32 +108,32 @@
     --muted: 0 0% 14%;
     --muted-foreground: 0 0% 60%;
 
-    --accent: 0 0% 100%;
+    --accent: 60 100% 50%;
     --accent-foreground: 0 0% 0%;
 
     --destructive: 0 62% 38%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 14%;
-    --input: 0 0% 14%;
-    --ring: 0 0% 100%;
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
+    --ring: 60 100% 50%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(0 0% 80%), hsl(0 0% 100%));
-    --gradient-snap: linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(0 0% 60%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(60 100% 50%), hsl(50 100% 42%));
+    --gradient-snap: linear-gradient(135deg, hsl(60 100% 50%) 0%, hsl(50 100% 42%) 100%);
     --gradient-card: linear-gradient(135deg, hsl(var(--card)), hsl(var(--muted)));
 
     --shadow-bubble: 0 4px 24px hsl(0 0% 0% / 0.55);
     --shadow-card: 0 2px 12px hsl(0 0% 0% / 0.5);
-    --shadow-snap: 0 4px 20px hsl(0 0% 100% / 0.2);
+    --shadow-snap: 0 4px 20px hsl(60 100% 50% / 0.2);
 
     --sidebar-background: 0 0% 8%;
     --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary: 60 100% 50%;
     --sidebar-primary-foreground: 0 0% 0%;
     --sidebar-accent: 0 0% 14%;
     --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 0 0% 14%;
-    --sidebar-ring: 0 0% 100%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-ring: 60 100% 50%;
   }
 }
 

@@ -409,7 +409,7 @@ export default function Discover() {
                   <div className="flex flex-col items-center text-center">
                     <Avatar className="w-20 h-20 mb-4">
                       <AvatarImage src={nearbyUser.profile_photo_url} />
-                      <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white text-lg">
+                      <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground text-lg">
                         {nearbyUser.first_name?.[0] || 'U'}
                       </AvatarFallback>
                     </Avatar>

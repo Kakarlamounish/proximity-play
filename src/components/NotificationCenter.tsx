@@ -162,7 +162,7 @@ export function NotificationCenter() {
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative text-white/80 hover:text-white hover:bg-white/10">
+        <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground hover:bg-muted">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge 

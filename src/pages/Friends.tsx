@@ -361,14 +361,14 @@ export default function Friends() {
   }, [fetchSuggestedFriends, user, profile, friends]);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
+    <div className="min-h-screen bg-background text-foreground">
       <Navigation />
       <div className="container mx-auto p-6 max-w-6xl">
         <div className="mb-8">
-          <h1 className="text-4xl font-extrabold mb-2 text-white">
+          <h1 className="text-4xl font-extrabold mb-2 text-primary-foreground">
             Friends
           </h1>
-          <p className="text-white/60">Find and manage your connections</p>
+          <p className="text-muted-foreground">Find and manage your connections</p>
         </div>
 
         {/* Search Section */}
@@ -427,7 +427,7 @@ export default function Friends() {
                       <div className="flex items-start gap-4">
                         <Avatar className="w-12 h-12">
                           <AvatarImage src={person.profile_photo_url} />
-                          <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white">
+                          <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground">
                             {person.first_name?.[0] || 'U'}
                           </AvatarFallback>
                         </Avatar>
@@ -489,7 +489,7 @@ export default function Friends() {
                     <div className="flex items-start gap-4">
                       <Avatar className="w-16 h-16">
                         <AvatarImage src={suggested.profile_photo_url} />
-                        <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white">
+                        <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground">
                           {suggested.first_name?.[0] || 'U'}
                         </AvatarFallback>
                       </Avatar>
@@ -559,7 +559,7 @@ export default function Friends() {
                     <div className="flex items-start gap-4">
                       <Avatar className="w-16 h-16">
                         <AvatarImage src={friend.profile_photo_url} />
-                        <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white">
+                        <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground">
                           {friend.first_name?.[0] || 'U'}
                         </AvatarFallback>
                       </Avatar>
@@ -587,7 +587,7 @@ export default function Friends() {
                           <Button 
                             size="sm" 
                             variant="secondary"
-                            className="bg-white/10 text-white hover:bg-white/20 border-0"
+                            className="bg-white/10 text-primary-foreground hover:bg-white/20 border-0"
                             onClick={() => navigate('/messages', { state: { selectedFriendId: friend.id } })}
                           >
                             <MessageSquare className="w-4 h-4 mr-1.5" />
@@ -615,7 +615,7 @@ export default function Friends() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="text-white/40 hover:text-red-500 hover:bg-red-500/10"
+                            className="text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
                             onClick={() => removeFriend(friend.id)}
                           >
                             <UserMinus className="w-4 h-4" />

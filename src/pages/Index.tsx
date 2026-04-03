@@ -41,7 +41,7 @@ const Index = () => {
   const [profileLoading, setProfileLoading] = useState(true);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [bubblesLoading, setBubblesLoading] = useState(false);
-  const [radius, setRadius] = useState('2'); // km
+  const [radius, setRadius] = useState('2');
   const [trendingBubbles, setTrendingBubbles] = useState<Bubble[]>([]);
   const [filters, setFilters] = useState({
     radius: 2,
@@ -57,7 +57,6 @@ const Index = () => {
     xp: 0
   });
 
-  // All hooks must be called before any conditional returns
   useEffect(() => {
     const checkProfile = async () => {
       if (!user) {
@@ -80,12 +79,10 @@ const Index = () => {
         console.log('[Index] Profile data:', data);
         setProfile(data);
 
-        // If no profile exists, redirect to profile setup
         if (!data) {
           console.log('[Index] No profile found, redirecting to profile-setup');
           navigate('/profile-setup');
         } else {
-          // Fetch user stats for gamification
           fetchUserStats();
         }
       } catch (error) {
@@ -106,13 +103,11 @@ const Index = () => {
     if (!user) return;
 
     try {
-      // Count user's stories from location_stories table
       const { count: storiesCount } = await supabase
         .from('location_stories')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id);
 
-      // Count reactions received on user's stories
       const { data: userStories } = await supabase
         .from('location_stories')
         .select('id')
@@ -128,7 +123,6 @@ const Index = () => {
         reactionsCount = count || 0;
       }
 
-      // Count friends
       const { data: friendships } = await supabase
         .from('friendships')
         .select('user_id_1, user_id_2')
@@ -136,7 +130,6 @@ const Index = () => {
 
       const friendsCount = friendships?.length || 0;
 
-      // Calculate level and XP
       const totalXP = (storiesCount || 0) * 10 + reactionsCount * 2 + friendsCount * 5;
       const level = Math.floor(totalXP / 100) + 1;
       const xp = totalXP % 100;
@@ -159,7 +152,6 @@ const Index = () => {
 
       setBubblesLoading(true);
       try {
-        // For now, let's fetch all bubbles and calculate distance client-side
         const { data: bubblesData, error } = await supabase
           .from('bubbles')
           .select('*');
@@ -169,42 +161,24 @@ const Index = () => {
           return;
         }
 
-        // Calculate distances and apply filters
         let filteredBubbles = bubblesData?.map((bubble: any) => {
-          const distance = calculateDistance(
-            latitude,
-            longitude,
-            bubble.latitude,
-            bubble.longitude
-          );
+          const distance = calculateDistance(latitude, longitude, bubble.latitude, bubble.longitude);
           return { ...bubble, distance };
         }).filter((bubble: any) => {
-          // Distance filter
           if (bubble.distance > filters.radius) return false;
-          
-          // Interest filter
           if (filters.interests.length > 0 && !filters.interests.includes(bubble.interest_tag)) return false;
-          
-          // Member count filter
           if (bubble.member_count < filters.memberCount.min || bubble.member_count > filters.memberCount.max) return false;
-          
           return true;
         });
 
-        // Sort bubbles
         filteredBubbles?.sort((a: any, b: any) => {
           switch (filters.sortBy) {
-            case 'members':
-              return b.member_count - a.member_count;
-            case 'recent':
-              return new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime();
-            case 'distance':
-            default:
-              return a.distance - b.distance;
+            case 'members': return b.member_count - a.member_count;
+            case 'recent': return new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime();
+            case 'distance': default: return a.distance - b.distance;
           }
         });
 
-        // Check which bubbles the user is already a member of
         const bubbleIds = filteredBubbles?.map((b: any) => b.id) || [];
         if (bubbleIds.length > 0) {
           const { data: memberships } = await supabase
@@ -239,7 +213,6 @@ const Index = () => {
     if (!latitude || !longitude || !user) return;
 
     try {
-      // Fetch bubbles with highest member counts and recent activity
       const { data: bubblesData, error } = await supabase
         .from('bubbles')
         .select('*')
@@ -252,18 +225,11 @@ const Index = () => {
         return;
       }
 
-      // Calculate distances and filter by radius
       const bubblesWithDistance = bubblesData?.map((bubble: any) => {
-        const distance = calculateDistance(
-          latitude,
-          longitude,
-          bubble.latitude,
-          bubble.longitude
-        );
+        const distance = calculateDistance(latitude, longitude, bubble.latitude, bubble.longitude);
         return { ...bubble, distance };
-      }).filter((bubble: any) => bubble.distance <= parseFloat(radius) * 2); // Wider radius for trending
+      }).filter((bubble: any) => bubble.distance <= parseFloat(radius) * 2);
 
-      // Check memberships
       const bubbleIds = bubblesWithDistance?.map((b: any) => b.id) || [];
       if (bubbleIds.length > 0) {
         const { data: memberships } = await supabase
@@ -279,7 +245,6 @@ const Index = () => {
           is_member: membershipIds.has(bubble.id)
         }));
 
-        // Sort by trending score (member count + recent activity bonus)
         const sortedTrending = bubblesWithMembership?.sort((a: any, b: any) => {
           const aScore = a.member_count + (new Date(a.updated_at) > new Date(Date.now() - 24 * 60 * 60 * 1000) ? 10 : 0);
           const bScore = b.member_count + (new Date(b.updated_at) > new Date(Date.now() - 24 * 60 * 60 * 1000) ? 10 : 0);
@@ -293,27 +258,24 @@ const Index = () => {
     }
   };
 
-  // Calculate distance between two points using Haversine formula
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371; // Radius of the Earth in kilometers
+    const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
       Math.sin(dLon/2) * Math.sin(dLon/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
   };
 
-  // Now safe to do conditional rendering after all hooks
   if (!user && !loading) {
     return <Navigate to="/auth" replace />;
   }
 
   if (loading || profileLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#050505]">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -328,7 +290,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white">
+    <div className="min-h-screen bg-background text-foreground">
       <Navigation />
       <div className="pt-4">
         <div className="container mx-auto px-4 py-8">
@@ -339,7 +301,7 @@ const Index = () => {
                 Welcome{profile?.first_name ? `, ${profile.first_name}` : ''}!
                 <Sparkles className="inline-block ml-3 h-8 w-8 text-primary" />
               </h1>
-              <p className="text-lg text-white/60 font-medium">
+              <p className="text-lg text-muted-foreground font-medium">
                 Discover social bubbles near you and connect with like-minded people
               </p>
 
@@ -359,7 +321,7 @@ const Index = () => {
             </div>
 
             {/* Location Status */}
-            <Card className="bg-[#0f0f0f] border-white/5 shadow-2xl mb-8 overflow-hidden relative">
+            <Card className="bg-card border-border shadow-2xl mb-8 overflow-hidden relative">
               <div className="absolute top-0 left-0 w-full h-0.5 bg-primary/30"></div>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -410,12 +372,11 @@ const Index = () => {
             {/* User Stats & Gamification */}
             {profile && (
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                {/* Level & XP Card */}
                 <Card className="backdrop-blur-sm bg-card/95 border-0 relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-secondary to-primary"></div>
                   <CardContent className="p-4 text-center">
                     <div className="flex items-center justify-center gap-2 mb-2">
-                      <Trophy className="h-5 w-5 text-yellow-500" />
+                      <Trophy className="h-5 w-5 text-primary" />
                       <span className="text-2xl font-bold text-primary">Level {userStats.level}</span>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2 mb-2">
@@ -525,7 +486,6 @@ const Index = () => {
                 />
               ) : (
                 <div className="space-y-8">
-                  {/* Show trending bubbles first if available */}
                   {trendingBubbles.length > 0 && (
                     <div>
                       <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -538,36 +498,12 @@ const Index = () => {
                             bubble={{...bubble, trending: true, created_at: bubble.created_at || '', creator_id: bubble.creator_id || '', is_private: bubble.is_private || false, updated_at: bubble.updated_at || ''}}
                             onChat={handleChatClick}
                             onJoin={(bubbleId) => {
-                              setBubbles(prev =>
-                                prev.map(b =>
-                                  b.id === bubbleId
-                                    ? { ...b, is_member: true, member_count: b.member_count + 1 }
-                                    : b
-                                )
-                              );
-                              setTrendingBubbles(prev =>
-                                prev.map(b =>
-                                  b.id === bubbleId
-                                    ? { ...b, is_member: true, member_count: b.member_count + 1 }
-                                    : b
-                                )
-                              );
+                              setBubbles(prev => prev.map(b => b.id === bubbleId ? { ...b, is_member: true, member_count: b.member_count + 1 } : b));
+                              setTrendingBubbles(prev => prev.map(b => b.id === bubbleId ? { ...b, is_member: true, member_count: b.member_count + 1 } : b));
                             }}
                             onLeave={(bubbleId) => {
-                              setBubbles(prev =>
-                                prev.map(b =>
-                                  b.id === bubbleId
-                                    ? { ...b, is_member: false, member_count: Math.max(0, b.member_count - 1) }
-                                    : b
-                                )
-                              );
-                              setTrendingBubbles(prev =>
-                                prev.map(b =>
-                                  b.id === bubbleId
-                                    ? { ...b, is_member: false, member_count: Math.max(0, b.member_count - 1) }
-                                    : b
-                                )
-                              );
+                              setBubbles(prev => prev.map(b => b.id === bubbleId ? { ...b, is_member: false, member_count: Math.max(0, b.member_count - 1) } : b));
+                              setTrendingBubbles(prev => prev.map(b => b.id === bubbleId ? { ...b, is_member: false, member_count: Math.max(0, b.member_count - 1) } : b));
                             }}
                           />
                         ))}
@@ -575,7 +511,6 @@ const Index = () => {
                     </div>
                   )}
 
-                  {/* Regular nearby bubbles */}
                   <div>
                     <h3 className="text-lg font-semibold mb-4">Nearby Bubbles</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -585,24 +520,10 @@ const Index = () => {
                           bubble={{...bubble, created_at: bubble.created_at || '', creator_id: bubble.creator_id || '', is_private: bubble.is_private || false, updated_at: bubble.updated_at || ''}}
                           onChat={handleChatClick}
                           onJoin={(bubbleId) => {
-                            // Refresh bubbles to update membership status
-                            setBubbles(prev =>
-                              prev.map(b =>
-                                b.id === bubbleId
-                                  ? { ...b, is_member: true, member_count: b.member_count + 1 }
-                                  : b
-                              )
-                            );
+                            setBubbles(prev => prev.map(b => b.id === bubbleId ? { ...b, is_member: true, member_count: b.member_count + 1 } : b));
                           }}
                           onLeave={(bubbleId) => {
-                            // Refresh bubbles to update membership status
-                            setBubbles(prev =>
-                              prev.map(b =>
-                                b.id === bubbleId
-                                  ? { ...b, is_member: false, member_count: Math.max(0, b.member_count - 1) }
-                                  : b
-                              )
-                            );
+                            setBubbles(prev => prev.map(b => b.id === bubbleId ? { ...b, is_member: false, member_count: Math.max(0, b.member_count - 1) } : b));
                           }}
                         />
                       ))}

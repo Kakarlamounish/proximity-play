@@ -361,7 +361,7 @@ export default function Friends() {
   }, [fetchSuggestedFriends, user, profile, friends]);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
+    <div className="min-h-screen bg-background text-foreground">
       <Navigation />
       <div className="container mx-auto p-6 max-w-6xl">
         <div className="mb-8">

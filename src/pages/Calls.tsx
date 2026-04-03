@@ -193,7 +193,7 @@ const Calls = () => {
               Calls
               <PhoneCall className="inline-block ml-3 h-8 w-8 text-primary" />
             </h1>
-            <p className="text-lg text-white/60 font-medium">
+            <p className="text-lg text-muted-foreground font-medium">
               Connect with friends and bubble members through calls
             </p>
           </div>

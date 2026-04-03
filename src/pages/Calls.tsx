@@ -170,7 +170,7 @@ const Calls = () => {
   // VideoCall is now rendered globally inside CallContext
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white">
+    <div className="min-h-screen bg-background text-foreground">
       <Navigation />
 
       {missedCall && (

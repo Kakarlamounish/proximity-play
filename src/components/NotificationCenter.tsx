@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { showSystemNotification } from '@/utils/showSystemNotification';
+import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
 
 interface Notification {
   id: string;
@@ -30,46 +31,29 @@ export function NotificationCenter() {
     if (!user) return;
 
     loadNotifications();
-
-    // Subscribe to realtime notifications
-    const channel = supabase
-      .channel('notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          const newNotification = payload.new as Notification;
-          setNotifications(prev => [newNotification, ...prev]);
-          setUnreadCount(prev => prev + 1);
-          
-          // Show toast notification
-          toast(newNotification.title, {
-            description: newNotification.body,
-          });
-
-          // “Push-like” notification when the app is not in the foreground.
-          if (document.visibilityState !== 'visible') {
-            showSystemNotification({
-              title: newNotification.title,
-              body: newNotification.body,
-              icon: '/logo.png',
-              tag: `notif:${newNotification.id}`,
-              data: newNotification.data ?? '/',
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, [user]);
+
+  useRealtimeNotifications({
+    onNewNotification: (newNotification) => {
+      const notification = newNotification as Notification;
+      setNotifications(prev => [notification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+
+      toast(notification.title, {
+        description: notification.body,
+      });
+
+      if (document.visibilityState !== 'visible') {
+        showSystemNotification({
+          title: notification.title,
+          body: notification.body,
+          icon: '/logo.png',
+          tag: `notif:${notification.id}`,
+          data: notification.data ?? '/',
+        });
+      }
+    },
+  });
 
   const loadNotifications = async () => {
     if (!user) return;

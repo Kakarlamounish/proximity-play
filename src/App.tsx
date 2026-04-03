@@ -9,7 +9,6 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { CallProvider } from "@/contexts/CallContext";
 import SkipLinks from "@/components/SkipLinks";
 import { PageSkeleton } from "@/components/ui/skeleton-loader";
-import { RealtimeNotificationListener } from '@/components/RealtimeNotificationListener';
 import { FriendRequestNotifier } from '@/components/FriendRequestNotifier';
 import { PresenceTracker } from '@/components/PresenceTracker';
 
@@ -58,7 +57,6 @@ function App() {
                 <Toaster />
                 <Sonner />
                 <BrowserRouter>
-                  <RealtimeNotificationListener />
                   <FriendRequestNotifier />
                   <PresenceTracker />
                   <div id="main-content" role="main" className="min-h-screen pt-16 bg-background">

@@ -300,7 +300,7 @@ const Calls = () => {
                         <div key={bubble.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors">
                           <div className="flex items-center gap-3">
                             <Avatar className="h-12 w-12">
-                              <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white">
+                              <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground">
                                 {bubble.name[0]?.toUpperCase()}
                               </AvatarFallback>
                             </Avatar>

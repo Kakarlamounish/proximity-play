@@ -240,7 +240,7 @@ const Calls = () => {
                           <div className="flex items-center gap-3">
                             <Avatar className="h-12 w-12">
                               <AvatarImage src={friend.profile_photo_url || undefined} />
-                              <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white">
+                              <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground">
                                 {friend.first_name?.[0]?.toUpperCase() || '?'}
                               </AvatarFallback>
                             </Avatar>

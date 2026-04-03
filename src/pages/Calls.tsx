@@ -406,7 +406,7 @@ const Calls = () => {
                                 {getCallIcon(log)}
                                 <Avatar className="h-10 w-10">
                                   <AvatarImage src={otherUser?.profile_photo_url || undefined} />
-                                  <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white text-sm">
+                                  <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground text-sm">
                                     {otherUser?.first_name?.[0]?.toUpperCase() || '?'}
                                   </AvatarFallback>
                                 </Avatar>

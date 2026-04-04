@@ -138,44 +138,45 @@ export function Navigation(): JSX.Element {
               ))}
             </div>
 
-            {/* Right Side - Desktop */}
-            <div className="hidden lg:flex items-center gap-1 flex-shrink-0">
-              <SearchDialog />
+            {/* Right Side */}
+            <div className="flex items-center gap-1 flex-shrink-0">
               <NotificationCenter />
-              <ThemeToggle />
 
-              <Link
-                to="/settings"
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-muted transition-all duration-150"
-                aria-label="Settings"
-              >
-                ⚙️
-              </Link>
+              <div className="hidden lg:flex items-center gap-1">
+                <SearchDialog />
+                <ThemeToggle />
 
-              <Link to="/profile" className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-muted transition-all duration-150 group">
-                <div className="w-7 h-7 rounded-full overflow-hidden border-2 border-primary/40 group-hover:border-primary transition-colors flex-shrink-0">
-                  <img src={avatarUrl ?? '/placeholder.svg'} alt="avatar" className="w-full h-full object-cover" />
-                </div>
-                <span className="text-sm font-semibold text-muted-foreground group-hover:text-foreground max-w-24 truncate transition-colors hidden xl:inline">
-                  {userName ?? 'User'}
-                </span>
-              </Link>
-            </div>
+                <Link
+                  to="/settings"
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-muted transition-all duration-150"
+                  aria-label="Settings"
+                >
+                  ⚙️
+                </Link>
 
-            {/* Mobile Menu Button */}
-            <div className="lg:hidden flex items-center gap-1">
-              <SearchDialog />
-              <NotificationCenter />
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
-                aria-label="Toggle menu"
-              >
-                <div className="relative w-5 h-5">
-                  <Menu size={20} className={`absolute inset-0 transition-all duration-200 ${isMobileMenuOpen ? 'rotate-180 opacity-0 scale-75' : 'rotate-0 opacity-100 scale-100'}`} />
-                  <X size={20} className={`absolute inset-0 transition-all duration-200 ${isMobileMenuOpen ? 'rotate-0 opacity-100 scale-100' : '-rotate-180 opacity-0 scale-75'}`} />
-                </div>
-              </button>
+                <Link to="/profile" className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-muted transition-all duration-150 group">
+                  <div className="w-7 h-7 rounded-full overflow-hidden border-2 border-primary/40 group-hover:border-primary transition-colors flex-shrink-0">
+                    <img src={avatarUrl ?? '/placeholder.svg'} alt="avatar" className="w-full h-full object-cover" />
+                  </div>
+                  <span className="text-sm font-semibold text-muted-foreground group-hover:text-foreground max-w-24 truncate transition-colors hidden xl:inline">
+                    {userName ?? 'User'}
+                  </span>
+                </Link>
+              </div>
+
+              <div className="lg:hidden flex items-center gap-1">
+                <SearchDialog />
+                <button
+                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                  className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
+                  aria-label="Toggle menu"
+                >
+                  <div className="relative w-5 h-5">
+                    <Menu size={20} className={`absolute inset-0 transition-all duration-200 ${isMobileMenuOpen ? 'rotate-180 opacity-0 scale-75' : 'rotate-0 opacity-100 scale-100'}`} />
+                    <X size={20} className={`absolute inset-0 transition-all duration-200 ${isMobileMenuOpen ? 'rotate-0 opacity-100 scale-100' : '-rotate-180 opacity-0 scale-75'}`} />
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -17,12 +17,29 @@ export function FriendRequestNotifier() {
   const navigate = useNavigate();
   const seenIds = useRef<Set<string>>(new Set());
   const { playNotificationSound } = useNotificationSound();
+  const toastRef = useRef(toast);
+  const navigateRef = useRef(navigate);
+  const playNotificationSoundRef = useRef(playNotificationSound);
+
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
+
+  useEffect(() => {
+    navigateRef.current = navigate;
+  }, [navigate]);
+
+  useEffect(() => {
+    playNotificationSoundRef.current = playNotificationSound;
+  }, [playNotificationSound]);
 
   useEffect(() => {
     if (!user) return;
 
+    seenIds.current.clear();
+
     const channel = supabase
-      .channel('global-friend-request-notifier')
+      .channel(`global-friend-request-notifier-${user.id}-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -41,10 +58,8 @@ export function FriendRequestNotifier() {
           if (seenIds.current.has(req.id)) return;
           seenIds.current.add(req.id);
 
-          // Play notification sound
-          playNotificationSound();
+          playNotificationSoundRef.current();
 
-          // Fetch sender profile + mutual friends count in parallel
           const [senderResult, mutualCount] = await Promise.all([
             supabase
               .from('profiles')
@@ -64,7 +79,7 @@ export function FriendRequestNotifier() {
               .eq('id', req.id);
 
             if (!error) {
-              toast({
+              toastRef.current({
                 title: '🎉 Friend added!',
                 description: `You and ${senderName} are now friends`,
               });
@@ -75,7 +90,7 @@ export function FriendRequestNotifier() {
             ? ` · ${mutualCount} mutual friend${mutualCount > 1 ? 's' : ''}`
             : '';
 
-          toast({
+          toastRef.current({
             title: '👋 New Friend Request',
             description: `${senderName} wants to be your friend${mutualText}`,
             duration: 15000,
@@ -88,7 +103,7 @@ export function FriendRequestNotifier() {
                   Accept
                 </button>
                 <button
-                  onClick={() => navigate('/friends')}
+                  onClick={() => navigateRef.current('/friends')}
                   className="px-3 py-1.5 rounded-md text-xs font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/90 transition-colors"
                 >
                   View
@@ -103,7 +118,7 @@ export function FriendRequestNotifier() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, toast, navigate, playNotificationSound]);
+  }, [user]);
 
   return null;
 }

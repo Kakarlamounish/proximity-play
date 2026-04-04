@@ -479,7 +479,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     return () => window.clearInterval(id);
   }, [peerConnection, callStatus, toast]);
 
-  const endCall = useCallback(() => {
+  const endCall = useCallback((skipBroadcast = false) => {
     console.log('VideoCall: Ending call');
     
     stopRinging();
@@ -495,30 +495,49 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       readyIntervalRef.current = null;
     }
 
-    if (peerConnection) {
-      peerConnection.close();
-      setPeerConnection(null);
+    // Broadcast "call-ended" to the other party before tearing down the channel
+    if (!skipBroadcast && channelRef.current) {
+      try {
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'webrtc_signal',
+          payload: { sender_id: user?.id, signalType: 'call-ended', signal: {} },
+        });
+      } catch {}
     }
 
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
+    const pc = peerConnectionRef.current;
+    if (pc) {
+      pc.close();
+      setPeerConnection(null);
+      peerConnectionRef.current = null;
+    }
+
+    const ls = localStreamRef.current;
+    if (ls) {
+      ls.getTracks().forEach(track => track.stop());
       setLocalStream(null);
+      localStreamRef.current = null;
     }
 
     setRemoteStream(null);
 
-    if (channelRef.current) {
-      try {
-        supabase.removeChannel(channelRef.current);
-      } catch (error) {
-        console.error('VideoCall: Error removing channel:', error);
+    // Small delay so the broadcast message has time to send
+    setTimeout(() => {
+      if (channelRef.current) {
+        try { supabase.removeChannel(channelRef.current); } catch {}
+        channelRef.current = null;
       }
-      channelRef.current = null;
-    }
+    }, 200);
 
     setCallStatus('ended');
     onCallEnd?.();
-  }, [peerConnection, localStream, onCallEnd, stopRinging, playOnce]);
+  }, [onCallEnd, stopRinging, playOnce, user?.id]);
+
+  // Keep endCallRef in sync so broadcast listener always has the latest
+  useEffect(() => {
+    endCallRef.current = () => endCall(true); // skip re-broadcasting
+  }, [endCall]);
 
   // Start outgoing ringing sound when initiator is connecting
   useEffect(() => {

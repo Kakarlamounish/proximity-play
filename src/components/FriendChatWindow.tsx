@@ -119,8 +119,11 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
                 sender: senderData
               } as Message;
 
-              setMessages(prev => [...prev, newMessage]);
-              console.log('FriendChatWindow: Added friend message to state');
+              // Deduplicate — skip if we already have this message (optimistic or realtime)
+              setMessages(prev => {
+                if (prev.some(m => m.id === newMessage.id)) return prev;
+                return [...prev, newMessage];
+              });
             } catch (error) {
               console.error('FriendChatWindow: Error processing friend message:', error);
             }

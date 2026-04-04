@@ -157,34 +157,50 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
       return;
     }
 
-    setLoading(true);
-    try {
-      const content = messageType === 'text'
-        ? newMessage.trim()
-        : '🎥 Video message (feature coming soon)';
+    const content = messageType === 'text'
+      ? newMessage.trim()
+      : '🎥 Video message (feature coming soon)';
 
-      const { error } = await supabase
+    // Optimistic update — show message immediately
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimisticMsg: Message = {
+      id: optimisticId,
+      content,
+      created_at: new Date().toISOString(),
+      sender_id: user!.id,
+      recipient_id: friend.id,
+      sender: { first_name: 'You', profile_photo_url: null },
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+    if (messageType === 'text') setNewMessage('');
+
+    try {
+      const { data, error } = await supabase
         .from('messages')
         .insert({
           content,
-          sender_id: user.id,
+          sender_id: user!.id,
           recipient_id: friend.id
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
 
-      if (messageType === 'text') {
-        setNewMessage('');
+      // Replace optimistic message with real ID so realtime dedup works
+      if (data) {
+        setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, id: data.id } : m));
       }
     } catch (error: unknown) {
+      // Remove optimistic message on failure
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+      if (messageType === 'text') setNewMessage(content);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       toast({
         title: 'Error sending message',
         description: errorMessage,
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
   };
 

@@ -563,7 +563,6 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       if (readyIntervalRef.current) {
         clearInterval(readyIntervalRef.current);
       }
-      // FIX #5: use refs instead of stale state values in the cleanup closure
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
       }
@@ -575,6 +574,28 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       }
     };
   }, [initializeCall, stopRinging]);
+
+  // Watch call_log status — if the other party declines/misses, end the call
+  useEffect(() => {
+    if (!callLogId) return;
+
+    const statusChannel = supabase
+      .channel(`videocall-status-${callLogId}-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'call_logs', filter: `id=eq.${callLogId}` },
+        (payload: any) => {
+          const s = payload?.new?.status;
+          if (s === 'declined' || s === 'missed' || s === 'ended') {
+            console.log('VideoCall: Call status changed to', s, '— ending call');
+            endCallRef.current();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(statusChannel); };
+  }, [callLogId]);
 
   const toggleVideo = useCallback(() => {
     if (callType !== 'video' || !localStream) return;

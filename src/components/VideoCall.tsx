@@ -220,6 +220,9 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     }
   }, [sendSignal, isInitiator, callType]);
 
+  // Ref for endCall so broadcast listener can call it without stale closures
+  const endCallRef = useRef<() => void>(() => {});
+
   const listenForSignals = useCallback((pc: RTCPeerConnection) => {
     return new Promise<void>((resolve) => {
       console.log('VideoCall: Setting up signal listener');
@@ -243,6 +246,14 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           try {
             const message = payload.payload;
             if (!message || message.sender_id === user?.id) return;
+
+            // If the remote side sent a "call-ended" signal, end locally
+            if (message.signalType === 'call-ended') {
+              console.log('VideoCall: Remote party ended call');
+              endCallRef.current();
+              return;
+            }
+
             handleSignal(pc, message.signalType, message.signal);
           } catch (error) {
             console.error('VideoCall: Error processing message:', error);

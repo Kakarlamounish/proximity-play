@@ -374,7 +374,7 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
 
           <Button
             type="submit"
-            disabled={loading || (messageType === 'text' && !newMessage.trim())}
+            disabled={messageType === 'text' && !newMessage.trim()}
             className="bg-gradient-to-r from-secondary to-primary flex-shrink-0"
           >
             <Send className="h-4 w-4" />

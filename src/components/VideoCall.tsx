@@ -913,7 +913,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
                   <RotateCcw className="h-4 w-4 mr-2" />
                   Retry
                 </Button>
-                <Button onClick={endCall} variant="destructive">
+                <Button onClick={() => endCall()} variant="destructive">
                   End Call
                 </Button>
               </div>

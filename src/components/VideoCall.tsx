@@ -220,6 +220,9 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     }
   }, [sendSignal, isInitiator, callType]);
 
+  // Ref for endCall so broadcast listener can call it without stale closures
+  const endCallRef = useRef<() => void>(() => {});
+
   const listenForSignals = useCallback((pc: RTCPeerConnection) => {
     return new Promise<void>((resolve) => {
       console.log('VideoCall: Setting up signal listener');
@@ -243,6 +246,14 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           try {
             const message = payload.payload;
             if (!message || message.sender_id === user?.id) return;
+
+            // If the remote side sent a "call-ended" signal, end locally
+            if (message.signalType === 'call-ended') {
+              console.log('VideoCall: Remote party ended call');
+              endCallRef.current();
+              return;
+            }
+
             handleSignal(pc, message.signalType, message.signal);
           } catch (error) {
             console.error('VideoCall: Error processing message:', error);
@@ -468,7 +479,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     return () => window.clearInterval(id);
   }, [peerConnection, callStatus, toast]);
 
-  const endCall = useCallback(() => {
+  const endCall = useCallback((skipBroadcast = false) => {
     console.log('VideoCall: Ending call');
     
     stopRinging();
@@ -484,30 +495,49 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       readyIntervalRef.current = null;
     }
 
-    if (peerConnection) {
-      peerConnection.close();
-      setPeerConnection(null);
+    // Broadcast "call-ended" to the other party before tearing down the channel
+    if (!skipBroadcast && channelRef.current) {
+      try {
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'webrtc_signal',
+          payload: { sender_id: user?.id, signalType: 'call-ended', signal: {} },
+        });
+      } catch {}
     }
 
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
+    const pc = peerConnectionRef.current;
+    if (pc) {
+      pc.close();
+      setPeerConnection(null);
+      peerConnectionRef.current = null;
+    }
+
+    const ls = localStreamRef.current;
+    if (ls) {
+      ls.getTracks().forEach(track => track.stop());
       setLocalStream(null);
+      localStreamRef.current = null;
     }
 
     setRemoteStream(null);
 
-    if (channelRef.current) {
-      try {
-        supabase.removeChannel(channelRef.current);
-      } catch (error) {
-        console.error('VideoCall: Error removing channel:', error);
+    // Small delay so the broadcast message has time to send
+    setTimeout(() => {
+      if (channelRef.current) {
+        try { supabase.removeChannel(channelRef.current); } catch {}
+        channelRef.current = null;
       }
-      channelRef.current = null;
-    }
+    }, 200);
 
     setCallStatus('ended');
     onCallEnd?.();
-  }, [peerConnection, localStream, onCallEnd, stopRinging, playOnce]);
+  }, [onCallEnd, stopRinging, playOnce, user?.id]);
+
+  // Keep endCallRef in sync so broadcast listener always has the latest
+  useEffect(() => {
+    endCallRef.current = () => endCall(true); // skip re-broadcasting
+  }, [endCall]);
 
   // Start outgoing ringing sound when initiator is connecting
   useEffect(() => {
@@ -533,7 +563,6 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       if (readyIntervalRef.current) {
         clearInterval(readyIntervalRef.current);
       }
-      // FIX #5: use refs instead of stale state values in the cleanup closure
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
       }
@@ -545,6 +574,28 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       }
     };
   }, [initializeCall, stopRinging]);
+
+  // Watch call_log status — if the other party declines/misses, end the call
+  useEffect(() => {
+    if (!callLogId) return;
+
+    const statusChannel = supabase
+      .channel(`videocall-status-${callLogId}-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'call_logs', filter: `id=eq.${callLogId}` },
+        (payload: any) => {
+          const s = payload?.new?.status;
+          if (s === 'declined' || s === 'missed' || s === 'ended') {
+            console.log('VideoCall: Call status changed to', s, '— ending call');
+            endCallRef.current();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(statusChannel); };
+  }, [callLogId]);
 
   const toggleVideo = useCallback(() => {
     if (callType !== 'video' || !localStream) return;
@@ -883,7 +934,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
                   <RotateCcw className="h-4 w-4 mr-2" />
                   Retry
                 </Button>
-                <Button onClick={endCall} variant="destructive">
+                <Button onClick={() => endCall()} variant="destructive">
                   End Call
                 </Button>
               </div>
@@ -962,7 +1013,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           </Button>
 
           <Button
-            onClick={endCall}
+            onClick={() => endCall()}
             variant="destructive"
             size="icon"
             className="h-14 w-14 rounded-full"

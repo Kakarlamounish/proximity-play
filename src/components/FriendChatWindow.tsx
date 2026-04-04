@@ -37,7 +37,6 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [loading, setLoading] = useState(false);
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [messageType, setMessageType] = useState<'text' | 'video'>('text');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -120,8 +119,11 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
                 sender: senderData
               } as Message;
 
-              setMessages(prev => [...prev, newMessage]);
-              console.log('FriendChatWindow: Added friend message to state');
+              // Deduplicate — skip if we already have this message (optimistic or realtime)
+              setMessages(prev => {
+                if (prev.some(m => m.id === newMessage.id)) return prev;
+                return [...prev, newMessage];
+              });
             } catch (error) {
               console.error('FriendChatWindow: Error processing friend message:', error);
             }
@@ -157,34 +159,50 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
       return;
     }
 
-    setLoading(true);
-    try {
-      const content = messageType === 'text'
-        ? newMessage.trim()
-        : '🎥 Video message (feature coming soon)';
+    const content = messageType === 'text'
+      ? newMessage.trim()
+      : '🎥 Video message (feature coming soon)';
 
-      const { error } = await supabase
+    // Optimistic update — show message immediately
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimisticMsg: Message = {
+      id: optimisticId,
+      content,
+      created_at: new Date().toISOString(),
+      sender_id: user!.id,
+      recipient_id: friend.id,
+      sender: { first_name: 'You', profile_photo_url: null },
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+    if (messageType === 'text') setNewMessage('');
+
+    try {
+      const { data, error } = await supabase
         .from('messages')
         .insert({
           content,
-          sender_id: user.id,
+          sender_id: user!.id,
           recipient_id: friend.id
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
 
-      if (messageType === 'text') {
-        setNewMessage('');
+      // Replace optimistic message with real ID so realtime dedup works
+      if (data) {
+        setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, id: data.id } : m));
       }
     } catch (error: unknown) {
+      // Remove optimistic message on failure
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+      if (messageType === 'text') setNewMessage(content);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       toast({
         title: 'Error sending message',
         description: errorMessage,
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -344,7 +362,6 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Type a message..."
-              disabled={loading}
               className="flex-1"
             />
           ) : (
@@ -357,7 +374,7 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
 
           <Button
             type="submit"
-            disabled={loading || (messageType === 'text' && !newMessage.trim())}
+            disabled={messageType === 'text' && !newMessage.trim()}
             className="bg-gradient-to-r from-secondary to-primary flex-shrink-0"
           >
             <Send className="h-4 w-4" />

@@ -992,7 +992,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           </Button>
 
           <Button
-            onClick={endCall}
+            onClick={() => endCall()}
             variant="destructive"
             size="icon"
             className="h-14 w-14 rounded-full"

@@ -362,7 +362,6 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Type a message..."
-              disabled={loading}
               className="flex-1"
             />
           ) : (

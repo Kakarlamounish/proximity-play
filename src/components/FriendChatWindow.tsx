@@ -298,43 +298,44 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
             <p>No messages yet. Start the conversation!</p>
           </div>
         ) : (
-          messages.map((message) => (
+          messages.map((message) => {
+            const isMine = message.sender_id === user?.id;
+            return (
             <div
               key={message.id}
-              className={`flex items-start gap-3 ${
-                message.sender_id === user?.id ? 'flex-row-reverse' : ''
-              }`}
+              className={`flex items-end gap-2 ${isMine ? 'flex-row-reverse' : ''}`}
             >
-              <Avatar className="h-8 w-8">
+              <Avatar className="h-7 w-7 flex-shrink-0">
                 <AvatarImage src={message.sender?.profile_photo_url} />
-                <AvatarFallback className="bg-gradient-to-br from-secondary to-primary text-white text-sm">
+                <AvatarFallback className={`text-xs font-bold ${
+                  isMine
+                    ? 'bg-secondary text-secondary-foreground'
+                    : 'bg-muted text-muted-foreground'
+                }`}>
                   {message.sender?.first_name?.[0]?.toUpperCase() || 'U'}
                 </AvatarFallback>
               </Avatar>
 
-              <div
-                className={`max-w-[70%] ${
-                  message.sender_id === user?.id ? 'text-right' : ''
-                }`}
-              >
+              <div className={`max-w-[70%] ${isMine ? 'text-right' : ''}`}>
                 <div
-                  className={`rounded-lg p-3 ${
-                    message.sender_id === user?.id
-                      ? 'bg-gradient-to-r from-secondary to-primary text-white'
-                      : 'bg-muted'
+                  className={`rounded-2xl px-4 py-2.5 ${
+                    isMine
+                      ? 'bg-secondary text-secondary-foreground rounded-br-sm'
+                      : 'bg-muted text-foreground rounded-bl-sm'
                   }`}
                 >
-                  <p className="text-sm">{message.content}</p>
+                  <p className="text-sm leading-relaxed">{message.content}</p>
                 </div>
-                <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                  {message.sender_id !== user?.id && (
-                    <span>{message.sender?.first_name}</span>
-                  )}
+                <div className={`flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground ${isMine ? 'justify-end' : ''}`}>
                   <span>{formatMessageTime(message.created_at)}</span>
+                  {isMine && (
+                    <CheckCheck className="h-3 w-3 text-secondary" />
+                  )}
                 </div>
               </div>
             </div>
-          ))
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -9,7 +9,8 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { MapPin, Eye, EyeOff, Users, Wifi, WifiOff } from 'lucide-react';
+import { MapPin, Eye, EyeOff, Users, Wifi, WifiOff, Navigation2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
 interface FriendOnMap {
@@ -22,51 +23,77 @@ interface FriendOnMap {
   last_seen?: string;
 }
 
-function FitBounds({ locations }: { locations: FriendOnMap[] }) {
+function FitBounds({ locations, myLocation }: { locations: FriendOnMap[]; myLocation?: { lat: number; lng: number } | null }) {
   const map = useMap();
+  const fitted = useRef(false);
+  
   useEffect(() => {
-    if (locations.length === 0) return;
-    const bounds = L.latLngBounds(locations.map(l => [l.latitude, l.longitude]));
-    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
-  }, [locations, map]);
+    if (fitted.current) return;
+    const allPoints: [number, number][] = locations.map(l => [l.latitude, l.longitude]);
+    if (myLocation) allPoints.push([myLocation.lat, myLocation.lng]);
+    if (allPoints.length === 0) return;
+    
+    const bounds = L.latLngBounds(allPoints);
+    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 });
+    fitted.current = true;
+  }, [locations, myLocation, map]);
+  
   return null;
 }
 
-function createFriendIcon(avatarUrl?: string, isOnline?: boolean) {
-  const borderColor = isOnline ? '#22c55e' : '#6b7280';
-  if (avatarUrl) {
-    return L.divIcon({
-      html: `<div style="position:relative">
-        <div style="width:44px;height:44px;border-radius:50%;border:3px solid ${borderColor};overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.3)">
-          <img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover" />
-        </div>
-        ${isOnline ? '<div style="position:absolute;bottom:0;right:0;width:12px;height:12px;background:#22c55e;border-radius:50%;border:2px solid #0a0a0a"></div>' : ''}
-      </div>`,
-      className: '',
-      iconSize: [44, 44],
-      iconAnchor: [22, 22],
-    });
-  }
+// Snapchat-style Bitmoji/avatar marker
+function createSnapMarker(name: string, avatarUrl?: string, isOnline?: boolean) {
+  const statusDot = isOnline
+    ? '<div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;background:#00E676;border-radius:50%;border:2.5px solid #1a1a2e;z-index:2"></div>'
+    : '';
+
+  const avatarHtml = avatarUrl
+    ? `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.style.display='none';this.nextSibling.style.display='flex'" /><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;background:linear-gradient(135deg,#FFFC00,#FF6B00);border-radius:50%;color:#1a1a2e;font-weight:800;font-size:20px">${name?.[0] || '?'}</div>`
+    : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#FFFC00,#FF6B00);border-radius:50%;color:#1a1a2e;font-weight:800;font-size:20px">${name?.[0] || '?'}</div>`;
+
   return L.divIcon({
-    html: `<div style="position:relative">
-      <div style="width:44px;height:44px;border-radius:50%;border:3px solid ${borderColor};background:hsl(var(--primary));display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,0.3)">?</div>
-      ${isOnline ? '<div style="position:absolute;bottom:0;right:0;width:12px;height:12px;background:#22c55e;border-radius:50%;border:2px solid #0a0a0a"></div>' : ''}
-    </div>`,
+    html: `
+      <div style="position:relative;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.4))">
+        <div style="width:52px;height:52px;border-radius:50%;border:3px solid ${isOnline ? '#00E676' : '#FFFC00'};overflow:hidden;background:#1a1a2e">
+          ${avatarHtml}
+        </div>
+        ${statusDot}
+        <div style="position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:700;color:white;text-shadow:0 1px 4px rgba(0,0,0,0.8);max-width:80px;overflow:hidden;text-overflow:ellipsis">${name}</div>
+      </div>
+    `,
     className: '',
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
+    iconSize: [52, 72],
+    iconAnchor: [26, 26],
+  });
+}
+
+// "You" marker - blue pulsing dot like Snapchat
+function createMyMarker() {
+  return L.divIcon({
+    html: `
+      <div style="position:relative;display:flex;align-items:center;justify-content:center">
+        <div style="position:absolute;width:40px;height:40px;border-radius:50%;background:rgba(0,122,255,0.2);animation:pulse 2s infinite"></div>
+        <div style="width:20px;height:20px;border-radius:50%;background:#007AFF;border:3px solid white;box-shadow:0 2px 8px rgba(0,122,255,0.5);z-index:1"></div>
+      </div>
+      <style>@keyframes pulse{0%{transform:scale(1);opacity:0.7}70%{transform:scale(2);opacity:0}100%{transform:scale(2);opacity:0}}</style>
+    `,
+    className: '',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
   });
 }
 
 export function FriendsMap() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+  
   const [friends, setFriends] = useState<FriendOnMap[]>([]);
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [sharing, setSharing] = useState(true);
   const [loading, setLoading] = useState(true);
 
-  // Fetch friends with their locations and presence
   const fetchFriendsOnMap = useCallback(async () => {
     if (!user) return;
 
@@ -132,29 +159,33 @@ export function FriendsMap() {
     fetchFriendsOnMap();
   }, [fetchFriendsOnMap]);
 
-  // Realtime subscriptions for profiles (location changes) and presence
+  // Realtime subscriptions with unique channel name
+  const fetchRef = useRef(fetchFriendsOnMap);
+  fetchRef.current = fetchFriendsOnMap;
+
   useEffect(() => {
     if (!user) return;
 
+    const channelName = `friends-map-${user.id}-${Date.now()}`;
     const channel = supabase
-      .channel('friends-map-realtime')
+      .channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        fetchFriendsOnMap();
+        fetchRef.current();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_presence' }, () => {
-        fetchFriendsOnMap();
+        fetchRef.current();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, () => {
-        fetchFriendsOnMap();
+        fetchRef.current();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchFriendsOnMap]);
+  }, [user]);
 
-  // Update own location periodically
+  // Watch own location and share it
   useEffect(() => {
     if (!user || !sharing) return;
 
@@ -166,10 +197,14 @@ export function FriendsMap() {
         latitude,
         longitude,
         location_updated_at: new Date().toISOString(),
-      }).eq('id', user.id);
+      }).eq('id', user.id).then(({ error }) => {
+        if (error) console.error('Error updating location:', error);
+      });
     };
 
-    const watchId = navigator.geolocation?.watchPosition(updateLocation, console.warn, {
+    const watchId = navigator.geolocation?.watchPosition(updateLocation, (err) => {
+      console.warn('Geolocation error:', err);
+    }, {
       enableHighAccuracy: true,
       maximumAge: 10000,
       timeout: 15000,
@@ -184,10 +219,17 @@ export function FriendsMap() {
     setSharing(enabled);
     if (!enabled && user) {
       await supabase.from('profiles').update({ ghost_mode: true }).eq('id', user.id);
-      toast({ title: 'Location hidden', description: 'Friends can no longer see you on the map.' });
+      toastRef.current({ title: 'Location hidden', description: 'Friends can no longer see you on the map.' });
     } else if (user) {
       await supabase.from('profiles').update({ ghost_mode: false }).eq('id', user.id);
-      toast({ title: 'Location visible', description: 'Friends can now see you on the map.' });
+      toastRef.current({ title: 'Location visible', description: 'Friends can now see you on the map.' });
+    }
+  };
+
+  const centerOnMe = () => {
+    // Trigger re-render so FitBounds re-centers
+    if (myLocation) {
+      setMyLocation({ ...myLocation });
     }
   };
 
@@ -209,10 +251,10 @@ export function FriendsMap() {
 
   if (loading) {
     return (
-      <Card className="backdrop-blur-sm bg-card/95 border-0">
+      <Card className="bg-card border-0">
         <CardContent className="p-12 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading friends map...</p>
+          <p className="mt-4 text-muted-foreground">Loading Snap Map...</p>
         </CardContent>
       </Card>
     );
@@ -220,16 +262,16 @@ export function FriendsMap() {
 
   return (
     <div className="space-y-4">
-      {/* Controls */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <MapPin className="h-6 w-6 text-primary" />
-            Friends on Map
+      {/* Snap Map style controls bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-primary" />
+            Snap Map
           </h2>
           <Badge variant="secondary" className="text-xs">
             <Users className="h-3 w-3 mr-1" />
-            {onlineFriends.length} online
+            {friends.length} sharing · {onlineFriends.length} online
           </Badge>
         </div>
 
@@ -240,46 +282,42 @@ export function FriendsMap() {
         </div>
       </div>
 
-      {/* Map */}
-      <Card className="backdrop-blur-sm bg-card/95 border-0 overflow-hidden">
-        <div className="h-[500px]">
-          <MapContainer center={center} zoom={friends.length > 0 ? 10 : 3} className="w-full h-full z-0" zoomControl={false}>
+      {/* Full-screen style map */}
+      <Card className="bg-card border-0 overflow-hidden rounded-2xl">
+        <div className="h-[70vh] min-h-[400px] relative">
+          <MapContainer center={center} zoom={friends.length > 0 ? 12 : 3} className="w-full h-full z-0" zoomControl={false}>
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              attribution='&copy; OpenStreetMap &copy; CARTO'
               url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             />
-            {friends.length > 0 && <FitBounds locations={friends} />}
+            <FitBounds locations={friends} myLocation={myLocation} />
 
-            {/* My location marker */}
+            {/* My location - blue dot */}
             {myLocation && sharing && (
-              <Marker
-                position={[myLocation.lat, myLocation.lng]}
-                icon={L.divIcon({
-                  html: `<div style="width:18px;height:18px;border-radius:50%;background:hsl(var(--primary));border:3px solid white;box-shadow:0 0 12px rgba(59,130,246,0.5)"></div>`,
-                  className: '',
-                  iconSize: [18, 18],
-                  iconAnchor: [9, 9],
-                })}
-              >
-                <Popup><strong>You</strong></Popup>
+              <Marker position={[myLocation.lat, myLocation.lng]} icon={createMyMarker()}>
+                <Popup>
+                  <div className="text-center p-1">
+                    <p className="font-bold text-sm">📍 You are here</p>
+                  </div>
+                </Popup>
               </Marker>
             )}
 
-            {/* Friend markers */}
+            {/* Friend markers - Snapchat style */}
             {friends.map(friend => (
               <Marker
                 key={friend.user_id}
                 position={[friend.latitude, friend.longitude]}
-                icon={createFriendIcon(friend.profile_photo_url, friend.presence_status === 'online')}
+                icon={createSnapMarker(friend.first_name, friend.profile_photo_url, friend.presence_status === 'online')}
               >
                 <Popup>
-                  <div className="flex items-center gap-2 p-1 min-w-[150px]">
-                    <Avatar className="w-8 h-8">
+                  <div className="flex items-center gap-3 p-2 min-w-[180px]">
+                    <Avatar className="w-10 h-10 border-2 border-primary">
                       <AvatarImage src={friend.profile_photo_url} />
-                      <AvatarFallback>{friend.first_name?.[0]}</AvatarFallback>
+                      <AvatarFallback className="bg-primary text-primary-foreground font-bold">{friend.first_name?.[0]}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-semibold text-sm">{friend.first_name}</p>
+                      <p className="font-bold text-sm">{friend.first_name}</p>
                       <p className="text-xs flex items-center gap-1">
                         {friend.presence_status === 'online' ? (
                           <><Wifi className="h-3 w-3 text-green-500" /> Online</>
@@ -293,42 +331,47 @@ export function FriendsMap() {
               </Marker>
             ))}
           </MapContainer>
+
+          {/* Floating action button to center on me */}
+          {myLocation && (
+            <Button
+              size="icon"
+              className="absolute bottom-4 right-4 z-[1000] rounded-full w-12 h-12 shadow-lg bg-card hover:bg-card/80 text-foreground border border-border"
+              onClick={centerOnMe}
+            >
+              <Navigation2 className="h-5 w-5" />
+            </Button>
+          )}
         </div>
       </Card>
 
-      {/* Friends list sidebar */}
-      {friends.length === 0 ? (
-        <Card className="backdrop-blur-sm bg-card/95 border-0">
+      {/* Friends list - horizontal scrollable like Snapchat */}
+      {friends.length > 0 ? (
+        <div className="overflow-x-auto pb-2">
+          <div className="flex gap-3 min-w-min px-1">
+            {friends.map(friend => (
+              <div key={friend.user_id} className="flex flex-col items-center gap-1 min-w-[72px]">
+                <div className="relative">
+                  <Avatar className="w-14 h-14 border-2" style={{ borderColor: friend.presence_status === 'online' ? '#00E676' : 'hsl(var(--border))' }}>
+                    <AvatarImage src={friend.profile_photo_url} />
+                    <AvatarFallback className="bg-primary text-primary-foreground font-bold text-lg">{friend.first_name?.[0]}</AvatarFallback>
+                  </Avatar>
+                  {friend.presence_status === 'online' && (
+                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background" />
+                  )}
+                </div>
+                <p className="text-xs font-medium truncate max-w-[72px] text-center">{friend.first_name}</p>
+                <p className="text-[10px] text-muted-foreground">{getTimeAgo(friend.last_seen)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <Card className="bg-card border-0">
           <CardContent className="p-8 text-center">
             <Users className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
-            <p className="text-muted-foreground">No friends sharing their location yet.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="backdrop-blur-sm bg-card/95 border-0">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Friends Nearby</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {friends.map(friend => (
-                <div key={friend.user_id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
-                  <div className="relative">
-                    <Avatar className="w-8 h-8">
-                      <AvatarImage src={friend.profile_photo_url} />
-                      <AvatarFallback className="text-xs">{friend.first_name?.[0]}</AvatarFallback>
-                    </Avatar>
-                    {friend.presence_status === 'online' && (
-                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{friend.first_name}</p>
-                    <p className="text-xs text-muted-foreground">{getTimeAgo(friend.last_seen)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <p className="font-medium mb-1">No friends on the map yet</p>
+            <p className="text-sm text-muted-foreground">Add friends and share locations to see them here!</p>
           </CardContent>
         </Card>
       )}

@@ -36,7 +36,7 @@ export function useSnapStreaks() {
         .select('id, first_name, profile_photo_url')
         .in('id', friendIds);
 
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      const profileMap = new Map(profiles?.map((p: { id: string; first_name: string; profile_photo_url: string | null }) => [p.id, p]) || []);
       const now = Date.now();
 
       const mapped: SnapStreak[] = data.map(s => {

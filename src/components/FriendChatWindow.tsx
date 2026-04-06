@@ -3,12 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, MoreVertical, Phone, Video, ImageIcon, Type } from 'lucide-react';
+import { Send, MoreVertical, Phone, Video, ImageIcon, Type, Ghost, Eye, EyeOff, Flame, Check, CheckCheck } from 'lucide-react';
 import { ImageUpload } from '@/components/ImageUpload';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import { useSnapStreaks } from '@/hooks/useSnapStreaks';
+import { useSnapScore } from '@/hooks/useSnapScore';
+import { Switch } from '@/components/ui/switch';
+import { SnapStreakBadge } from '@/components/SnapStreakBadge';
 
 type Message = {
   id: string;
@@ -35,11 +39,15 @@ interface FriendChatWindowProps {
 export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onStartCall }) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { streaks, updateStreak } = useSnapStreaks();
+  const { incrementScore } = useSnapScore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [messageType, setMessageType] = useState<'text' | 'video'>('text');
+  const [isDisappearing, setIsDisappearing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const streak = streaks.find(s => s.friend_id === friend.id);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -182,7 +190,9 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
         .insert({
           content,
           sender_id: user!.id,
-          recipient_id: friend.id
+          recipient_id: friend.id,
+          is_disappearing: isDisappearing,
+          message_type: 'text',
         })
         .select('id')
         .single();
@@ -193,6 +203,10 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
       if (data) {
         setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, id: data.id } : m));
       }
+
+      // Update streak and snap score
+      updateStreak(friend.id);
+      incrementScore('snaps_sent');
     } catch (error: unknown) {
       // Remove optimistic message on failure
       setMessages(prev => prev.filter(m => m.id !== optimisticId));

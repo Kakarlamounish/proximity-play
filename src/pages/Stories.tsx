@@ -129,6 +129,43 @@ const Stories = () => {
     return R * c;
   };
 
+  const fetchFriendStoryCreators = async () => {
+    if (!user) return;
+    try {
+      const { data: friendships } = await supabase
+        .from('friendships')
+        .select('user_id_1, user_id_2')
+        .or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id}`);
+      const friendIds = friendships?.map(f => f.user_id_1 === user.id ? f.user_id_2 : f.user_id_1) || [];
+      if (friendIds.length === 0) return;
+
+      const { data: friendStories } = await supabase
+        .from('location_stories')
+        .select('user_id')
+        .in('user_id', friendIds)
+        .gt('expires_at', new Date().toISOString());
+
+      const creatorIds = [...new Set(friendStories?.map(s => s.user_id) || [])];
+      if (creatorIds.length === 0) return;
+
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, first_name, profile_photo_url')
+        .in('id', creatorIds);
+
+      setFriendStoryCreators(
+        (profiles || []).map(p => ({
+          id: p.id,
+          first_name: p.first_name,
+          profile_photo_url: p.profile_photo_url,
+          hasUnwatched: true,
+        }))
+      );
+    } catch (err) {
+      console.error('Error fetching friend story creators:', err);
+    }
+  };
+
   useEffect(() => {
     fetchStories();
     fetchProfile();

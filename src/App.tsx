@@ -11,6 +11,7 @@ import SkipLinks from "@/components/SkipLinks";
 import { PageSkeleton } from "@/components/ui/skeleton-loader";
 import { FriendRequestNotifier } from '@/components/FriendRequestNotifier';
 import { PresenceTracker } from '@/components/PresenceTracker';
+import { SnapBottomNav } from '@/components/SnapBottomNav';
 
 // Lazy load pages
 const Index = lazy(() => import("./pages/Index"));
@@ -84,6 +85,7 @@ function App() {
                       </Routes>
                     </Suspense>
                   </div>
+                  <SnapBottomNav />
                 </BrowserRouter>
               </TooltipProvider>
             </CallProvider>

@@ -265,7 +265,12 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
             </AvatarFallback>
           </Avatar>
           <div>
-            <h3 className="font-semibold">{friend.first_name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold">{friend.first_name}</h3>
+              {streak && streak.streak_count > 0 && (
+                <SnapStreakBadge count={streak.streak_count} isExpiring={streak.is_expiring} />
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">Friend</p>
           </div>
         </div>

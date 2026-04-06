@@ -342,8 +342,8 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
 
       {/* Message Input */}
       <form onSubmit={handleSendMessage} className="p-4 border-t">
-        {/* Message Type Selector */}
-        <div className="flex gap-2 mb-3">
+        {/* Message Type & Disappearing Toggle */}
+        <div className="flex items-center gap-2 mb-3">
           <Button
             type="button"
             variant={messageType === 'text' ? 'default' : 'outline'}
@@ -364,6 +364,15 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
             <Video className="h-4 w-4" />
             Video
           </Button>
+          <div className="ml-auto flex items-center gap-1.5">
+            <Ghost className={`h-4 w-4 ${isDisappearing ? 'text-primary' : 'text-muted-foreground'}`} />
+            <Switch
+              checked={isDisappearing}
+              onCheckedChange={setIsDisappearing}
+              className="scale-75"
+            />
+            <span className="text-[10px] text-muted-foreground">{isDisappearing ? 'Disappearing' : ''}</span>
+          </div>
         </div>
 
         <div className="flex gap-2">

@@ -9,6 +9,8 @@ import { StoryCard } from '@/components/StoryCard';
 import { useLocation } from '@/hooks/useLocation';
 import { StorySkeleton, PageSkeleton } from '@/components/ui/skeleton-loader';
 import { EmptyState } from '@/components/EmptyState';
+import { StoryRing } from '@/components/StoryRing';
+import { useSnapScore } from '@/hooks/useSnapScore';
 
 const Stories = () => {
   const { user } = useAuth();
@@ -19,7 +21,9 @@ const Stories = () => {
   const [storyReactions, setStoryReactions] = useState<{[key: string]: any[]}>({});
   const [userReactions, setUserReactions] = useState<{[key: string]: string}>({});
   const [storyViews, setStoryViews] = useState<{[key: string]: number}>({});
+  const [friendStoryCreators, setFriendStoryCreators] = useState<Array<{ id: string; first_name: string; profile_photo_url: string | null; hasUnwatched: boolean }>>([]);
   const { latitude, longitude } = useLocation();
+  const { incrementScore } = useSnapScore();
 
   // Hoisted function declarations (were const before -> caused runtime ReferenceError)
   async function fetchProfile() {
@@ -125,9 +129,47 @@ const Stories = () => {
     return R * c;
   };
 
+  const fetchFriendStoryCreators = async () => {
+    if (!user) return;
+    try {
+      const { data: friendships } = await supabase
+        .from('friendships')
+        .select('user_id_1, user_id_2')
+        .or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id}`);
+      const friendIds = friendships?.map(f => f.user_id_1 === user.id ? f.user_id_2 : f.user_id_1) || [];
+      if (friendIds.length === 0) return;
+
+      const { data: friendStories } = await supabase
+        .from('location_stories')
+        .select('user_id')
+        .in('user_id', friendIds)
+        .gt('expires_at', new Date().toISOString());
+
+      const creatorIds = [...new Set(friendStories?.map(s => s.user_id) || [])];
+      if (creatorIds.length === 0) return;
+
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, first_name, profile_photo_url')
+        .in('id', creatorIds);
+
+      setFriendStoryCreators(
+        (profiles || []).map(p => ({
+          id: p.id,
+          first_name: p.first_name,
+          profile_photo_url: p.profile_photo_url,
+          hasUnwatched: true,
+        }))
+      );
+    } catch (err) {
+      console.error('Error fetching friend story creators:', err);
+    }
+  };
+
   useEffect(() => {
     fetchStories();
     fetchProfile();
+    fetchFriendStoryCreators();
   }, [user, latitude, longitude]);
 
   useEffect(() => {
@@ -280,10 +322,36 @@ const Stories = () => {
         // guard against passing [null, null] — pass null when location is not available
         userLocation={latitude != null && longitude != null ? [latitude, longitude] : null}
       />
-      <main className="page-stories px-8 py-8">
-        <header className="mb-8">
+      <main className="page-stories px-4 sm:px-8 py-8 pb-20 md:pb-8">
+        <header className="mb-6">
           <h1 className="text-4xl font-bold">Stories</h1>
         </header>
+
+        {/* Story Rings - Snapchat style horizontal scroll */}
+        {friendStoryCreators.length > 0 && (
+          <div className="mb-6 overflow-x-auto hide-scrollbar">
+            <div className="flex gap-4 min-w-min px-1 py-2">
+              {/* Your story (add) */}
+              <button
+                onClick={() => setStoryDialogOpen(true)}
+                className="flex flex-col items-center gap-1"
+              >
+                <div className="w-16 h-16 rounded-full border-2 border-dashed border-primary flex items-center justify-center bg-muted">
+                  <PlusCircle className="h-6 w-6 text-primary" />
+                </div>
+                <span className="text-xs font-medium text-muted-foreground">Your Story</span>
+              </button>
+              {friendStoryCreators.map(creator => (
+                <StoryRing
+                  key={creator.id}
+                  name={creator.first_name}
+                  avatarUrl={creator.profile_photo_url}
+                  hasUnwatched={creator.hasUnwatched}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         <section className="stories-content">
           <div className="flex justify-between items-center mb-6">

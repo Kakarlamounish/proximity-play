@@ -416,24 +416,33 @@ export type Database = {
           content: string
           created_at: string | null
           id: string
+          is_disappearing: boolean | null
+          message_type: string | null
           recipient_id: string | null
           sender_id: string
+          viewed_at: string | null
         }
         Insert: {
           bubble_id?: string | null
           content: string
           created_at?: string | null
           id?: string
+          is_disappearing?: boolean | null
+          message_type?: string | null
           recipient_id?: string | null
           sender_id: string
+          viewed_at?: string | null
         }
         Update: {
           bubble_id?: string | null
           content?: string
           created_at?: string | null
           id?: string
+          is_disappearing?: boolean | null
+          message_type?: string | null
           recipient_id?: string | null
           sender_id?: string
+          viewed_at?: string | null
         }
         Relationships: [
           {
@@ -580,6 +589,75 @@ export type Database = {
           id?: string
           p256dh?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      snap_scores: {
+        Row: {
+          created_at: string
+          id: string
+          snaps_received: number
+          snaps_sent: number
+          stories_posted: number
+          total_score: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          snaps_received?: number
+          snaps_sent?: number
+          stories_posted?: number
+          total_score?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          snaps_received?: number
+          snaps_sent?: number
+          stories_posted?: number
+          total_score?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      snap_streaks: {
+        Row: {
+          created_at: string
+          id: string
+          last_snap_at: string
+          last_snap_by: string | null
+          started_at: string
+          streak_count: number
+          updated_at: string
+          user_id_1: string
+          user_id_2: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_snap_at?: string
+          last_snap_by?: string | null
+          started_at?: string
+          streak_count?: number
+          updated_at?: string
+          user_id_1: string
+          user_id_2: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_snap_at?: string
+          last_snap_by?: string | null
+          started_at?: string
+          streak_count?: number
+          updated_at?: string
+          user_id_1?: string
+          user_id_2?: string
         }
         Relationships: []
       }

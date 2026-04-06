@@ -11,6 +11,7 @@ import SkipLinks from "@/components/SkipLinks";
 import { PageSkeleton } from "@/components/ui/skeleton-loader";
 import { FriendRequestNotifier } from '@/components/FriendRequestNotifier';
 import { PresenceTracker } from '@/components/PresenceTracker';
+import { SnapBottomNav } from '@/components/SnapBottomNav';
 
 // Lazy load pages
 const Index = lazy(() => import("./pages/Index"));
@@ -30,6 +31,7 @@ const Analytics = lazy(() => import("./pages/Analytics"));
 const JoinBubble = lazy(() => import("./pages/JoinBubble"));
 const MissedCalls = lazy(() => import("./pages/MissedCalls"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const Camera = lazy(() => import("./pages/Camera"));
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -77,11 +79,13 @@ function App() {
                         <Route path="/analytics" element={<Analytics />} />
                         <Route path="/install" element={<Install />} />
                         <Route path="/missed-calls" element={<MissedCalls />} />
+                        <Route path="/camera" element={<Camera />} />
                         <Route path="/join/:inviteCode" element={<JoinBubble />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </Suspense>
                   </div>
+                  <SnapBottomNav />
                 </BrowserRouter>
               </TooltipProvider>
             </CallProvider>

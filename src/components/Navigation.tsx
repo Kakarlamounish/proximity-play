@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Camera } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { SearchDialog } from '@/components/SearchDialog';
@@ -81,14 +81,13 @@ export function Navigation(): JSX.Element {
   interface NavItem { to: string; label: string; badge?: number; }
 
   const navLinks: NavItem[] = [
-    { to: '/', label: 'Home' },
-    { to: '/discover', label: 'Discover' },
-    { to: '/messages', label: 'Messages' },
-    { to: '/calls', label: 'Calls' },
-    { to: '/live', label: 'Live' },
-    { to: '/stories', label: 'Stories' },
-    { to: '/maps', label: 'Maps' },
-    { to: '/friends', label: 'Friends', badge: pendingRequestCount },
+    { to: '/', label: '🏠 Home' },
+    { to: '/messages', label: '💬 Chat' },
+    { to: '/discover', label: '🔍 Discover' },
+    { to: '/stories', label: '📖 Stories' },
+    { to: '/maps', label: '🗺️ Snap Map' },
+    { to: '/friends', label: '👥 Friends', badge: pendingRequestCount },
+    { to: '/calls', label: '📞 Calls' },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -113,6 +112,13 @@ export function Navigation(): JSX.Element {
                 <span className="text-lg font-extrabold tracking-tight text-foreground group-hover:text-primary transition-colors duration-150 hidden sm:inline">
                   Proximity Play
                 </span>
+              </Link>
+              <Link
+                to="/camera"
+                className="ml-3 p-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/80 transition-all hidden sm:flex items-center justify-center"
+                aria-label="Open Camera"
+              >
+                <Camera className="h-4 w-4" />
               </Link>
             </div>
 

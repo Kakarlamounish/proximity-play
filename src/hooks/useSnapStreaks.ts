@@ -41,7 +41,7 @@ export function useSnapStreaks() {
 
       const mapped: SnapStreak[] = data.map(s => {
         const friendId = s.user_id_1 === user.id ? s.user_id_2 : s.user_id_1;
-        const profile = profileMap.get(friendId);
+        const profile = profileMap.get(friendId) as { id: string; first_name: string; profile_photo_url: string | null } | undefined;
         const hoursSinceLastSnap = (now - new Date(s.last_snap_at).getTime()) / (1000 * 60 * 60);
         return {
           id: s.id,

@@ -8,12 +8,14 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { MessageSquare, UserMinus, Users, Search, MapPin, UserPlus, Phone, Video } from 'lucide-react';
+import { MessageSquare, UserMinus, Users, Search, MapPin, UserPlus, Phone, Video, Flame } from 'lucide-react';
 import { getMutualFriendsCountBatch } from '@/utils/mutualFriends';
 import { useNavigate } from 'react-router-dom';
 import { FriendRequests } from '@/components/FriendRequests';
 import { Navigation } from '@/components/Navigation';
 import { useCallContext } from '@/contexts/CallContext';
+import { useSnapStreaks } from '@/hooks/useSnapStreaks';
+import { SnapStreakBadge } from '@/components/SnapStreakBadge';
 
 interface Friend {
   id: string;
@@ -31,6 +33,7 @@ export default function Friends() {
   const { toast } = useToast();
   const { startCall } = useCallContext();
   const navigate = useNavigate();
+  const { streaks } = useSnapStreaks();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
   interface Profile {
@@ -554,7 +557,9 @@ export default function Friends() {
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {friends?.map((friend) => (
+                {friends?.map((friend) => {
+                  const streak = streaks.find(s => s.friend_id === friend.id);
+                  return (
                   <Card key={friend.id} className="p-4 hover:shadow-lg transition-shadow">
                     <div className="flex items-start gap-4">
                       <Avatar className="w-16 h-16">
@@ -565,7 +570,12 @@ export default function Friends() {
                       </Avatar>
 
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold mb-1">{friend.first_name}</h3>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold">{friend.first_name}</h3>
+                          {streak && streak.streak_count > 0 && (
+                            <SnapStreakBadge count={streak.streak_count} isExpiring={streak.is_expiring} />
+                          )}
+                        </div>
 
                         {friend.bio && (
                           <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
@@ -624,7 +634,8 @@ export default function Friends() {
                       </div>
                     </div>
                   </Card>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

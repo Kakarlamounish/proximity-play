@@ -30,6 +30,7 @@ const Analytics = lazy(() => import("./pages/Analytics"));
 const JoinBubble = lazy(() => import("./pages/JoinBubble"));
 const MissedCalls = lazy(() => import("./pages/MissedCalls"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const Camera = lazy(() => import("./pages/Camera"));
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -77,6 +78,7 @@ function App() {
                         <Route path="/analytics" element={<Analytics />} />
                         <Route path="/install" element={<Install />} />
                         <Route path="/missed-calls" element={<MissedCalls />} />
+                        <Route path="/camera" element={<Camera />} />
                         <Route path="/join/:inviteCode" element={<JoinBubble />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>

@@ -322,10 +322,36 @@ const Stories = () => {
         // guard against passing [null, null] — pass null when location is not available
         userLocation={latitude != null && longitude != null ? [latitude, longitude] : null}
       />
-      <main className="page-stories px-8 py-8">
-        <header className="mb-8">
+      <main className="page-stories px-4 sm:px-8 py-8 pb-20 md:pb-8">
+        <header className="mb-6">
           <h1 className="text-4xl font-bold">Stories</h1>
         </header>
+
+        {/* Story Rings - Snapchat style horizontal scroll */}
+        {friendStoryCreators.length > 0 && (
+          <div className="mb-6 overflow-x-auto hide-scrollbar">
+            <div className="flex gap-4 min-w-min px-1 py-2">
+              {/* Your story (add) */}
+              <button
+                onClick={() => setStoryDialogOpen(true)}
+                className="flex flex-col items-center gap-1"
+              >
+                <div className="w-16 h-16 rounded-full border-2 border-dashed border-primary flex items-center justify-center bg-muted">
+                  <PlusCircle className="h-6 w-6 text-primary" />
+                </div>
+                <span className="text-xs font-medium text-muted-foreground">Your Story</span>
+              </button>
+              {friendStoryCreators.map(creator => (
+                <StoryRing
+                  key={creator.id}
+                  name={creator.first_name}
+                  avatarUrl={creator.profile_photo_url}
+                  hasUnwatched={creator.hasUnwatched}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         <section className="stories-content">
           <div className="flex justify-between items-center mb-6">

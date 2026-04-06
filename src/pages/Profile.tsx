@@ -12,9 +12,15 @@ import { Database } from '@/integrations/supabase/types';
 import { Loader2 } from 'lucide-react';
 import { EditProfileDialog } from '@/components/EditProfileDialog';
 import { UserBadges } from '@/components/UserBadges';
+import { useSnapScore } from '@/hooks/useSnapScore';
+import { SnapScoreDisplay } from '@/components/SnapScoreDisplay';
+import { useSnapStreaks } from '@/hooks/useSnapStreaks';
+import { SnapStreakBadge } from '@/components/SnapStreakBadge';
 
 const Profile = () => {
   const { user, loading } = useAuth();
+  const { score } = useSnapScore();
+  const { streaks } = useSnapStreaks();
   const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
   const [bubbles, setBubbles] = useState<Array<{ bubble_id: string; created_at: string; bubbles: Database['public']['Tables']['bubbles']['Row'] }>>([]);
   const [badges, setBadges] = useState<Array<{ earned_at: string; badges: { name: string; description: string; icon: string } }>>([]);
@@ -163,6 +169,28 @@ const Profile = () => {
                       <span>Joined {formatDate(profile?.created_at)}</span>
                     </div>
                   </div>
+
+                  {/* Snap Score */}
+                  <div className="mb-4">
+                    <SnapScoreDisplay
+                      totalScore={score.total_score}
+                      snapsSent={score.snaps_sent}
+                      snapsReceived={score.snaps_received}
+                      storiesPosted={score.stories_posted}
+                    />
+                  </div>
+
+                  {/* Top Streaks */}
+                  {streaks.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {streaks.slice(0, 5).map(s => (
+                        <div key={s.id} className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-muted text-xs font-medium">
+                          <span>{s.friend_name}</span>
+                          <SnapStreakBadge count={s.streak_count} isExpiring={s.is_expiring} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   
                   <EditProfileDialog 
                     profile={profile} 

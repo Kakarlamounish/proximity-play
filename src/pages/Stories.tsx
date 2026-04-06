@@ -9,6 +9,8 @@ import { StoryCard } from '@/components/StoryCard';
 import { useLocation } from '@/hooks/useLocation';
 import { StorySkeleton, PageSkeleton } from '@/components/ui/skeleton-loader';
 import { EmptyState } from '@/components/EmptyState';
+import { StoryRing } from '@/components/StoryRing';
+import { useSnapScore } from '@/hooks/useSnapScore';
 
 const Stories = () => {
   const { user } = useAuth();
@@ -19,7 +21,9 @@ const Stories = () => {
   const [storyReactions, setStoryReactions] = useState<{[key: string]: any[]}>({});
   const [userReactions, setUserReactions] = useState<{[key: string]: string}>({});
   const [storyViews, setStoryViews] = useState<{[key: string]: number}>({});
+  const [friendStoryCreators, setFriendStoryCreators] = useState<Array<{ id: string; first_name: string; profile_photo_url: string | null; hasUnwatched: boolean }>>([]);
   const { latitude, longitude } = useLocation();
+  const { incrementScore } = useSnapScore();
 
   // Hoisted function declarations (were const before -> caused runtime ReferenceError)
   async function fetchProfile() {
@@ -128,6 +132,7 @@ const Stories = () => {
   useEffect(() => {
     fetchStories();
     fetchProfile();
+    fetchFriendStoryCreators();
   }, [user, latitude, longitude]);
 
   useEffect(() => {

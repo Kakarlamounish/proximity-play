@@ -4,14 +4,14 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { MapPin, Eye, EyeOff, Users, Wifi, WifiOff, Navigation2 } from 'lucide-react';
+import { MapPin, Eye, EyeOff, Users, Wifi, WifiOff, Navigation2, Globe, Layers, Mountain, Satellite } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface FriendOnMap {
   user_id: string;
@@ -21,6 +21,50 @@ interface FriendOnMap {
   longitude: number;
   presence_status?: string;
   last_seen?: string;
+}
+
+type MapStyle = 'dark' | 'satellite' | 'terrain' | 'street';
+
+const MAP_TILES: Record<MapStyle, { url: string; attribution: string; label: string; icon: React.ReactNode }> = {
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    label: 'Dark',
+    icon: <Globe className="h-4 w-4" />,
+  },
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+    label: 'Satellite',
+    icon: <Satellite className="h-4 w-4" />,
+  },
+  terrain: {
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenTopoMap',
+    label: 'Terrain',
+    icon: <Mountain className="h-4 w-4" />,
+  },
+  street: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap',
+    label: 'Street',
+    icon: <Layers className="h-4 w-4" />,
+  },
+};
+
+// Component to change tile layer dynamically
+function DynamicTileLayer({ style }: { style: MapStyle }) {
+  const map = useMap();
+  const layerRef = useRef<L.TileLayer | null>(null);
+
+  useEffect(() => {
+    if (layerRef.current) map.removeLayer(layerRef.current);
+    const tile = MAP_TILES[style];
+    layerRef.current = L.tileLayer(tile.url, { attribution: tile.attribution }).addTo(map);
+    return () => { if (layerRef.current) map.removeLayer(layerRef.current); };
+  }, [style, map]);
+
+  return null;
 }
 
 function FitBounds({ locations, myLocation }: { locations: FriendOnMap[]; myLocation?: { lat: number; lng: number } | null }) {
@@ -93,6 +137,8 @@ export function FriendsMap() {
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [sharing, setSharing] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [mapStyle, setMapStyle] = useState<MapStyle>('dark');
+  const [showStylePicker, setShowStylePicker] = useState(false);
 
   const fetchFriendsOnMap = useCallback(async () => {
     if (!user) return;
@@ -262,7 +308,7 @@ export function FriendsMap() {
 
   return (
     <div className="space-y-4">
-      {/* Snap Map style controls bar */}
+      {/* Controls bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-bold flex items-center gap-2">
@@ -282,14 +328,11 @@ export function FriendsMap() {
         </div>
       </div>
 
-      {/* Full-screen style map */}
+      {/* Map */}
       <Card className="bg-card border-0 overflow-hidden rounded-2xl">
         <div className="h-[70vh] min-h-[400px] relative">
           <MapContainer center={center} zoom={friends.length > 0 ? 12 : 3} className="w-full h-full z-0" zoomControl={false}>
-            <TileLayer
-              attribution='&copy; OpenStreetMap &copy; CARTO'
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            />
+            <DynamicTileLayer style={mapStyle} />
             <FitBounds locations={friends} myLocation={myLocation} />
 
             {/* My location - blue dot */}
@@ -332,7 +375,37 @@ export function FriendsMap() {
             ))}
           </MapContainer>
 
-          {/* Floating action button to center on me */}
+          {/* Map style picker - floating button */}
+          <div className="absolute top-4 right-4 z-[1000]">
+            <Button
+              size="icon"
+              className="rounded-full w-10 h-10 shadow-lg bg-card/90 hover:bg-card text-foreground border border-border"
+              onClick={() => setShowStylePicker(prev => !prev)}
+            >
+              <Layers className="h-5 w-5" />
+            </Button>
+
+            {showStylePicker && (
+              <div className="absolute top-12 right-0 bg-card/95 backdrop-blur-md rounded-xl shadow-xl border border-border p-2 flex flex-col gap-1 min-w-[140px] animate-in fade-in zoom-in-95 duration-200">
+                {(Object.keys(MAP_TILES) as MapStyle[]).map(key => (
+                  <button
+                    key={key}
+                    onClick={() => { setMapStyle(key); setShowStylePicker(false); }}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      mapStyle === key
+                        ? 'bg-primary text-primary-foreground'
+                        : 'hover:bg-muted text-foreground'
+                    }`}
+                  >
+                    {MAP_TILES[key].icon}
+                    {MAP_TILES[key].label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Center on me */}
           {myLocation && (
             <Button
               size="icon"
@@ -345,7 +418,7 @@ export function FriendsMap() {
         </div>
       </Card>
 
-      {/* Friends list - horizontal scrollable like Snapchat */}
+      {/* Friends list */}
       {friends.length > 0 ? (
         <div className="overflow-x-auto pb-2">
           <div className="flex gap-3 min-w-min px-1">

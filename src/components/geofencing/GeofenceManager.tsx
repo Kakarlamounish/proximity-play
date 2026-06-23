@@ -23,8 +23,8 @@ export const GeofenceManager: React.FC<GeofenceManagerProps> = ({ onClose }) => 
 
     addGeofence({
       name: name || 'My Geofence',
-      latitude: userLocation.latitude,
-      longitude: userLocation.longitude,
+      latitude: userLocation.lat,
+      longitude: userLocation.lng,
       radius,
       userId,
       alertOnEnter,

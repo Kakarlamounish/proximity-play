@@ -28,49 +28,44 @@ export function useGeofencing() {
     if (!userLocation) return;
 
     geofences.forEach((geofence) => {
-      // Check if user entered/left geofence
       const distance = calculateDistance(
-        userLocation.latitude,
-        userLocation.longitude,
+        userLocation.lat,
+        userLocation.lng,
         geofence.latitude,
         geofence.longitude
       );
 
       const isInside = distance <= geofence.radius;
-      
-      // You can track previous state to determine enter/leave events
-      // For now, we'll just notify if inside and alertOnEnter is true
+
       if (isInside && geofence.alertOnEnter) {
         addNotification({
           id: crypto.randomUUID(),
-          type: 'info',
+          type: 'system',
           title: 'Geofence Alert',
           message: `You entered ${geofence.name}`,
-          timestamp: new Date(),
+          read: false,
+          createdAt: new Date().toISOString(),
         });
       }
 
-      // Check friends' locations against geofences
       friends.forEach((friend) => {
-        if (friend.location) {
-          const friendDistance = calculateDistance(
-            friend.location.latitude,
-            friend.location.longitude,
-            geofence.latitude,
-            geofence.longitude
-          );
-
-          const friendIsInside = friendDistance <= geofence.radius;
-
-          if (friendIsInside && geofence.friendId === friend.id && geofence.alertOnEnter) {
-            addNotification({
-              id: crypto.randomUUID(),
-              type: 'success',
-              title: 'Friend Alert',
-              message: `${friend.name} entered ${geofence.name}`,
-              timestamp: new Date(),
-            });
-          }
+        if (friend.latitude == null || friend.longitude == null) return;
+        const friendDistance = calculateDistance(
+          friend.latitude,
+          friend.longitude,
+          geofence.latitude,
+          geofence.longitude
+        );
+        const friendIsInside = friendDistance <= geofence.radius;
+        if (friendIsInside && geofence.friendId === friend.id && geofence.alertOnEnter) {
+          addNotification({
+            id: crypto.randomUUID(),
+            type: 'system',
+            title: 'Friend Alert',
+            message: `${friend.first_name} entered ${geofence.name}`,
+            read: false,
+            createdAt: new Date().toISOString(),
+          });
         }
       });
     });

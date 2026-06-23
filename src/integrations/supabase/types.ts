@@ -194,6 +194,51 @@ export type Database = {
           },
         ]
       }
+      dead_drops: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          latitude: number
+          longitude: number
+          max_views: number | null
+          radius: number
+          title: string
+          type: Database["public"]["Enums"]["dead_drop_type"]
+          viewed_by: string[]
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          latitude: number
+          longitude: number
+          max_views?: number | null
+          radius?: number
+          title: string
+          type: Database["public"]["Enums"]["dead_drop_type"]
+          viewed_by?: string[]
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          max_views?: number | null
+          radius?: number
+          title?: string
+          type?: Database["public"]["Enums"]["dead_drop_type"]
+          viewed_by?: string[]
+        }
+        Relationships: []
+      }
       friend_requests: {
         Row: {
           created_at: string
@@ -242,6 +287,48 @@ export type Database = {
         }
         Relationships: []
       }
+      geofences: {
+        Row: {
+          alert_on_enter: boolean
+          alert_on_leave: boolean
+          created_at: string
+          friend_id: string | null
+          id: string
+          latitude: number
+          longitude: number
+          name: string
+          radius: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alert_on_enter?: boolean
+          alert_on_leave?: boolean
+          created_at?: string
+          friend_id?: string | null
+          id?: string
+          latitude: number
+          longitude: number
+          name: string
+          radius?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alert_on_enter?: boolean
+          alert_on_leave?: boolean
+          created_at?: string
+          friend_id?: string | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          name?: string
+          radius?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       live_locations: {
         Row: {
           bubble_id: string
@@ -282,6 +369,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      location_history: {
+        Row: {
+          accuracy_meters: number | null
+          id: string
+          intensity: number
+          latitude: number
+          longitude: number
+          recorded_at: string
+          user_id: string
+        }
+        Insert: {
+          accuracy_meters?: number | null
+          id?: string
+          intensity?: number
+          latitude: number
+          longitude: number
+          recorded_at?: string
+          user_id: string
+        }
+        Update: {
+          accuracy_meters?: number | null
+          id?: string
+          intensity?: number
+          latitude?: number
+          longitude?: number
+          recorded_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       location_stories: {
         Row: {
@@ -592,6 +709,36 @@ export type Database = {
         }
         Relationships: []
       }
+      referrals: {
+        Row: {
+          activated_at: string | null
+          created_at: string
+          id: string
+          referred_email: string
+          referred_user_id: string | null
+          referrer_id: string
+          status: string
+        }
+        Insert: {
+          activated_at?: string | null
+          created_at?: string
+          id?: string
+          referred_email: string
+          referred_user_id?: string | null
+          referrer_id: string
+          status?: string
+        }
+        Update: {
+          activated_at?: string | null
+          created_at?: string
+          id?: string
+          referred_email?: string
+          referred_user_id?: string | null
+          referrer_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
       snap_scores: {
         Row: {
           created_at: string
@@ -833,6 +980,87 @@ export type Database = {
           },
         ]
       }
+      trips: {
+        Row: {
+          created_at: string
+          created_by: string
+          current_lat: number | null
+          current_lng: number | null
+          destination_lat: number
+          destination_lng: number
+          eta: string | null
+          id: string
+          name: string
+          origin_lat: number
+          origin_lng: number
+          route: Json | null
+          shared_with: string[]
+          status: Database["public"]["Enums"]["trip_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          current_lat?: number | null
+          current_lng?: number | null
+          destination_lat: number
+          destination_lng: number
+          eta?: string | null
+          id?: string
+          name: string
+          origin_lat: number
+          origin_lng: number
+          route?: Json | null
+          shared_with?: string[]
+          status?: Database["public"]["Enums"]["trip_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          current_lat?: number | null
+          current_lng?: number | null
+          destination_lat?: number
+          destination_lng?: number
+          eta?: string | null
+          id?: string
+          name?: string
+          origin_lat?: number
+          origin_lng?: number
+          route?: Json | null
+          shared_with?: string[]
+          status?: Database["public"]["Enums"]["trip_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_avatars: {
+        Row: {
+          color: string
+          created_at: string
+          custom_image_url: string | null
+          icon: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          custom_image_url?: string | null
+          icon?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          custom_image_url?: string | null
+          icon?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_badges: {
         Row: {
           badge_id: string
@@ -937,6 +1165,36 @@ export type Database = {
         }
         Relationships: []
       }
+      voice_messages: {
+        Row: {
+          chat_id: string
+          created_at: string
+          duration: number
+          id: string
+          is_played: boolean
+          sender_id: string
+          url: string
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string
+          duration: number
+          id?: string
+          is_played?: boolean
+          sender_id: string
+          url: string
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string
+          duration?: number
+          id?: string
+          is_played?: boolean
+          sender_id?: string
+          url?: string
+        }
+        Relationships: []
+      }
       webauthn_credentials: {
         Row: {
           counter: number
@@ -978,6 +1236,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      dead_drop_type: "text" | "image" | "voice"
       gender_type: "male" | "female" | "non_binary" | "prefer_not_to_say"
       meetup_status: "upcoming" | "ongoing" | "completed" | "cancelled"
       report_reason:
@@ -987,6 +1246,7 @@ export type Database = {
         | "fake_profile"
         | "other"
       rsvp_status: "going" | "maybe" | "not_going"
+      trip_status: "pending" | "active" | "completed" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1114,6 +1374,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      dead_drop_type: ["text", "image", "voice"],
       gender_type: ["male", "female", "non_binary", "prefer_not_to_say"],
       meetup_status: ["upcoming", "ongoing", "completed", "cancelled"],
       report_reason: [
@@ -1124,6 +1385,7 @@ export const Constants = {
         "other",
       ],
       rsvp_status: ["going", "maybe", "not_going"],
+      trip_status: ["pending", "active", "completed", "cancelled"],
     },
   },
 } as const

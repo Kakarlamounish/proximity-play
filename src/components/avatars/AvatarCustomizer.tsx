@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAvatarStore, AVATAR_ICONS, AVATAR_COLORS, AvatarIcon } from '../../stores/useAvatarStore';
 
 interface AvatarCustomizerProps {
@@ -8,18 +8,31 @@ interface AvatarCustomizerProps {
 
 export const AvatarCustomizer: React.FC<AvatarCustomizerProps> = ({ userId, onClose }) => {
   const setAvatar = useAvatarStore((state) => state.setAvatar);
-  const currentAvatar = useAvatarStore((state) => state.getAvatar(userId));
+  const fetchAvatar = useAvatarStore((state) => state.fetchAvatar);
+  const currentAvatar = useAvatarStore((state) => state.avatars[userId]);
 
   const [selectedIcon, setSelectedIcon] = useState<AvatarIcon>(currentAvatar?.icon || 'user');
   const [selectedColor, setSelectedColor] = useState(currentAvatar?.color || AVATAR_COLORS[0]);
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    setAvatar(userId, {
-      icon: selectedIcon,
-      color: selectedColor,
-    });
+  useEffect(() => {
+    if (!currentAvatar) {
+      fetchAvatar(userId).then((ua) => {
+        if (ua) {
+          setSelectedIcon(ua.icon);
+          setSelectedColor(ua.color);
+        }
+      });
+    }
+  }, [userId, currentAvatar, fetchAvatar]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    await setAvatar(userId, { icon: selectedIcon, color: selectedColor });
+    setSaving(false);
     onClose();
   };
+
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -134,9 +147,10 @@ export const AvatarCustomizer: React.FC<AvatarCustomizerProps> = ({ userId, onCl
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md"
+            disabled={saving}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-medium py-2 px-4 rounded-md"
           >
-            Save
+            {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>

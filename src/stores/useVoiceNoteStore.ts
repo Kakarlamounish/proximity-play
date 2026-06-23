@@ -1,53 +1,145 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { supabase } from '@/integrations/supabase/client';
 
-interface VoiceNote {
+export interface VoiceNote {
   id: string;
-  url: string;
-  duration: number; // in seconds
+  url: string;        // signed URL ready for <audio src=...>
+  storagePath: string;
+  duration: number;
   chatId: string;
   senderId: string;
-  createdAt: Date;
+  createdAt: string;
   isPlayed: boolean;
+}
+
+interface VoiceNoteRow {
+  id: string;
+  url: string; // stored as the storage path in DB
+  duration: number;
+  chat_id: string;
+  sender_id: string;
+  is_played: boolean;
+  created_at: string;
+}
+
+const BUCKET = 'voice-notes';
+
+async function pathToSignedUrl(path: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(path, 60 * 60); // 1h
+  if (error || !data) {
+    console.error('pathToSignedUrl error:', error);
+    return '';
+  }
+  return data.signedUrl;
+}
+
+async function rowToVoiceNote(r: VoiceNoteRow): Promise<VoiceNote> {
+  return {
+    id: r.id,
+    url: await pathToSignedUrl(r.url),
+    storagePath: r.url,
+    duration: r.duration,
+    chatId: r.chat_id,
+    senderId: r.sender_id,
+    createdAt: r.created_at,
+    isPlayed: r.is_played,
+  };
 }
 
 interface VoiceNoteState {
   voiceNotes: VoiceNote[];
   isRecording: boolean;
   recordingBlob: Blob | null;
-  addVoiceNote: (note: Omit<VoiceNote, 'id' | 'createdAt' | 'isPlayed'>) => void;
-  markAsPlayed: (id: string) => void;
+  loading: boolean;
+  fetchVoiceNotesForChat: (chatId: string) => Promise<void>;
+  uploadAndAddVoiceNote: (params: {
+    blob: Blob;
+    duration: number;
+    chatId: string;
+    senderId: string;
+  }) => Promise<VoiceNote | null>;
+  markAsPlayed: (id: string) => Promise<void>;
   setRecording: (isRecording: boolean) => void;
   setRecordingBlob: (blob: Blob | null) => void;
   getVoiceNotesForChat: (chatId: string) => VoiceNote[];
 }
 
-export const useVoiceNoteStore = create<VoiceNoteState>()(
-  persist(
-    (set, get) => ({
-      voiceNotes: [],
-      isRecording: false,
-      recordingBlob: null,
-      addVoiceNote: (note) =>
-        set((state) => ({
-          voiceNotes: [
-            ...state.voiceNotes,
-            { ...note, id: crypto.randomUUID(), createdAt: new Date(), isPlayed: false },
-          ],
-        })),
-      markAsPlayed: (id) =>
-        set((state) => ({
-          voiceNotes: state.voiceNotes.map((n) =>
-            n.id === id ? { ...n, isPlayed: true } : n
-          ),
-        })),
-      setRecording: (isRecording) => set({ isRecording }),
-      setRecordingBlob: (blob) => set({ recordingBlob: blob }),
-      getVoiceNotesForChat: (chatId) =>
-        get().voiceNotes.filter((n) => n.chatId === chatId),
-    }),
-    {
-      name: 'voice-note-storage',
+export const useVoiceNoteStore = create<VoiceNoteState>()((set, get) => ({
+  voiceNotes: [],
+  isRecording: false,
+  recordingBlob: null,
+  loading: false,
+
+  fetchVoiceNotesForChat: async (chatId) => {
+    set({ loading: true });
+    const { data, error } = await supabase
+      .from('voice_messages')
+      .select('*')
+      .eq('chat_id', chatId)
+      .order('created_at', { ascending: true });
+    if (error) {
+      console.error('fetchVoiceNotesForChat error:', error);
+      set({ loading: false });
+      return;
     }
-  )
-);
+    const notes = await Promise.all(
+      (data as VoiceNoteRow[]).map(rowToVoiceNote)
+    );
+    set((s) => ({
+      voiceNotes: [
+        ...s.voiceNotes.filter((n) => n.chatId !== chatId),
+        ...notes,
+      ],
+      loading: false,
+    }));
+  },
+
+  uploadAndAddVoiceNote: async ({ blob, duration, chatId, senderId }) => {
+    const ext = blob.type.includes('webm') ? 'webm' : 'm4a';
+    const path = `${senderId}/${chatId}/${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from(BUCKET)
+      .upload(path, blob, { contentType: blob.type || 'audio/webm', upsert: false });
+    if (upErr) {
+      console.error('voice upload error:', upErr);
+      return null;
+    }
+    const { data, error } = await supabase
+      .from('voice_messages')
+      .insert({
+        url: path,
+        duration,
+        chat_id: chatId,
+        sender_id: senderId,
+      })
+      .select('*')
+      .single();
+    if (error || !data) {
+      console.error('voice insert error:', error);
+      return null;
+    }
+    const note = await rowToVoiceNote(data as VoiceNoteRow);
+    set((s) => ({ voiceNotes: [...s.voiceNotes, note] }));
+    return note;
+  },
+
+  markAsPlayed: async (id) => {
+    set((s) => ({
+      voiceNotes: s.voiceNotes.map((n) =>
+        n.id === id ? { ...n, isPlayed: true } : n
+      ),
+    }));
+    const { error } = await supabase
+      .from('voice_messages')
+      .update({ is_played: true })
+      .eq('id', id);
+    if (error) console.error('markAsPlayed error:', error);
+  },
+
+  setRecording: (isRecording) => set({ isRecording }),
+  setRecordingBlob: (blob) => set({ recordingBlob: blob }),
+  getVoiceNotesForChat: (chatId) =>
+    get().voiceNotes.filter((n) => n.chatId === chatId),
+}));

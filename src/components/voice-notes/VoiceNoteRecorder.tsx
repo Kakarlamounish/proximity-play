@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useVoiceNoteStore } from '../../stores/useVoiceNoteStore';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface VoiceNoteRecorderProps {
   chatId: string;
@@ -12,15 +13,20 @@ export const VoiceNoteRecorder: React.FC<VoiceNoteRecorderProps> = ({
 }) => {
   const [recordingTime, setRecordingTime] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const setRecording = useVoiceNoteStore((state) => state.setRecording);
-  const addVoiceNote = useVoiceNoteStore((state) => state.addVoiceNote);
-  const userId = 'current-user-id'; // Replace with actual user ID from auth
+  const uploadAndAddVoiceNote = useVoiceNoteStore((state) => state.uploadAndAddVoiceNote);
+  const { user } = useAuth();
 
   const startRecording = async () => {
+    if (!user) {
+      alert('Please sign in to record voice notes.');
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
@@ -35,18 +41,15 @@ export const VoiceNoteRecorder: React.FC<VoiceNoteRecorderProps> = ({
 
       mediaRecorder.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        
-        // Upload to Supabase Storage (placeholder)
-        const url = URL.createObjectURL(blob);
-        
-        addVoiceNote({
-          url,
+        setUploading(true);
+        await uploadAndAddVoiceNote({
+          blob,
           duration: recordingTime,
           chatId,
-          senderId: userId,
+          senderId: user.id,
         });
+        setUploading(false);
 
-        // Stop all tracks
         stream.getTracks().forEach((track) => track.stop());
         onUploadComplete();
       };
@@ -56,7 +59,6 @@ export const VoiceNoteRecorder: React.FC<VoiceNoteRecorderProps> = ({
       setRecording(true);
       setRecordingTime(0);
 
-      // Start timer
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);

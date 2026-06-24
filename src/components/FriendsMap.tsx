@@ -141,6 +141,7 @@ export function FriendsMap() {
   const [loading, setLoading] = useState(true);
   const [mapStyle, setMapStyle] = useState<MapStyle>('dark');
   const [showStylePicker, setShowStylePicker] = useState(false);
+  const battery = useBatterySaver();
 
   const fetchFriendsOnMap = useCallback(async () => {
     if (!user) return;

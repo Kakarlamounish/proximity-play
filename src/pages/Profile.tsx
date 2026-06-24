@@ -17,7 +17,11 @@ import { SnapScoreDisplay } from '@/components/SnapScoreDisplay';
 import { useSnapStreaks } from '@/hooks/useSnapStreaks';
 import { SnapStreakBadge } from '@/components/SnapStreakBadge';
 
-const Profile = () => {
+interface ProfileProps {
+  isOverlay?: boolean;
+}
+
+const Profile = ({ isOverlay = false }: ProfileProps = {}) => {
   const { user, loading } = useAuth();
   const { score } = useSnapScore();
   const { streaks } = useSnapStreaks();
@@ -131,10 +135,10 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-screen">
-      <Navigation />
+    <div className={`bg-background ${!isOverlay ? 'min-h-screen pt-20' : 'h-full overflow-y-auto'}`}>
+      {!isOverlay && <Navigation />}
       
-      <div className="container mx-auto px-4 py-8">
+      <div className="container max-w-4xl mx-auto px-4 pb-12">
         <div className="max-w-4xl mx-auto">
           {/* Profile Header */}
           <Card className="backdrop-blur-sm bg-card/95 border-0 mb-8">

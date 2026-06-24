@@ -3,11 +3,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { MessageSquare, Camera, Map, Users, User } from 'lucide-react';
 
 const tabs = [
-  { to: '/messages', icon: MessageSquare, label: 'Chat' },
-  { to: '/maps', icon: Map, label: 'Map' },
+  { to: '/?sheet=messages', icon: MessageSquare, label: 'Chat' },
+  { to: '/', icon: Map, label: 'Map' },
   { to: '/camera', icon: Camera, label: '', isCenter: true },
   { to: '/stories', icon: Users, label: 'Stories' },
-  { to: '/profile', icon: User, label: 'Profile' },
+  { to: '/?sheet=profile', icon: User, label: 'Profile' },
 ];
 
 export function SnapBottomNav() {

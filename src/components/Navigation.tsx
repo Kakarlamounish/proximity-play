@@ -81,12 +81,12 @@ export function Navigation(): JSX.Element {
   interface NavItem { to: string; label: string; badge?: number; }
 
   const navLinks: NavItem[] = [
-    { to: '/', label: '🏠 Home' },
-    { to: '/messages', label: '💬 Chat' },
+    { to: '/dashboard', label: '🏠 Dash' },
+    { to: '/?sheet=messages', label: '💬 Chat' },
     { to: '/discover', label: '🔍 Discover' },
     { to: '/stories', label: '📖 Stories' },
-    { to: '/maps', label: '🗺️ Snap Map' },
-    { to: '/friends', label: '👥 Friends', badge: pendingRequestCount },
+    { to: '/', label: '🗺️ Snap Map' },
+    { to: '/?sheet=friends', label: '👥 Friends', badge: pendingRequestCount },
     { to: '/calls', label: '📞 Calls' },
   ];
 
@@ -102,7 +102,8 @@ export function Navigation(): JSX.Element {
         />
       )}
 
-      <nav className="fixed top-0 left-0 right-0 z-50 glass border-b-0 shadow-lg">
+      {/* Floating Pill Navigation */}
+      <nav className="fixed top-2 sm:top-4 left-2 right-2 lg:left-1/2 lg:-translate-x-1/2 lg:w-[850px] lg:right-auto z-50 glass rounded-full shadow-2xl border border-white/20 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex items-center justify-between h-14 gap-2">
             {/* Logo */}
@@ -134,7 +135,7 @@ export function Navigation(): JSX.Element {
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                   }`}
                 >
-                  {link.label}
+                  {link.label === '🏠 Home' ? '🏠 Dash' : link.label}
                   {link.badge !== undefined && link.badge > 0 && (
                     <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1">
                       {link.badge}
@@ -160,7 +161,7 @@ export function Navigation(): JSX.Element {
                   ⚙️
                 </Link>
 
-                <Link to="/profile" className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-muted transition-all duration-150 group">
+                <Link to="/?sheet=profile" className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-muted transition-all duration-150 group">
                   <div className="w-7 h-7 rounded-full overflow-hidden border-2 border-primary/40 group-hover:border-primary transition-colors flex-shrink-0">
                     <img src={avatarUrl ?? '/placeholder.svg'} alt="avatar" className="w-full h-full object-cover" />
                   </div>
@@ -242,7 +243,7 @@ export function Navigation(): JSX.Element {
               </Link>
 
               <Link
-                to="/profile"
+                to="/?sheet=profile"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="flex items-center space-x-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
               >

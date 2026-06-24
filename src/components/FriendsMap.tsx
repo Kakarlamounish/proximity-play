@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -139,9 +140,15 @@ export function FriendsMap() {
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [sharing, setSharing] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [mapStyle, setMapStyle] = useState<MapStyle>('dark');
+  const { theme } = useTheme();
+  const [mapStyle, setMapStyle] = useState<MapStyle>(theme === 'dark' ? 'dark' : 'street');
   const [showStylePicker, setShowStylePicker] = useState(false);
   const battery = useBatterySaver();
+
+  // Sync map style with global theme
+  useEffect(() => {
+    setMapStyle(theme === 'dark' ? 'dark' : 'street');
+  }, [theme]);
 
   const fetchFriendsOnMap = useCallback(async () => {
     if (!user) return;
@@ -314,153 +321,127 @@ export function FriendsMap() {
   }
 
   return (
-    <div className="space-y-4">
-      {/* Controls bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-primary" />
-            Snap Map
-          </h2>
-          <Badge variant="secondary" className="text-xs">
-            <Users className="h-3 w-3 mr-1" />
-            {friends.length} sharing · {onlineFriends.length} online
-          </Badge>
-          {battery.saverActive && (
-            <Badge variant="outline" className="text-xs gap-1" title={battery.backgrounded ? 'App backgrounded' : `Battery ${Math.round((battery.level ?? 0) * 100)}%`}>
-              <BatteryLow className="h-3 w-3" />
-              Battery saver
-            </Badge>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3">
+    <div className="absolute inset-0 w-full h-full z-0 pointer-events-auto">
+      {/* Floating Controls bar */}
+      <div className="absolute top-48 sm:top-24 right-4 z-[1000] flex flex-col gap-3 items-end pointer-events-auto">
+        <div className="glass px-4 py-2 rounded-full flex items-center gap-3 shadow-lg">
           {sharing ? <Eye className="h-4 w-4 text-primary" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
-          <Label htmlFor="share-loc" className="text-sm cursor-pointer">Share my location</Label>
-          <Switch id="share-loc" checked={sharing} onCheckedChange={handleSharingToggle} />
+          <Label htmlFor="share-loc" className="text-sm cursor-pointer font-medium">Ghost Mode</Label>
+          <Switch id="share-loc" checked={!sharing} onCheckedChange={(checked) => handleSharingToggle(!checked)} />
         </div>
       </div>
 
-      {/* Map */}
-      <Card className="bg-card border-0 overflow-hidden rounded-2xl">
-        <div className="h-[70vh] min-h-[400px] relative">
-          <MapContainer center={center} zoom={friends.length > 0 ? 12 : 3} className="w-full h-full z-0" zoomControl={false}>
-            <DynamicTileLayer style={mapStyle} />
-            <FitBounds locations={friends} myLocation={myLocation} />
+      {/* Edge-to-Edge Map */}
+      <div className="w-full h-full relative">
+        <MapContainer center={center} zoom={friends.length > 0 ? 12 : 3} className="w-full h-full z-0 bg-background" zoomControl={false}>
+          <DynamicTileLayer style={mapStyle} />
+          <FitBounds locations={friends} myLocation={myLocation} />
 
-            {/* My location - blue dot */}
-            {myLocation && sharing && (
-              <Marker position={[myLocation.lat, myLocation.lng]} icon={createMyMarker()}>
-                <Popup>
-                  <div className="text-center p-1">
-                    <p className="font-bold text-sm">📍 You are here</p>
-                  </div>
-                </Popup>
-              </Marker>
-            )}
+          {/* My location - blue dot */}
+          {myLocation && sharing && (
+            <Marker position={[myLocation.lat, myLocation.lng]} icon={createMyMarker()}>
+              <Popup>
+                <div className="text-center p-1">
+                  <p className="font-bold text-sm">📍 You are here</p>
+                </div>
+              </Popup>
+            </Marker>
+          )}
 
-            {/* Friend markers - Snapchat style */}
-            {friends.map(friend => (
-              <Marker
-                key={friend.user_id}
-                position={[friend.latitude, friend.longitude]}
-                icon={createSnapMarker(friend.first_name, friend.profile_photo_url, friend.presence_status === 'online')}
-              >
-                <Popup>
-                  <div className="flex items-center gap-3 p-2 min-w-[180px]">
-                    <Avatar className="w-10 h-10 border-2 border-primary">
-                      <AvatarImage src={friend.profile_photo_url} />
-                      <AvatarFallback className="bg-primary text-primary-foreground font-bold">{friend.first_name?.[0]}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-bold text-sm">{friend.first_name}</p>
-                      <p className="text-xs flex items-center gap-1">
-                        {friend.presence_status === 'online' ? (
-                          <><Wifi className="h-3 w-3 text-green-500" /> Online</>
-                        ) : (
-                          <><WifiOff className="h-3 w-3 text-gray-400" /> {getTimeAgo(friend.last_seen)}</>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
-
-          {/* Map style picker - floating button */}
-          <div className="absolute top-4 right-4 z-[1000]">
-            <Button
-              size="icon"
-              className="rounded-full w-10 h-10 shadow-lg bg-card/90 hover:bg-card text-foreground border border-border"
-              onClick={() => setShowStylePicker(prev => !prev)}
+          {/* Friend markers - Snapchat style */}
+          {friends.map(friend => (
+            <Marker
+              key={friend.user_id}
+              position={[friend.latitude, friend.longitude]}
+              icon={createSnapMarker(friend.first_name, friend.profile_photo_url, friend.presence_status === 'online')}
             >
-              <Layers className="h-5 w-5" />
-            </Button>
+              <Popup>
+                <div className="flex items-center gap-3 p-2 min-w-[180px]">
+                  <Avatar className="w-10 h-10 border-2 border-primary">
+                    <AvatarImage src={friend.profile_photo_url} />
+                    <AvatarFallback className="bg-primary text-primary-foreground font-bold">{friend.first_name?.[0]}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-bold text-sm">{friend.first_name}</p>
+                    <p className="text-xs flex items-center gap-1">
+                      {friend.presence_status === 'online' ? (
+                        <><Wifi className="h-3 w-3 text-green-500" /> Online</>
+                      ) : (
+                        <><WifiOff className="h-3 w-3 text-gray-400" /> {getTimeAgo(friend.last_seen)}</>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
 
-            {showStylePicker && (
-              <div className="absolute top-12 right-0 bg-card/95 backdrop-blur-md rounded-xl shadow-xl border border-border p-2 flex flex-col gap-1 min-w-[140px] animate-in fade-in zoom-in-95 duration-200">
-                {(Object.keys(MAP_TILES) as MapStyle[]).map(key => (
-                  <button
-                    key={key}
-                    onClick={() => { haptic('selection'); setMapStyle(key); setShowStylePicker(false); }}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      mapStyle === key
-                        ? 'bg-primary text-primary-foreground'
-                        : 'hover:bg-muted text-foreground'
-                    }`}
-                  >
-                    {MAP_TILES[key].icon}
-                    {MAP_TILES[key].label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+        {/* Map style picker - floating button */}
+        <div className="absolute top-[350px] sm:top-40 right-4 z-[1000] pointer-events-auto">
+          <Button
+            size="icon"
+            className="rounded-full w-12 h-12 shadow-lg glass hover:bg-muted/50 text-foreground transition-all duration-300"
+            onClick={() => setShowStylePicker(prev => !prev)}
+          >
+            <Layers className="h-6 w-6" />
+          </Button>
 
-          {/* Center on me */}
-          {myLocation && (
-            <Button
-              size="icon"
-              className="absolute bottom-4 right-4 z-[1000] rounded-full w-12 h-12 shadow-lg bg-card hover:bg-card/80 text-foreground border border-border"
-              onClick={centerOnMe}
-            >
-              <Navigation2 className="h-5 w-5" />
-            </Button>
+          {showStylePicker && (
+            <div className="absolute top-14 right-0 glass rounded-2xl shadow-2xl p-2 flex flex-col gap-1 min-w-[140px] animate-in slide-in-from-top-2 duration-200">
+              {(Object.keys(MAP_TILES) as MapStyle[]).map(key => (
+                <button
+                  key={key}
+                  onClick={() => { haptic('selection'); setMapStyle(key); setShowStylePicker(false); }}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    mapStyle === key
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'hover:bg-muted text-foreground'
+                  }`}
+                >
+                  {MAP_TILES[key].icon}
+                  {MAP_TILES[key].label}
+                </button>
+              ))}
+            </div>
           )}
         </div>
-      </Card>
 
-      {/* Friends list */}
-      {friends.length > 0 ? (
-        <div className="overflow-x-auto pb-2">
-          <div className="flex gap-3 min-w-min px-1">
-            {friends.map(friend => (
-              <div key={friend.user_id} className="flex flex-col items-center gap-1 min-w-[72px]">
-                <div className="relative">
-                  <Avatar className="w-14 h-14 border-2" style={{ borderColor: friend.presence_status === 'online' ? '#00E676' : 'hsl(var(--border))' }}>
-                    <AvatarImage src={friend.profile_photo_url} />
-                    <AvatarFallback className="bg-primary text-primary-foreground font-bold text-lg">{friend.first_name?.[0]}</AvatarFallback>
-                  </Avatar>
-                  {friend.presence_status === 'online' && (
-                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background" />
-                  )}
+        {/* Center on me */}
+        {myLocation && (
+          <Button
+            size="icon"
+            className="absolute bottom-24 right-4 z-[1000] rounded-full w-14 h-14 shadow-2xl glass hover:bg-muted/50 text-foreground transition-all duration-300"
+            onClick={centerOnMe}
+          >
+            <Navigation2 className="h-6 w-6" />
+          </Button>
+        )}
+      </div>
+
+      {/* Floating Friends list at the bottom */}
+      <div className="absolute bottom-24 left-0 right-20 z-[1000] pointer-events-none">
+        {friends.length > 0 && (
+          <div className="overflow-x-auto pb-2 hide-scrollbar pointer-events-auto px-4">
+            <div className="flex gap-4 min-w-min">
+              {friends.map(friend => (
+                <div key={friend.user_id} className="flex flex-col items-center gap-1 min-w-[72px]">
+                  <div className="relative">
+                    <Avatar className="w-16 h-16 border-4 shadow-xl" style={{ borderColor: friend.presence_status === 'online' ? '#00E676' : 'hsl(var(--border))' }}>
+                      <AvatarImage src={friend.profile_photo_url} />
+                      <AvatarFallback className="bg-primary text-primary-foreground font-bold text-xl">{friend.first_name?.[0]}</AvatarFallback>
+                    </Avatar>
+                    {friend.presence_status === 'online' && (
+                      <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-background shadow-sm" />
+                    )}
+                  </div>
+                  <p className="text-xs font-bold truncate max-w-[80px] text-center drop-shadow-md bg-background/50 backdrop-blur-md px-2 py-0.5 rounded-full">{friend.first_name}</p>
                 </div>
-                <p className="text-xs font-medium truncate max-w-[72px] text-center">{friend.first_name}</p>
-                <p className="text-[10px] text-muted-foreground">{getTimeAgo(friend.last_seen)}</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      ) : (
-        <Card className="bg-card border-0">
-          <CardContent className="p-8 text-center">
-            <Users className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
-            <p className="font-medium mb-1">No friends on the map yet</p>
-            <p className="text-sm text-muted-foreground">Add friends and share locations to see them here!</p>
-          </CardContent>
-        </Card>
-      )}
+        )}
+      </div>
     </div>
   );
 }

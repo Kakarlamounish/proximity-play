@@ -14,7 +14,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 import { Loader2 } from 'lucide-react';
 
-const Messages = () => {
+interface MessagesProps {
+  isOverlay?: boolean;
+}
+
+const Messages = ({ isOverlay = false }: MessagesProps = {}) => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
@@ -120,10 +124,9 @@ const Messages = () => {
   }
 
   return (
-    <div className="min-h-screen">
-      <Navigation />
-      
-      <div className="container mx-auto px-4 py-8">
+    <div className={`flex flex-col bg-background ${!isOverlay ? 'min-h-[calc(100vh-4rem)] pt-20 pb-20 md:pb-0' : 'h-full'}`}>
+      {!isOverlay && <Navigation />}
+      <div className="flex-1 flex overflow-hidden max-w-7xl mx-auto w-full px-0 sm:px-4 lg:px-6">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold mb-2">Messages</h1>

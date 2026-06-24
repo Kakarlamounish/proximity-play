@@ -292,7 +292,7 @@ const Index = () => {
   return (
     <div className="min-h-screen text-foreground">
       <Navigation />
-      <div className="pt-4">
+      <div className="pt-24">
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-6xl mx-auto">
             {/* Welcome Header */}

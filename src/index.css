@@ -160,22 +160,8 @@
     -webkit-overflow-scrolling: touch;
     line-height: 1.6;
     
-    /* Rich Animated Background for Glassmorphism */
+    /* Pure Solid Backgrounds for Snapchat Aesthetic */
     background-color: hsl(var(--background));
-    background-image: 
-      radial-gradient(at 0% 0%, hsla(var(--primary), 0.15) 0px, transparent 50%),
-      radial-gradient(at 100% 0%, hsla(var(--secondary), 0.15) 0px, transparent 50%),
-      radial-gradient(at 100% 100%, hsla(var(--primary), 0.15) 0px, transparent 50%),
-      radial-gradient(at 0% 100%, hsla(var(--secondary), 0.15) 0px, transparent 50%);
-    background-attachment: fixed;
-    background-size: 200% 200%;
-    animation: gradientMove 15s ease infinite;
-  }
-
-  @keyframes gradientMove {
-    0% { background-position: 0% 0%; }
-    50% { background-position: 100% 100%; }
-    100% { background-position: 0% 0%; }
   }
 
   /* Mobile fill-available fix */

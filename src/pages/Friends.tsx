@@ -28,7 +28,11 @@ interface Friend {
   mutualFriendsCount?: number;
 }
 
-export default function Friends() {
+interface FriendsProps {
+  isOverlay?: boolean;
+}
+
+export default function Friends({ isOverlay = false }: FriendsProps = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
   const { startCall } = useCallContext();
@@ -364,9 +368,10 @@ export default function Friends() {
   }, [fetchSuggestedFriends, user, profile, friends]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Navigation />
-      <div className="container mx-auto p-6 max-w-6xl">
+    <div className={`bg-background ${!isOverlay ? 'min-h-[calc(100vh-4rem)] pt-20' : 'h-full overflow-y-auto'}`}>
+      {!isOverlay && <Navigation />}
+      
+      <div className="container max-w-4xl mx-auto px-4 pb-12">
         <div className="mb-8">
           <h1 className="text-4xl font-extrabold mb-2 text-primary-foreground">
             Friends

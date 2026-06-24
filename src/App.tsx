@@ -68,10 +68,11 @@ function App() {
                   {/* Global floating UI */}
                   <BatterySaverBanner />
                   <SmartStatusChip />
-                  <div id="main-content" role="main" className="min-h-screen pt-16 bg-background">
+                  <div id="main-content" role="main" className="min-h-screen bg-background">
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
-                        <Route path="/" element={<Index />} />
+                        <Route path="/" element={<Maps />} />
+                        <Route path="/dashboard" element={<Index />} />
                         <Route path="/auth" element={<Auth />} />
                         <Route path="/profile-setup" element={<ProfileSetup />} />
                         <Route path="/discover" element={<Discover />} />
@@ -80,7 +81,6 @@ function App() {
                         <Route path="/live" element={<Live />} />
                         <Route path="/calls" element={<Calls />} />
                         <Route path="/stories" element={<Stories />} />
-                        <Route path="/maps" element={<Maps />} />
                         <Route path="/profile" element={<Profile />} />
                         <Route path="/settings" element={<Settings />} />
                         <Route path="/analytics" element={<Analytics />} />

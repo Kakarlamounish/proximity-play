@@ -9,13 +9,14 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings as SettingsIcon, Moon, Sun, Bell, Shield, MapPin, Trash2, Download, HelpCircle, UserX, Globe, Clock } from 'lucide-react';
+import { Settings as SettingsIcon, Moon, Sun, Bell, Shield, MapPin, Trash2, Download, HelpCircle, UserX, Globe, Clock, Ghost, Eye, EyeOff, Timer, Users, Crown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UpdateLocationDialog } from '@/components/UpdateLocationDialog';
+import { Link } from 'react-router-dom';
 
 
 const Settings = () => {
@@ -36,6 +37,19 @@ const Settings = () => {
   const [timezone, setTimezone] = useState('UTC');
   const [storageUsed, setStorageUsed] = useState(0);
   const [callTimeoutSeconds, setCallTimeoutSeconds] = useState(30);
+
+  // Privacy state
+  const [ghostMode, setGhostMode] = useState(
+    () => localStorage.getItem('ghost-mode') === 'true'
+  );
+  const [blurLocation, setBlurLocation] = useState(
+    () => localStorage.getItem('blur-location') === 'true'
+  );
+  const [trustedOnly, setTrustedOnly] = useState(
+    () => localStorage.getItem('trusted-only') === 'true'
+  );
+  const [shareTimerActive, setShareTimerActive] = useState(false);
+  const [shareTimerEnd, setShareTimerEnd] = useState<Date | null>(null);
 
   const CALL_TIMEOUT_STORAGE_KEY = 'call-timeout-seconds';
 
@@ -82,6 +96,38 @@ const Settings = () => {
   const updateCallTimeout = (seconds: number) => {
     setCallTimeoutSeconds(seconds);
     localStorage.setItem(CALL_TIMEOUT_STORAGE_KEY, String(seconds));
+  };
+
+  const toggleGhostMode = (val: boolean) => {
+    setGhostMode(val);
+    localStorage.setItem('ghost-mode', String(val));
+  };
+
+  const toggleBlurLocation = (val: boolean) => {
+    setBlurLocation(val);
+    localStorage.setItem('blur-location', String(val));
+    toast({ title: val ? 'Location blurred (~100m accuracy)' : 'Exact location restored' });
+  };
+
+  const toggleTrustedOnly = (val: boolean) => {
+    setTrustedOnly(val);
+    localStorage.setItem('trusted-only', String(val));
+  };
+
+  const startShareTimer = (hours: number) => {
+    const end = new Date(Date.now() + hours * 3600000);
+    setShareTimerEnd(end);
+    setShareTimerActive(true);
+    toast({
+      title: `⏱️ Sharing for ${hours}h`,
+      description: `Your location will be hidden after ${end.toLocaleTimeString()}`,
+    });
+    setTimeout(() => {
+      setShareTimerActive(false);
+      setShareTimerEnd(null);
+      toggleGhostMode(true);
+      toast({ title: '👻 Ghost Mode activated', description: 'Your timed share has ended' });
+    }, hours * 3600000);
   };
 
   useEffect(() => {
@@ -180,40 +226,37 @@ const Settings = () => {
 
   const handleExportData = async () => {
     try {
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user?.id)
-        .single();
-
-      const { data: bubbleData } = await supabase
-        .from('bubble_memberships')
-        .select('*, bubbles(*)')
-        .eq('user_id', user?.id);
-
-      const { data: messageData } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('sender_id', user?.id);
+      const [profileRes, bubbleRes, messageRes, locationRes, tripRes, dropRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', user?.id).single(),
+        supabase.from('bubble_memberships').select('*, bubbles(*)').eq('user_id', user?.id),
+        supabase.from('messages').select('*').eq('sender_id', user?.id),
+        supabase.from('location_history').select('*').eq('user_id', user?.id).limit(5000),
+        supabase.from('trips').select('*').eq('created_by', user?.id),
+        supabase.from('dead_drops').select('*').eq('created_by', user?.id),
+      ]);
 
       const exportData = {
-        profile: profileData,
-        bubbles: bubbleData,
-        messages: messageData,
+        profile: profileRes.data,
+        bubbles: bubbleRes.data,
+        messages: messageRes.data,
+        locationHistory: locationRes.data,
+        trips: tripRes.data,
+        deadDrops: dropRes.data,
         exportDate: new Date().toISOString(),
+        gdprNote: 'This is all data stored about you. You can request deletion at any time.',
       };
 
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `social-bubble-data-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `proximity-play-data-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
       URL.revokeObjectURL(url);
 
       toast({
-        title: 'Data exported',
-        description: 'Your data has been downloaded successfully.',
+        title: 'Data exported 📥',
+        description: 'Your complete data has been downloaded (GDPR compliant).',
       });
     } catch (error) {
       toast({
@@ -221,6 +264,20 @@ const Settings = () => {
         description: error instanceof Error ? error.message : 'An error occurred',
         variant: 'destructive',
       });
+    }
+  };
+
+  const handleDeleteAllData = async () => {
+    if (!confirm('Delete ALL your location history, trips, and dead drops? This cannot be undone. (Your account and profile will remain.)')) return;
+    try {
+      await Promise.all([
+        supabase.from('location_history').delete().eq('user_id', user?.id),
+        supabase.from('trips').delete().eq('created_by', user?.id),
+        supabase.from('dead_drops').delete().eq('created_by', user?.id),
+      ]);
+      toast({ title: '🗑️ Data deleted', description: 'Your location history, trips and drops have been removed' });
+    } catch (err: any) {
+      toast({ title: 'Deletion failed', description: err.message, variant: 'destructive' });
     }
   };
 
@@ -251,14 +308,14 @@ const Settings = () => {
 
   if (loading || profileLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary">
+      <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
+    <div className="min-h-screen">
       <Navigation />
       
       <div className="container mx-auto px-4 py-8">
@@ -273,7 +330,7 @@ const Settings = () => {
 
           <div className="space-y-6">
             {/* Appearance */}
-            <Card className="backdrop-blur-sm bg-card/95 border-0">
+            <Card className="glass border-0">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   {theme === 'dark' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
@@ -296,7 +353,7 @@ const Settings = () => {
             </Card>
 
             {/* Notifications */}
-            <Card className="backdrop-blur-sm bg-card/95 border-0">
+            <Card className="glass border-0">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Bell className="h-5 w-5" />
@@ -376,8 +433,8 @@ const Settings = () => {
               </CardContent>
             </Card>
 
-            {/* Privacy */}
-            <Card className="backdrop-blur-sm bg-card/95 border-0">
+            {/* Privacy & Safety - Enhanced */}
+            <Card className="glass border-0">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Shield className="h-5 w-5" />
@@ -385,14 +442,86 @@ const Settings = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+
+                {/* Ghost Mode */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base">Location Sharing</Label>
-                    <p className="text-sm text-muted-foreground">Share your location to find nearby bubbles</p>
+                    <Label htmlFor="ghost-mode" className="text-base flex items-center gap-2">
+                      👻 Ghost Mode
+                    </Label>
+                    <p className="text-sm text-muted-foreground">Completely hide your location from everyone</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch
+                    id="ghost-mode"
+                    checked={ghostMode}
+                    onCheckedChange={toggleGhostMode}
+                  />
                 </div>
+
                 <Separator />
+
+                {/* Blur Location */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="blur-location" className="text-base">
+                      📌 Blur Exact Location
+                    </Label>
+                    <p className="text-sm text-muted-foreground">Show your area (~100m) instead of exact GPS</p>
+                  </div>
+                  <Switch
+                    id="blur-location"
+                    checked={blurLocation}
+                    onCheckedChange={toggleBlurLocation}
+                  />
+                </div>
+
+                <Separator />
+
+                {/* Trusted Friends Only */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="trusted-only" className="text-base">
+                      👥 Trusted Friends Only
+                    </Label>
+                    <p className="text-sm text-muted-foreground">Only close friends can see your location</p>
+                  </div>
+                  <Switch
+                    id="trusted-only"
+                    checked={trustedOnly}
+                    onCheckedChange={toggleTrustedOnly}
+                  />
+                </div>
+
+                <Separator />
+
+                {/* Timed Share */}
+                <div>
+                  <Label className="text-base">⏱️ Share for Limited Time</Label>
+                  <p className="text-sm text-muted-foreground mb-3">Enable location sharing for a set duration, then auto-ghost</p>
+                  {shareTimerActive && shareTimerEnd ? (
+                    <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-500/10 rounded-lg px-3 py-2">
+                      <Clock className="h-4 w-4" />
+                      Sharing until {shareTimerEnd.toLocaleTimeString()}
+                    </div>
+                  ) : (
+                    <div className="flex gap-2 flex-wrap">
+                      {[1, 4, 8, 24].map(h => (
+                        <Button
+                          key={h}
+                          size="sm"
+                          variant="outline"
+                          onClick={() => startShareTimer(h)}
+                          disabled={ghostMode}
+                        >
+                          {h}h
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label className="text-base">Profile Visibility</Label>
@@ -404,7 +533,7 @@ const Settings = () => {
             </Card>
 
             {/* Preferences */}
-            <Card className="backdrop-blur-sm bg-card/95 border-0">
+            <Card className="glass border-0">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Globe className="h-5 w-5" />
@@ -473,7 +602,7 @@ const Settings = () => {
             </Card>
 
             {/* Blocked Users */}
-            <Card className="backdrop-blur-sm bg-card/95 border-0">
+            <Card className="glass border-0">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <UserX className="h-5 w-5" />
@@ -509,10 +638,10 @@ const Settings = () => {
               </CardContent>
             </Card>
 
-            {/* Storage & Data */}
-            <Card className="backdrop-blur-sm bg-card/95 border-0">
+            {/* Storage & Data - Enhanced */}
+            <Card className="glass border-0">
               <CardHeader>
-                <CardTitle>Storage & Data</CardTitle>
+                <CardTitle>Storage & Data (GDPR)</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -522,11 +651,10 @@ const Settings = () => {
                   </div>
                   <div className="text-sm font-medium">{storageUsed} MB</div>
                 </div>
-                
+
                 <Separator />
-                
+
                 <UpdateLocationDialog onLocationUpdate={() => {
-                  // Refresh profile data after location update
                   if (user) {
                     supabase
                       .from('profiles')
@@ -536,16 +664,25 @@ const Settings = () => {
                       .then(({ data }) => setProfile(data));
                   }
                 }} />
-                
+
                 <Button variant="outline" className="w-full justify-start" onClick={handleExportData}>
                   <Download className="h-4 w-4 mr-2" />
-                  Export Data
+                  Export All My Data (JSON)
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-destructive border-destructive/50 hover:bg-destructive/10"
+                  onClick={handleDeleteAllData}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Location History & Activity
                 </Button>
               </CardContent>
             </Card>
 
             {/* Help & Support */}
-            <Card className="backdrop-blur-sm bg-card/95 border-0">
+            <Card className="glass border-0">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <HelpCircle className="h-5 w-5" />
@@ -569,7 +706,7 @@ const Settings = () => {
             </Card>
 
             {/* Account Actions */}
-            <Card className="backdrop-blur-sm bg-card/95 border-0">
+            <Card className="glass border-0">
               <CardHeader>
                 <CardTitle>Account Actions</CardTitle>
               </CardHeader>
@@ -592,7 +729,7 @@ const Settings = () => {
             </Card>
 
             {/* App Info */}
-            <Card className="backdrop-blur-sm bg-card/95 border-0">
+            <Card className="glass border-0">
               <CardContent className="pt-6">
                 <div className="text-center text-sm text-muted-foreground">
                   <p>Social Bubble v1.0.0</p>

@@ -88,6 +88,9 @@ export function Navigation(): JSX.Element {
     { to: '/maps', label: '🗺️ Snap Map' },
     { to: '/friends', label: '👥 Friends', badge: pendingRequestCount },
     { to: '/calls', label: '📞 Calls' },
+    { to: '/memory-lane', label: '🔥 Memory Lane' },
+    { to: '/ar', label: '📷 AR View' },
+    { to: '/premium', label: '👑 Premium' },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -102,7 +105,7 @@ export function Navigation(): JSX.Element {
         />
       )}
 
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-card/90 backdrop-blur-md border-b border-border shadow-lg">
+      <nav className="fixed top-0 left-0 right-0 z-50 glass border-b-0 shadow-lg">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex items-center justify-between h-14 gap-2">
             {/* Logo */}
@@ -188,7 +191,7 @@ export function Navigation(): JSX.Element {
         </div>
 
         {/* Mobile Navigation Menu */}
-        <div className={`lg:hidden fixed top-14 left-0 right-0 z-50 bg-card border-b border-border shadow-2xl transition-all duration-300 ease-in-out ${
+        <div className={`lg:hidden fixed top-14 left-0 right-0 z-50 glass transition-all duration-300 ease-in-out ${
           isMobileMenuOpen
             ? 'opacity-100 visible transform translate-y-0'
             : 'opacity-0 invisible transform -translate-y-4 pointer-events-none'
@@ -215,6 +218,30 @@ export function Navigation(): JSX.Element {
             ))}
 
             <div className="border-t border-border pt-4 mt-4">
+              <Link
+                to="/memory-lane"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
+              >
+                <span className="text-lg">🔥</span>
+                <span className="font-medium">Memory Lane</span>
+              </Link>
+              <Link
+                to="/ar"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
+              >
+                <span className="text-lg">📷</span>
+                <span className="font-medium">AR View</span>
+              </Link>
+              <Link
+                to="/premium"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-amber-600 hover:bg-amber-500/10 transition-all duration-200"
+              >
+                <span className="text-lg">👑</span>
+                <span className="font-medium font-bold">Go Premium</span>
+              </Link>
               <Link
                 to="/settings"
                 onClick={() => setIsMobileMenuOpen(false)}

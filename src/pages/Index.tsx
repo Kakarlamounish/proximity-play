@@ -275,7 +275,7 @@ const Index = () => {
 
   if (loading || profileLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -290,7 +290,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen text-foreground">
       <Navigation />
       <div className="pt-4">
         <div className="container mx-auto px-4 py-8">
@@ -321,7 +321,7 @@ const Index = () => {
             </div>
 
             {/* Location Status */}
-            <Card className="bg-card border-border shadow-2xl mb-8 overflow-hidden relative">
+            <Card className="glass border-0 shadow-2xl mb-8 overflow-hidden relative">
               <div className="absolute top-0 left-0 w-full h-0.5 bg-primary/30"></div>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -372,7 +372,7 @@ const Index = () => {
             {/* User Stats & Gamification */}
             {profile && (
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                <Card className="backdrop-blur-sm bg-card/95 border-0 relative overflow-hidden">
+                <Card className="glass border-0 relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-secondary to-primary"></div>
                   <CardContent className="p-4 text-center">
                     <div className="flex items-center justify-center gap-2 mb-2">
@@ -389,19 +389,19 @@ const Index = () => {
                   </CardContent>
                 </Card>
 
-                <Card className="backdrop-blur-sm bg-card/95 border-0">
+                <Card className="glass border-0">
                   <CardContent className="p-4 text-center">
                     <div className="text-2xl font-bold text-primary">{bubbles.filter(b => b.is_member).length}</div>
                     <p className="text-sm text-muted-foreground">Joined Bubbles</p>
                   </CardContent>
                 </Card>
-                <Card className="backdrop-blur-sm bg-card/95 border-0">
+                <Card className="glass border-0">
                   <CardContent className="p-4 text-center">
                     <div className="text-2xl font-bold text-primary">{userStats.storiesCreated}</div>
                     <p className="text-sm text-muted-foreground">Stories Created</p>
                   </CardContent>
                 </Card>
-                <Card className="backdrop-blur-sm bg-card/95 border-0">
+                <Card className="glass border-0">
                   <CardContent className="p-4 text-center">
                     <div className="text-2xl font-bold text-primary">{userStats.friendsCount}</div>
                     <p className="text-sm text-muted-foreground">Friends</p>
@@ -412,7 +412,7 @@ const Index = () => {
 
             {/* Your Interests */}
             {profile?.interests && profile.interests.length > 0 && (
-              <Card className="backdrop-blur-sm bg-card/95 border-0 mb-8">
+              <Card className="glass border-0 mb-8">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Users className="h-5 w-5" />
@@ -437,7 +437,7 @@ const Index = () => {
                 <ActivityFeed limit={8} />
               </div>
               <div>
-                <Card className="backdrop-blur-sm bg-card/95 border-0">
+                <Card className="glass border-0">
                   <CardHeader>
                     <CardTitle>Quick Stats</CardTitle>
                   </CardHeader>

@@ -202,7 +202,7 @@ const JoinBubble = () => {
 
   if (loading || authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary">
+      <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -210,7 +210,7 @@ const JoinBubble = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary p-4">
+      <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="max-w-md w-full backdrop-blur-sm bg-card/95 border-0">
           <CardContent className="p-8 text-center">
             <XCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
@@ -228,7 +228,7 @@ const JoinBubble = () => {
   if (!bubble) return null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary p-4">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="max-w-md w-full backdrop-blur-sm bg-card/95 border-0">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">

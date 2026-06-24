@@ -95,15 +95,18 @@ function NearbyPlacesSearch({
 }
 // Map Theme Switcher
 const MAP_THEMES = [
-  { key: 'standard', label: 'Standard', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors' },
-  { key: 'dark', label: 'Dark', url: 'https://tiles.stadiamaps.com/tiles/alidade_dark/{z}/{x}/{y}{r}.png', attribution: '&copy; Stadia Maps, OpenMapTiles, OpenStreetMap contributors' },
-  { key: 'satellite', label: 'Satellite', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR, and the GIS User Community' }
+  { key: 'standard', label: 'Standard', emoji: '🗺️', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors' },
+  { key: 'dark', label: 'Dark', emoji: '🌙', url: 'https://tiles.stadiamaps.com/tiles/alidade_dark/{z}/{x}/{y}{r}.png', attribution: '&copy; Stadia Maps, OpenMapTiles, OpenStreetMap contributors' },
+  { key: 'satellite', label: 'Satellite', emoji: '🛰️', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution: 'Tiles &copy; Esri &mdash; Source: Esri, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR, GIS Community' },
+  { key: 'retro', label: 'Retro', emoji: '🎨', url: 'https://stamen-tiles-{s}.a.ssl.fastly.net/toner/{z}/{x}/{y}.png', attribution: 'Map tiles by Stamen Design, CC BY 3.0 &mdash; Map data &copy; OpenStreetMap contributors' },
+  { key: 'outdoors', label: 'Outdoors', emoji: '🏔️', url: 'https://tiles.stadiamaps.com/tiles/outdoors/{z}/{x}/{y}{r}.png', attribution: '&copy; Stadia Maps, OpenMapTiles, OpenStreetMap contributors' },
+  { key: 'night', label: 'Night', emoji: '✨', url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', attribution: '&copy; OpenStreetMap contributors &copy; CARTO' },
 ];
 
 function MapThemeSwitcher({ theme, setTheme }: { theme: string; setTheme: (theme: string) => void }) {
   return (
     <div
-      style={{ position: 'absolute', top: 24, left: 32, zIndex: 2000, display: 'flex', gap: 8 }}
+      style={{ position: 'absolute', top: 24, left: 32, zIndex: 2000, display: 'flex', gap: 6, flexWrap: 'wrap', maxWidth: 320 }}
       role="radiogroup"
       aria-label="Map theme selector"
     >
@@ -112,23 +115,29 @@ function MapThemeSwitcher({ theme, setTheme }: { theme: string; setTheme: (theme
           key={t.key}
           onClick={() => setTheme(t.key)}
           style={{
-            background: theme === t.key ? 'linear-gradient(90deg,#6366f1,#3b82f6)' : '#334155',
+            background: theme === t.key ? 'linear-gradient(90deg,#6366f1,#3b82f6)' : 'rgba(30,41,59,0.85)',
             color: '#fff',
-            border: 'none',
-            borderRadius: 8,
-            padding: '8px 14px',
+            border: theme === t.key ? '2px solid rgba(99,102,241,0.8)' : '2px solid transparent',
+            borderRadius: 10,
+            padding: '6px 12px',
             fontWeight: 'bold',
-            fontSize: 14,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            fontSize: 12,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
             cursor: 'pointer',
             outline: 'none',
-            marginRight: 4,
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            transition: 'all 0.2s ease',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
           }}
           role="radio"
           aria-checked={theme === t.key}
           aria-label={`Switch to ${t.label} map theme`}
           type="button"
         >
+          <span>{t.emoji}</span>
           {t.label}
         </button>
       ))}

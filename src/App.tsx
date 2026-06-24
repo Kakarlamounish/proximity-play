@@ -12,6 +12,8 @@ import { PageSkeleton } from "@/components/ui/skeleton-loader";
 import { FriendRequestNotifier } from '@/components/FriendRequestNotifier';
 import { PresenceTracker } from '@/components/PresenceTracker';
 import { SnapBottomNav } from '@/components/SnapBottomNav';
+import { SmartStatusChip } from '@/components/SmartStatusChip';
+import { BatterySaverBanner } from '@/components/BatterySaverBanner';
 
 // Lazy load pages
 const Index = lazy(() => import("./pages/Index"));
@@ -32,6 +34,9 @@ const JoinBubble = lazy(() => import("./pages/JoinBubble"));
 const MissedCalls = lazy(() => import("./pages/MissedCalls"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Camera = lazy(() => import("./pages/Camera"));
+const MemoryLane = lazy(() => import("./pages/MemoryLane"));
+const ARView = lazy(() => import("./pages/ARView"));
+const Premium = lazy(() => import("./pages/Premium"));
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -61,6 +66,9 @@ function App() {
                 <BrowserRouter>
                   <FriendRequestNotifier />
                   <PresenceTracker />
+                  {/* Global floating UI */}
+                  <BatterySaverBanner />
+                  <SmartStatusChip />
                   <div id="main-content" role="main" className="min-h-screen pt-16 bg-background">
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
@@ -81,6 +89,10 @@ function App() {
                         <Route path="/missed-calls" element={<MissedCalls />} />
                         <Route path="/camera" element={<Camera />} />
                         <Route path="/join/:inviteCode" element={<JoinBubble />} />
+                        {/* New routes */}
+                        <Route path="/memory-lane" element={<MemoryLane />} />
+                        <Route path="/ar" element={<ARView />} />
+                        <Route path="/premium" element={<Premium />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </Suspense>

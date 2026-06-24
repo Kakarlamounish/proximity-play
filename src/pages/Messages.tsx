@@ -113,14 +113,14 @@ const Messages = () => {
 
   if (loading || profileLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary">
+      <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
+    <div className="min-h-screen">
       <Navigation />
       
       <div className="container mx-auto px-4 py-8">
@@ -146,7 +146,7 @@ const Messages = () => {
               {/* Chat List */}
               <div className="lg:col-span-1">
                 <TabsContent value="bubbles" className="mt-0">
-                  <Card className="backdrop-blur-sm bg-card/95 border-0">
+                  <Card className="glass border-0">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <MessageCircle className="h-5 w-5" />
@@ -199,7 +199,7 @@ const Messages = () => {
                 </TabsContent>
 
                 <TabsContent value="friends" className="mt-0">
-                  <Card className="backdrop-blur-sm bg-card/95 border-0">
+                  <Card className="glass border-0">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <User className="h-5 w-5" />
@@ -250,7 +250,7 @@ const Messages = () => {
 
               {/* Chat Area */}
               <div className="lg:col-span-2">
-                <Card className="backdrop-blur-sm bg-card/95 border-0 h-[600px]">
+                <Card className="glass border-0 h-[600px]">
                   {selectedBubble ? (
                     <ChatWindow
                       bubble={selectedBubble}

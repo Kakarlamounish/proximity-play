@@ -318,7 +318,7 @@ export default function Discover() {
 
   if (!myLocation) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
+      <div className="min-h-screen">
         <Navigation />
         <div className="container mx-auto p-6 max-w-6xl">
         <Card className="p-8 text-center">
@@ -334,11 +334,11 @@ export default function Discover() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
+    <div className="min-h-screen">
       <Navigation />
       <div className="container mx-auto p-6 max-w-6xl">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">
+        <h1 className="text-4xl font-bold mb-2 bg-clip-text text-transparent">
           Discover
         </h1>
         <p className="text-muted-foreground">Find people and bubbles nearby</p>

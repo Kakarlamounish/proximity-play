@@ -119,7 +119,7 @@ const MissedCalls = () => {
   const unreadCount = filtered.filter(i => !i.read).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
+    <div className="min-h-screen">
       <Navigation />
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-3xl mx-auto">

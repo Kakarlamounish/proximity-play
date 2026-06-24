@@ -124,14 +124,14 @@ const Profile = () => {
 
   if (loading || profileLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary">
+      <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary">
+    <div className="min-h-screen">
       <Navigation />
       
       <div className="container mx-auto px-4 py-8">

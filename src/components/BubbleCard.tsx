@@ -173,7 +173,7 @@ export const BubbleCard: React.FC<BubbleCardProps> = ({
   };
 
   return (
-    <Card className={`hover:shadow-lg transition-all duration-200 hover:scale-[1.02] border-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm ${bubble.trending ? 'ring-2 ring-orange-400/50 shadow-orange-400/20' : ''}`}>
+    <Card className={`hover:shadow-lg transition-all duration-200 hover:scale-[1.02] border-0 glass ${bubble.trending ? 'ring-2 ring-orange-400/50 shadow-orange-400/20' : ''}`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">

@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, MoreVertical, Phone, Video, ImageIcon, Type, Ghost, Eye, EyeOff, Flame, Check, CheckCheck } from 'lucide-react';
+import { Send, MoreVertical, Phone, Video, ImageIcon, Type, Ghost, Eye, EyeOff, Flame, Check, CheckCheck, Mic } from 'lucide-react';
 import { ImageUpload } from '@/components/ImageUpload';
+import { VoiceNoteRecorder } from '@/components/voice-notes/VoiceNoteRecorder';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -13,6 +14,7 @@ import { useSnapStreaks } from '@/hooks/useSnapStreaks';
 import { useSnapScore } from '@/hooks/useSnapScore';
 import { Switch } from '@/components/ui/switch';
 import { SnapStreakBadge } from '@/components/SnapStreakBadge';
+import { hapticPatterns } from '@/hooks/useHapticFeedback';
 
 type Message = {
   id: string;
@@ -115,6 +117,8 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
           console.log('FriendChatWindow: Received message:', payload.new);
           // Only process messages from this friend
           if (payload.new.sender_id === friend.id) {
+            // Haptic feedback for incoming messages
+            navigator.vibrate?.(hapticPatterns.messageReceived);
             try {
               const { data: senderData } = await supabase
                 .from('profiles')
@@ -364,6 +368,16 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
             <Video className="h-4 w-4" />
             Video
           </Button>
+          <Button
+            type="button"
+            variant={messageType === 'voice' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setMessageType(prev => prev === 'voice' ? 'text' : 'voice' as any)}
+            className="flex items-center gap-2"
+          >
+            <Mic className="h-4 w-4" />
+            Voice
+          </Button>
           <div className="ml-auto flex items-center gap-1.5">
             <Ghost className={`h-4 w-4 ${isDisappearing ? 'text-primary' : 'text-muted-foreground'}`} />
             <Switch
@@ -393,6 +407,15 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
               placeholder="Type a message..."
               className="flex-1"
             />
+          ) : messageType === 'voice' ? (
+            <div className="flex-1">
+              <VoiceNoteRecorder
+                chatId={`dm-${[user?.id, friend.id].sort().join('-')}`}
+                onUploadComplete={() => {
+                  toast({ title: '🎤 Voice note sent!' });
+                }}
+              />
+            </div>
           ) : (
             <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-muted rounded-md border-2 border-dashed border-muted-foreground/30">
               <Video className="h-4 w-4 text-muted-foreground" />

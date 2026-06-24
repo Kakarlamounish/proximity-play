@@ -155,10 +155,27 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
     font-family: var(--font-sans);
     -webkit-overflow-scrolling: touch;
     line-height: 1.6;
+    
+    /* Rich Animated Background for Glassmorphism */
+    background-color: hsl(var(--background));
+    background-image: 
+      radial-gradient(at 0% 0%, hsla(var(--primary), 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, hsla(var(--secondary), 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, hsla(var(--primary), 0.15) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, hsla(var(--secondary), 0.15) 0px, transparent 50%);
+    background-attachment: fixed;
+    background-size: 200% 200%;
+    animation: gradientMove 15s ease infinite;
+  }
+
+  @keyframes gradientMove {
+    0% { background-position: 0% 0%; }
+    50% { background-position: 100% 100%; }
+    100% { background-position: 0% 0%; }
   }
 
   /* Mobile fill-available fix */
@@ -253,20 +270,29 @@
     display: none;
   }
 
-  /* Glass morphism card (dark) */
-  .glass-dark {
-    background: rgba(0, 0, 0, 0.55);
+  /* Universal Glassmorphism Class */
+  .glass {
+    background: rgba(255, 255, 255, 0.4);
     backdrop-filter: blur(16px) saturate(180%);
     -webkit-backdrop-filter: blur(16px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
   }
 
-  /* Glass morphism card (light) */
+  .dark .glass {
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Glass morphism card (legacy dark) */
+  .glass-dark {
+    @apply glass;
+  }
+
+  /* Glass morphism card (legacy light) */
   .glass-light {
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(16px) saturate(180%);
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    @apply glass;
   }
 }
 

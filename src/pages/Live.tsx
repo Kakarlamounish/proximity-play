@@ -11,18 +11,27 @@ import {
   Activity,
   Users,
   Clock,
-  Loader2
+  Loader2,
+  Package,
+  Route,
+  Zap,
+  BatteryLow
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { Database } from '@/integrations/supabase/types';
-// (Removed unused RealtimeChannel import)
 import { Map } from '@/components/Map';
 import CreateStoryDialog from '@/components/CreateStoryDialog';
 import CreateEventDialog from '@/components/CreateEventDialog';
 import CreateARPinDialog from '@/components/CreateARPinDialog';
 import EmergencyShareButton from '@/components/EmergencyShareButton';
 import PrivacyScheduleDialog from '@/components/PrivacyScheduleDialog';
+import { DeadDropPanel } from '@/components/DeadDropPanel';
+import { TripSharingPanel } from '@/components/TripSharingPanel';
+import { HangoutZonePanel } from '@/components/HangoutZonePanel';
+import { useBatterySaver } from '@/hooks/useBatterySaver';
+import { useHapticFeedback, hapticPatterns } from '@/hooks/useHapticFeedback';
+import { useSafetyMonitor } from '@/hooks/useSafetyMonitor';
 
 type UserBadgeRow = {
   id: string;
@@ -67,6 +76,11 @@ function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 const Live = () => {
   const { user, loading } = useAuth();
+  const batterySaver = useBatterySaver();
+  const haptic = useHapticFeedback();
+
+  // Safety monitor — watches for unusual stillness
+  useSafetyMonitor({ userId: user?.id });
 
   // State declarations
   const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
@@ -95,6 +109,7 @@ const Live = () => {
   // Refs
   const locationWatchId = useRef<number | null>(null);
   const chatChannelRef = useRef<RealtimeChannel | null>(null);
+  const prevProximityAlert = useRef<string | null>(null);
 
   // Detect activity using device sensors (demo: use geolocation speed)
   useEffect(() => {
@@ -281,7 +296,11 @@ const Live = () => {
           if (isMounted) publishLocation(pos.coords.latitude, pos.coords.longitude);
         },
         (err) => { console.warn('Location error:', err); },
-        { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
+        {
+          enableHighAccuracy: !batterySaver.saverActive,
+          maximumAge: batterySaver.maximumAgeMs,
+          timeout: 20000
+        }
       );
     }
     return () => {
@@ -292,7 +311,7 @@ const Live = () => {
     };
   }, [user, selectedBubble, privacyEnabled, ghostMode]);
 
-  // Proximity alert effect
+  // Proximity alert effect with haptic feedback
   useEffect(() => {
     if (!user) return;
     const me = liveLocations.find(l => l.user_id === user.id);
@@ -307,11 +326,13 @@ const Live = () => {
         }
       }
     }
-    if (found) {
-      setProximityAlert(`User nearby: User is within ${proximityRadius} meters!`);
-    } else {
-      setProximityAlert(null);
+    const newAlert = found ? `User nearby! Someone is within ${proximityRadius}m of you.` : null;
+    // Fire haptic only when alert first appears
+    if (newAlert && !prevProximityAlert.current) {
+      navigator.vibrate?.(hapticPatterns.friendNearby);
     }
+    prevProximityAlert.current = newAlert;
+    setProximityAlert(newAlert);
   }, [liveLocations, user, proximityRadius]);
 
 
@@ -369,14 +390,14 @@ const Live = () => {
 
   if (loading || pageLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary">
+      <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-  <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary dark:from-secondary-dark dark:via-background dark:to-primary-dark">
+  <div className="min-h-screen">
       <Navigation />
       {/* Location-based Story Dialog */}
       <CreateStoryDialog
@@ -444,18 +465,37 @@ const Live = () => {
 
               {selectedBubble && (
                 <Tabs defaultValue="map" className="space-y-6">
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="map" className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      Live Map
+                  {/* Battery saver indicator */}
+                  {batterySaver.saverActive && (
+                    <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-500/10 rounded-lg px-3 py-2">
+                      <BatteryLow className="h-3.5 w-3.5" />
+                      <span>Battery Saver: GPS polling reduced to every {Math.round(batterySaver.pollIntervalMs / 1000)}s</span>
+                    </div>
+                  )}
+                  <TabsList className="grid w-full grid-cols-6 text-xs">
+                    <TabsTrigger value="map" className="flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Map</span>
                     </TabsTrigger>
-                    <TabsTrigger value="status" className="flex items-center gap-2">
-                      <Activity className="h-4 w-4" />
-                      Status Updates
+                    <TabsTrigger value="status" className="flex items-center gap-1">
+                      <Activity className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Status</span>
                     </TabsTrigger>
-                    <TabsTrigger value="activity" className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      Live Activity
+                    <TabsTrigger value="activity" className="flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Activity</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="drops" className="flex items-center gap-1">
+                      <Package className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Drops</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="trip" className="flex items-center gap-1">
+                      <Route className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Trip</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="hangout" className="flex items-center gap-1">
+                      <Zap className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Zone</span>
                     </TabsTrigger>
                   </TabsList>
 
@@ -704,6 +744,50 @@ const Live = () => {
                       </CardContent>
                     </Card>
                   </TabsContent>
+
+                  {/* ── Dead Drops ── */}
+                  <TabsContent value="drops">
+                    <Card className="backdrop-blur-sm bg-card/95 border-0">
+                      <CardContent className="pt-6">
+                        <DeadDropPanel
+                          userLocation={(() => {
+                            const me = liveLocations.find(l => l.user_id === user?.id);
+                            return me ? { lat: me.latitude, lng: me.longitude } : null;
+                          })()}
+                        />
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  {/* ── Trip Sharing ── */}
+                  <TabsContent value="trip">
+                    <Card className="backdrop-blur-sm bg-card/95 border-0">
+                      <CardContent className="pt-6">
+                        <TripSharingPanel
+                          userLocation={(() => {
+                            const me = liveLocations.find(l => l.user_id === user?.id);
+                            return me ? { lat: me.latitude, lng: me.longitude } : null;
+                          })()}
+                        />
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  {/* ── Hangout Zones ── */}
+                  <TabsContent value="hangout">
+                    <Card className="backdrop-blur-sm bg-card/95 border-0">
+                      <CardContent className="pt-6">
+                        <HangoutZonePanel
+                          bubbleId={selectedBubble.id}
+                          userLocation={(() => {
+                            const me = liveLocations.find(l => l.user_id === user?.id);
+                            return me ? { lat: me.latitude, lng: me.longitude } : null;
+                          })()}
+                        />
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
                 </Tabs>
               )}
             </div>

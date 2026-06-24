@@ -106,14 +106,14 @@ const ProfileSetup = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-primary">
+      <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary p-4">
+    <div className="min-h-screen p-4">
       <div className="max-w-2xl mx-auto py-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">

@@ -1,17 +1,17 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { supabase } from '@/integrations/supabase/client';
 
-interface Referral {
+export interface Referral {
   id: string;
   referrerId: string;
-  referredUserId: string;
+  referredUserId: string | null;
   referredEmail: string;
   status: 'pending' | 'signed_up' | 'active';
   createdAt: Date;
   activatedAt?: Date;
 }
 
-interface ReferralStats {
+export interface ReferralStats {
   totalInvites: number;
   signups: number;
   activeUsers: number;
@@ -21,60 +21,98 @@ interface ReferralStats {
 interface ReferralState {
   referrals: Referral[];
   referralCode: string;
+  loading: boolean;
   generateCode: () => string;
-  addReferral: (referral: Omit<Referral, 'id' | 'createdAt' | 'status'>) => void;
-  activateReferral: (referralId: string) => void;
-  getStats: (userId: string) => ReferralStats;
   setReferralCode: (code: string) => void;
+  fetchReferrals: (userId: string) => Promise<void>;
+  addReferral: (input: {
+    referrerId: string;
+    referredEmail: string;
+    referredUserId?: string;
+  }) => Promise<Referral | null>;
+  activateReferral: (referralId: string) => Promise<void>;
+  getStats: (userId: string) => ReferralStats;
 }
 
-export const useReferralStore = create<ReferralState>()(
-  persist(
-    (set, get) => ({
-      referrals: [],
-      referralCode: '',
-      generateCode: () => {
-        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-        set({ referralCode: code });
-        return code;
-      },
-      addReferral: (referral) =>
-        set((state) => ({
-          referrals: [
-            ...state.referrals,
-            {
-              ...referral,
-              id: crypto.randomUUID(),
-              createdAt: new Date(),
-              status: 'pending',
-            },
-          ],
-        })),
-      activateReferral: (referralId) =>
-        set((state) => ({
-          referrals: state.referrals.map((r) =>
-            r.id === referralId
-              ? { ...r, status: 'active', activatedAt: new Date() }
-              : r
-          ),
-        })),
-      getStats: (userId) => {
-        const userReferrals = get().referrals.filter((r) => r.referrerId === userId);
-        const totalInvites = userReferrals.length;
-        const signups = userReferrals.filter((r) => r.status !== 'pending').length;
-        const activeUsers = userReferrals.filter((r) => r.status === 'active').length;
+const fromRow = (row: any): Referral => ({
+  id: row.id,
+  referrerId: row.referrer_id,
+  referredUserId: row.referred_user_id ?? null,
+  referredEmail: row.referred_email,
+  status: row.status,
+  createdAt: new Date(row.created_at),
+  activatedAt: row.activated_at ? new Date(row.activated_at) : undefined,
+});
 
-        let rewardTier: ReferralStats['rewardTier'] = 'bronze';
-        if (activeUsers >= 10) rewardTier = 'platinum';
-        else if (activeUsers >= 5) rewardTier = 'gold';
-        else if (activeUsers >= 2) rewardTier = 'silver';
+export const useReferralStore = create<ReferralState>((set, get) => ({
+  referrals: [],
+  referralCode: '',
+  loading: false,
 
-        return { totalInvites, signups, activeUsers, rewardTier };
-      },
-      setReferralCode: (code) => set({ referralCode: code }),
-    }),
-    {
-      name: 'referral-storage',
+  generateCode: () => {
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    set({ referralCode: code });
+    return code;
+  },
+
+  setReferralCode: (code) => set({ referralCode: code }),
+
+  fetchReferrals: async (userId) => {
+    set({ loading: true });
+    const { data, error } = await supabase
+      .from('referrals')
+      .select('*')
+      .eq('referrer_id', userId)
+      .order('created_at', { ascending: false });
+    set({ loading: false });
+    if (!error && data) set({ referrals: data.map(fromRow) });
+  },
+
+  addReferral: async ({ referrerId, referredEmail, referredUserId }) => {
+    const { data, error } = await supabase
+      .from('referrals')
+      .insert({
+        referrer_id: referrerId,
+        referred_email: referredEmail,
+        referred_user_id: referredUserId ?? null,
+        status: 'pending',
+      })
+      .select()
+      .single();
+    if (error || !data) return null;
+    const inserted = fromRow(data);
+    set((s) => ({ referrals: [inserted, ...s.referrals] }));
+    return inserted;
+  },
+
+  activateReferral: async (referralId) => {
+    const activated_at = new Date().toISOString();
+    const { error } = await supabase
+      .from('referrals')
+      .update({ status: 'active', activated_at })
+      .eq('id', referralId);
+    if (!error) {
+      set((s) => ({
+        referrals: s.referrals.map((r) =>
+          r.id === referralId
+            ? { ...r, status: 'active', activatedAt: new Date(activated_at) }
+            : r
+        ),
+      }));
     }
-  )
-);
+  },
+
+  getStats: (userId) => {
+    const userReferrals = get().referrals.filter((r) => r.referrerId === userId);
+    const totalInvites = userReferrals.length;
+    const signups = userReferrals.filter((r) => r.status !== 'pending').length;
+    const activeUsers = userReferrals.filter((r) => r.status === 'active').length;
+
+    let rewardTier: ReferralStats['rewardTier'] = 'bronze';
+    if (activeUsers >= 10) rewardTier = 'platinum';
+    else if (activeUsers >= 5) rewardTier = 'gold';
+    else if (activeUsers >= 2) rewardTier = 'silver';
+
+    return { totalInvites, signups, activeUsers, rewardTier };
+  },
+}));

@@ -1233,7 +1233,29 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_nearby_dead_drops: {
+        Args: { user_lat: number; user_lng: number }
+        Returns: {
+          content: string
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          latitude: number
+          longitude: number
+          max_views: number | null
+          radius: number
+          title: string
+          type: Database["public"]["Enums"]["dead_drop_type"]
+          viewed_by: string[]
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "dead_drops"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       dead_drop_type: "text" | "image" | "voice"

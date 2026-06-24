@@ -9,6 +9,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useSupabaseCache } from '@/hooks/useCache';
 import { ShareBubbleDialog } from '@/components/ShareBubbleDialog';
+import { motion } from 'framer-motion';
+import { useHapticFeedback } from '@/hooks/useHapticFeedback';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,6 +64,7 @@ export const BubbleCard: React.FC<BubbleCardProps> = ({
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const haptic = useHapticFeedback();
   const [isLoading, setIsLoading] = useState(false);
   const [isMember, setIsMember] = useState(bubble.is_member || false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -86,6 +89,7 @@ export const BubbleCard: React.FC<BubbleCardProps> = ({
         description: `"${bubble.name}" has been deleted`,
       });
 
+      haptic.medium();
       onDelete?.(bubble.id);
       setShowDeleteDialog(false);
     } catch (error: any) {
@@ -128,6 +132,7 @@ export const BubbleCard: React.FC<BubbleCardProps> = ({
           title: 'Left bubble',
           description: `You left ${bubble.name}`,
         });
+        haptic.light();
       } else {
         // Join bubble
         console.log('BubbleCard: Joining bubble');
@@ -152,6 +157,7 @@ export const BubbleCard: React.FC<BubbleCardProps> = ({
           title: 'Joined bubble!',
           description: `Welcome to ${bubble.name}`,
         });
+        haptic.success();
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
@@ -173,8 +179,13 @@ export const BubbleCard: React.FC<BubbleCardProps> = ({
   };
 
   return (
-    <Card className={`hover:shadow-lg transition-all duration-200 hover:scale-[1.02] border-0 glass ${bubble.trending ? 'ring-2 ring-orange-400/50 shadow-orange-400/20' : ''}`}>
-      <CardHeader className="pb-3">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+    >
+      <Card className={`hover:shadow-lg transition-all duration-200 hover:scale-[1.02] border-0 glass ${bubble.trending ? 'ring-2 ring-orange-400/50 shadow-orange-400/20' : ''}`}>
+        <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <Avatar className="h-12 w-12 bg-gradient-to-br from-secondary to-primary">
@@ -215,39 +226,49 @@ export const BubbleCard: React.FC<BubbleCardProps> = ({
         </div>
 
         <div className="flex gap-2">
-          <Button
-            onClick={handleJoinLeave}
-            disabled={isLoading}
-            className={
-              isMember
-                ? "flex-1"
-                : "flex-1 bg-gradient-to-r from-secondary to-primary hover:from-secondary-dark hover:to-primary-dark"
-            }
-            variant={isMember ? "outline" : "default"}
-          >
-            {isLoading ? '...' : isMember ? 'Leave' : 'Join'}
-          </Button>
+          <motion.div whileTap={{ scale: 0.95 }} className={isMember ? "flex-1" : "flex-1 flex"}>
+            <Button
+              onClick={handleJoinLeave}
+              disabled={isLoading}
+              className={
+                isMember
+                  ? "w-full"
+                  : "w-full bg-gradient-to-r from-secondary to-primary hover:from-secondary-dark hover:to-primary-dark"
+              }
+              variant={isMember ? "outline" : "default"}
+            >
+              {isLoading ? '...' : isMember ? 'Leave' : 'Join'}
+            </Button>
+          </motion.div>
           
           {isMember && (
             <>
-              <Button
-                onClick={() => onChat?.(bubble.id)}
-                variant="outline"
-                size="icon"
-              >
-                <MessageCircle className="h-4 w-4" />
-              </Button>
-              <ShareBubbleDialog 
-                bubbleId={bubble.id} 
-                bubbleName={bubble.name} 
-                isCreator={isCreator} 
-              />
+              <motion.div whileTap={{ scale: 0.95 }}>
+                <Button
+                  onClick={() => onChat?.(bubble.id)}
+                  variant="outline"
+                  size="icon"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                </Button>
+              </motion.div>
+              <motion.div whileTap={{ scale: 0.95 }}>
+                <ShareBubbleDialog 
+                  bubbleId={bubble.id} 
+                  bubbleName={bubble.name} 
+                  isCreator={isCreator} 
+                />
+              </motion.div>
               {isCreator && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
+                    <motion.button whileTap={{ scale: 0.95 }}>
+                      <Button variant="outline" size="icon" asChild>
+                        <span>
+                          <MoreVertical className="h-4 w-4" />
+                        </span>
+                      </Button>
+                    </motion.button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem
@@ -288,5 +309,6 @@ export const BubbleCard: React.FC<BubbleCardProps> = ({
         </AlertDialog>
       </CardContent>
     </Card>
+    </motion.div>
   );
 };

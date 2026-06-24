@@ -15,6 +15,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
 import { useBatterySaver } from '@/hooks/useBatterySaver';
 import { haptic } from '@/lib/haptics';
+import { MarkerClusterGroup } from './map/MarkerClusterGroup';
+import { AnimatedMarker } from './map/AnimatedMarker';
 
 interface FriendOnMap {
   user_id: string;
@@ -170,7 +172,7 @@ export function FriendsMap() {
         return;
       }
 
-      // Fetch friend locations via security-definer RPC (latitude/longitude column SELECT is revoked on profiles)
+      // Fetch friend locations via security-definer RPC
       const { data: allFriendLocations } = await supabase.rpc('get_friend_locations');
       const profiles = (allFriendLocations || []).filter((p: any) => friendIds.includes(p.id));
 
@@ -210,7 +212,7 @@ export function FriendsMap() {
     fetchFriendsOnMap();
   }, [fetchFriendsOnMap]);
 
-  // Realtime subscriptions with unique channel name
+  // Realtime subscriptions
   const fetchRef = useRef(fetchFriendsOnMap);
   fetchRef.current = fetchFriendsOnMap;
 
@@ -236,7 +238,7 @@ export function FriendsMap() {
     };
   }, [user]);
 
-  // Watch own location and share it (battery-aware)
+  // Watch own location
   useEffect(() => {
     if (!user || !sharing) return;
 
@@ -247,7 +249,6 @@ export function FriendsMap() {
       const { latitude, longitude } = position.coords;
       setMyLocation({ lat: latitude, lng: longitude });
 
-      // Throttle DB writes to battery-aware cadence
       const now = Date.now();
       if (now - lastWriteAt < writeIntervalMs) return;
       lastWriteAt = now;
@@ -287,18 +288,10 @@ export function FriendsMap() {
   };
 
   const centerOnMe = () => {
-    // Trigger re-render so FitBounds re-centers
     if (myLocation) {
       setMyLocation({ ...myLocation });
     }
   };
-
-  const onlineFriends = friends.filter(f => f.presence_status === 'online');
-  const center: [number, number] = myLocation
-    ? [myLocation.lat, myLocation.lng]
-    : friends.length > 0
-      ? [friends[0].latitude, friends[0].longitude]
-      : [20, 0];
 
   const getTimeAgo = (dateStr?: string) => {
     if (!dateStr) return 'Unknown';
@@ -319,6 +312,12 @@ export function FriendsMap() {
       </Card>
     );
   }
+
+  const center: [number, number] = myLocation
+    ? [myLocation.lat, myLocation.lng]
+    : friends.length > 0
+      ? [friends[0].latitude, friends[0].longitude]
+      : [20, 0];
 
   return (
     <div className="absolute inset-0 w-full h-full z-0 pointer-events-auto">
@@ -348,33 +347,35 @@ export function FriendsMap() {
             </Marker>
           )}
 
-          {/* Friend markers - Snapchat style */}
-          {friends.map(friend => (
-            <Marker
-              key={friend.user_id}
-              position={[friend.latitude, friend.longitude]}
-              icon={createSnapMarker(friend.first_name, friend.profile_photo_url, friend.presence_status === 'online')}
-            >
-              <Popup>
-                <div className="flex items-center gap-3 p-2 min-w-[180px]">
-                  <Avatar className="w-10 h-10 border-2 border-primary">
-                    <AvatarImage src={friend.profile_photo_url} />
-                    <AvatarFallback className="bg-primary text-primary-foreground font-bold">{friend.first_name?.[0]}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-bold text-sm">{friend.first_name}</p>
-                    <p className="text-xs flex items-center gap-1">
-                      {friend.presence_status === 'online' ? (
-                        <><Wifi className="h-3 w-3 text-green-500" /> Online</>
-                      ) : (
-                        <><WifiOff className="h-3 w-3 text-gray-400" /> {getTimeAgo(friend.last_seen)}</>
-                      )}
-                    </p>
+          {/* Friend markers - Clustered & Animated */}
+          <MarkerClusterGroup>
+            {friends.map(friend => (
+              <AnimatedMarker
+                key={friend.user_id}
+                position={[friend.latitude, friend.longitude]}
+                icon={createSnapMarker(friend.first_name, friend.profile_photo_url, friend.presence_status === 'online')}
+              >
+                <Popup>
+                  <div className="flex items-center gap-3 p-2 min-w-[180px]">
+                    <Avatar className="w-10 h-10 border-2 border-primary">
+                      <AvatarImage src={friend.profile_photo_url} />
+                      <AvatarFallback className="bg-primary text-primary-foreground font-bold">{friend.first_name?.[0]}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-bold text-sm">{friend.first_name}</p>
+                      <p className="text-xs flex items-center gap-1">
+                        {friend.presence_status === 'online' ? (
+                          <><Wifi className="h-3 w-3 text-green-500" /> Online</>
+                        ) : (
+                          <><WifiOff className="h-3 w-3 text-gray-400" /> {getTimeAgo(friend.last_seen)}</>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
+                </Popup>
+              </AnimatedMarker>
+            ))}
+          </MarkerClusterGroup>
         </MapContainer>
 
         {/* Map style picker - floating button */}

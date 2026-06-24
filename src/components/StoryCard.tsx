@@ -9,6 +9,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { ProgressiveImage } from '@/components/ProgressiveImage';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useHapticFeedback } from '@/hooks/useHapticFeedback';
 
 interface StoryCardProps {
   story: {
@@ -43,6 +45,7 @@ export const StoryCard: React.FC<StoryCardProps> = memo(({ story }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [showComments, setShowComments] = useState(false);
+  const haptic = useHapticFeedback();
 
   const fetchStoryData = useCallback(async () => {
     // Fetch reactions
@@ -117,6 +120,7 @@ export const StoryCard: React.FC<StoryCardProps> = memo(({ story }) => {
       
       setLiked(false);
       setLikesCount(prev => prev - 1);
+      haptic.light();
     } else {
       await supabase
         .from('story_reactions')
@@ -128,6 +132,7 @@ export const StoryCard: React.FC<StoryCardProps> = memo(({ story }) => {
       
       setLiked(true);
       setLikesCount(prev => prev + 1);
+      haptic.success();
     }
   };
 
@@ -145,17 +150,24 @@ export const StoryCard: React.FC<StoryCardProps> = memo(({ story }) => {
 
     if (error) {
       toast.error('Failed to post comment');
+      haptic.error();
       return;
     }
 
     setNewComment('');
     fetchStoryData();
     toast.success('Comment posted!');
+    haptic.success();
   };
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-      <CardHeader className="pb-3">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+    >
+      <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+        <CardHeader className="pb-3">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10">
             <AvatarImage src={story.profiles?.profile_photo_url} />
@@ -179,25 +191,37 @@ export const StoryCard: React.FC<StoryCardProps> = memo(({ story }) => {
       <CardFooter className="flex flex-col gap-3">
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLike}
-              className={`gap-2 ${liked ? 'text-red-500' : ''}`}
-            >
-              <Heart className={`h-4 w-4 ${liked ? 'fill-current' : ''}`} />
-              <span>{likesCount}</span>
-            </Button>
+            <motion.div whileTap={{ scale: 0.9 }}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLike}
+                className={`gap-2 ${liked ? 'text-red-500' : ''}`}
+              >
+                <motion.div
+                  animate={liked ? { scale: [1, 1.3, 1] } : {}}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Heart className={`h-4 w-4 ${liked ? 'fill-current' : ''}`} />
+                </motion.div>
+                <span>{likesCount}</span>
+              </Button>
+            </motion.div>
             
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowComments(!showComments)}
-              className="gap-2"
-            >
-              <MessageCircle className="h-4 w-4" />
-              <span>{commentsCount}</span>
-            </Button>
+            <motion.div whileTap={{ scale: 0.9 }}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  haptic.light();
+                  setShowComments(!showComments);
+                }}
+                className="gap-2"
+              >
+                <MessageCircle className="h-4 w-4" />
+                <span>{commentsCount}</span>
+              </Button>
+            </motion.div>
             
             <div className="flex items-center gap-2 text-muted-foreground">
               <Eye className="h-4 w-4" />
@@ -206,8 +230,14 @@ export const StoryCard: React.FC<StoryCardProps> = memo(({ story }) => {
           </div>
         </div>
 
+        <AnimatePresence>
         {showComments && (
-          <div className="w-full space-y-3">
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="w-full space-y-3 overflow-hidden"
+          >
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {comments.map((comment) => (
                 <div key={comment.id} className="flex gap-2 text-sm">
@@ -232,14 +262,18 @@ export const StoryCard: React.FC<StoryCardProps> = memo(({ story }) => {
                 placeholder="Add a comment..."
                 className="flex-1"
               />
-              <Button type="submit" size="sm">
-                <Send className="h-4 w-4" />
-              </Button>
+              <motion.div whileTap={{ scale: 0.9 }}>
+                <Button type="submit" size="sm">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </motion.div>
             </form>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </CardFooter>
     </Card>
+    </motion.div>
   );
 });
 

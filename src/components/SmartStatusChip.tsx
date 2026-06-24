@@ -16,7 +16,16 @@ export function SmartStatusChip() {
   const { user } = useAuth();
   const { toast } = useToast();
   const suggestion = useSmartStatus();
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  
+  const [dismissed, setDismissed] = useState<Record<string, number>>(() => {
+    try {
+      const stored = localStorage.getItem('dismissed_smart_status');
+      return stored ? JSON.parse(stored) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+  
   const [posting, setPosting] = useState(false);
   const [lastPostedKey, setLastPostedKey] = useState<string | null>(null);
 
@@ -24,9 +33,27 @@ export function SmartStatusChip() {
     if (suggestion) haptic('selection');
   }, [suggestion?.key]);
 
+  // Sync state if other tabs change it
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'dismissed_smart_status' && e.newValue) {
+        try {
+          setDismissed(JSON.parse(e.newValue));
+        } catch (err) {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   if (!user || !suggestion) return null;
-  if (dismissed.has(suggestion.key)) return null;
   if (lastPostedKey === suggestion.key) return null;
+  
+  // Check if dismissed within the last 12 hours
+  if (dismissed[suggestion.key]) {
+    const age = Date.now() - dismissed[suggestion.key];
+    if (age < 12 * 60 * 60 * 1000) return null;
+  }
 
   const accept = async () => {
     setPosting(true);
@@ -49,24 +76,28 @@ export function SmartStatusChip() {
 
   const dismiss = () => {
     haptic('light');
-    setDismissed((prev) => new Set(prev).add(suggestion.key));
+    setDismissed((prev) => {
+      const next = { ...prev, [suggestion.key]: Date.now() };
+      localStorage.setItem('dismissed_smart_status', JSON.stringify(next));
+      return next;
+    });
   };
 
   return (
-    <Card className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3 py-2 rounded-full shadow-lg border bg-card/95 backdrop-blur animate-in fade-in slide-in-from-bottom-4">
+    <Card className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3 py-2 rounded-full shadow-lg border glass animate-in fade-in slide-in-from-bottom-4">
       <Sparkles className="h-4 w-4 text-primary" />
-      <span className="text-sm font-medium whitespace-nowrap">
+      <span className="text-sm font-bold whitespace-nowrap drop-shadow-sm">
         {suggestion.emoji} {suggestion.label}?
       </span>
-      <Button size="sm" className="h-7 rounded-full px-3" onClick={accept} disabled={posting}>
+      <Button size="sm" className="h-8 rounded-full px-4 font-bold shadow-md" onClick={accept} disabled={posting}>
         Set
       </Button>
       <button
         onClick={dismiss}
-        className="p-1 rounded-full hover:bg-muted text-muted-foreground"
+        className="p-1.5 rounded-full hover:bg-muted text-muted-foreground transition-colors"
         aria-label="Dismiss suggestion"
       >
-        <X className="h-3.5 w-3.5" />
+        <X className="h-4 w-4" />
       </button>
     </Card>
   );

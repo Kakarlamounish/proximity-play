@@ -160,14 +160,9 @@ export function FriendsMap() {
         return;
       }
 
-      // Fetch profiles with location (non-ghost)
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, first_name, profile_photo_url, latitude, longitude, ghost_mode')
-        .in('id', friendIds)
-        .eq('ghost_mode', false)
-        .not('latitude', 'is', null)
-        .not('longitude', 'is', null);
+      // Fetch friend locations via security-definer RPC (latitude/longitude column SELECT is revoked on profiles)
+      const { data: allFriendLocations } = await supabase.rpc('get_friend_locations');
+      const profiles = (allFriendLocations || []).filter((p: any) => friendIds.includes(p.id));
 
       // Fetch presence data
       const { data: presenceData } = await supabase

@@ -172,21 +172,25 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     setIsUploading(true);
     
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id ?? 'anonymous';
       const fileName = `voice_${Date.now()}.webm`;
+      const path = `${userId}/${fileName}`;
       const { data, error } = await supabase.storage
-        .from('profile-photos')
-        .upload(`voice-messages/${fileName}`, audioBlob, {
+        .from('voice-notes')
+        .upload(path, audioBlob, {
           contentType: 'audio/webm',
         });
 
       if (error) throw error;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('profile-photos')
-        .getPublicUrl(data.path);
+      const { data: signed, error: signErr } = await supabase.storage
+        .from('voice-notes')
+        .createSignedUrl(data.path, 60 * 60 * 24 * 7);
+      if (signErr || !signed) throw signErr ?? new Error('Failed to sign URL');
 
-      onVoiceMessage(publicUrl, recordingDuration);
-      
+      onVoiceMessage(signed.signedUrl, recordingDuration);
+
       toast({
         title: 'Voice message sent',
         description: 'Your voice message has been uploaded successfully.',

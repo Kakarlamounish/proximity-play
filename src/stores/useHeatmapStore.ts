@@ -1,81 +1,79 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { supabase } from '@/integrations/supabase/client';
 
-interface HeatmapPoint {
+export interface HeatmapPoint {
   latitude: number;
   longitude: number;
   intensity: number;
   timestamp: Date;
 }
 
-interface HeatmapData {
-  userId: string;
-  points: HeatmapPoint[];
-  timeRange: 'week' | 'month' | 'year' | 'all';
-}
+export type HeatmapTimeRange = 'week' | 'month' | 'year' | 'all';
 
 interface HeatmapState {
-  heatmapData: Record<string, HeatmapData>;
-  addPoint: (userId: string, point: Omit<HeatmapPoint, 'timestamp'>) => void;
-  getHeatmapData: (userId: string, timeRange?: HeatmapData['timeRange']) => HeatmapPoint[];
-  clearHeatmap: (userId: string) => void;
+  points: Record<string, HeatmapPoint[]>;
+  loading: boolean;
+  addPoint: (
+    userId: string,
+    point: Omit<HeatmapPoint, 'timestamp'> & { accuracyMeters?: number }
+  ) => Promise<void>;
+  fetchHeatmap: (userId: string, timeRange?: HeatmapTimeRange) => Promise<HeatmapPoint[]>;
+  clearHeatmap: (userId: string) => Promise<void>;
 }
 
-export const useHeatmapStore = create<HeatmapState>()(
-  persist(
-    (set, get) => ({
-      heatmapData: {},
-      addPoint: (userId, point) =>
-        set((state) => {
-          const existing = state.heatmapData[userId] || {
-            userId,
-            points: [],
-            timeRange: 'all',
-          };
-          
-          return {
-            heatmapData: {
-              ...state.heatmapData,
-              [userId]: {
-                ...existing,
-                points: [...existing.points, { ...point, timestamp: new Date() }],
-              },
-            },
-          };
-        }),
-      getHeatmapData: (userId, timeRange = 'all') => {
-        const data = get().heatmapData[userId];
-        if (!data) return [];
+const cutoff = (range: HeatmapTimeRange): Date | null => {
+  const now = Date.now();
+  switch (range) {
+    case 'week':
+      return new Date(now - 7 * 86400000);
+    case 'month':
+      return new Date(now - 30 * 86400000);
+    case 'year':
+      return new Date(now - 365 * 86400000);
+    default:
+      return null;
+  }
+};
 
-        const now = new Date();
-        let cutoffDate: Date;
+export const useHeatmapStore = create<HeatmapState>((set) => ({
+  points: {},
+  loading: false,
 
-        switch (timeRange) {
-          case 'week':
-            cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            break;
-          case 'month':
-            cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-            break;
-          case 'year':
-            cutoffDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-            break;
-          default:
-            return data.points;
-        }
+  addPoint: async (userId, point) => {
+    await supabase.from('location_history').insert({
+      user_id: userId,
+      latitude: point.latitude,
+      longitude: point.longitude,
+      intensity: point.intensity ?? 1,
+      accuracy_meters: point.accuracyMeters ?? null,
+    });
+  },
 
-        return data.points.filter((p) => p.timestamp >= cutoffDate);
-      },
-      clearHeatmap: (userId) =>
-        set((state) => ({
-          heatmapData: {
-            ...state.heatmapData,
-            [userId]: { userId, points: [], timeRange: 'all' },
-          },
-        })),
-    }),
-    {
-      name: 'heatmap-storage',
-    }
-  )
-);
+  fetchHeatmap: async (userId, timeRange = 'all') => {
+    set({ loading: true });
+    let q = supabase
+      .from('location_history')
+      .select('latitude,longitude,intensity,recorded_at')
+      .eq('user_id', userId)
+      .order('recorded_at', { ascending: false })
+      .limit(1000);
+    const since = cutoff(timeRange);
+    if (since) q = q.gte('recorded_at', since.toISOString());
+    const { data, error } = await q;
+    set({ loading: false });
+    if (error || !data) return [];
+    const mapped: HeatmapPoint[] = data.map((r: any) => ({
+      latitude: Number(r.latitude),
+      longitude: Number(r.longitude),
+      intensity: Number(r.intensity),
+      timestamp: new Date(r.recorded_at),
+    }));
+    set((s) => ({ points: { ...s.points, [userId]: mapped } }));
+    return mapped;
+  },
+
+  clearHeatmap: async (userId) => {
+    await supabase.from('location_history').delete().eq('user_id', userId);
+    set((s) => ({ points: { ...s.points, [userId]: [] } }));
+  },
+}));

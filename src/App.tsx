@@ -36,7 +36,6 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const Camera = lazy(() => import("./pages/Camera"));
 const MemoryLane = lazy(() => import("./pages/MemoryLane"));
 const ARView = lazy(() => import("./pages/ARView"));
-const Premium = lazy(() => import("./pages/Premium"));
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -92,7 +91,6 @@ function App() {
                         {/* New routes */}
                         <Route path="/memory-lane" element={<MemoryLane />} />
                         <Route path="/ar" element={<ARView />} />
-                        <Route path="/premium" element={<Premium />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </Suspense>

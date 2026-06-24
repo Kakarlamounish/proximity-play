@@ -231,14 +231,7 @@ export function Navigation(): JSX.Element {
                 <span className="text-lg">📷</span>
                 <span className="font-medium">AR View</span>
               </Link>
-              <Link
-                to="/premium"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-amber-600 hover:bg-amber-500/10 transition-all duration-200"
-              >
-                <span className="text-lg">👑</span>
-                <span className="font-medium font-bold">Go Premium</span>
-              </Link>
+
               <Link
                 to="/settings"
                 onClick={() => setIsMobileMenuOpen(false)}

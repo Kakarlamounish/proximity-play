@@ -326,6 +326,12 @@ export function FriendsMap() {
             <Users className="h-3 w-3 mr-1" />
             {friends.length} sharing · {onlineFriends.length} online
           </Badge>
+          {battery.saverActive && (
+            <Badge variant="outline" className="text-xs gap-1" title={battery.backgrounded ? 'App backgrounded' : `Battery ${Math.round((battery.level ?? 0) * 100)}%`}>
+              <BatteryLow className="h-3 w-3" />
+              Battery saver
+            </Badge>
+          )}
         </div>
 
         <div className="flex items-center gap-3">

@@ -269,6 +269,7 @@ export function FriendsMap() {
 
   const handleSharingToggle = async (enabled: boolean) => {
     setSharing(enabled);
+    haptic(enabled ? 'success' : 'warning');
     if (!enabled && user) {
       await supabase.from('profiles').update({ ghost_mode: true }).eq('id', user.id);
       toastRef.current({ title: 'Location hidden', description: 'Friends can no longer see you on the map.' });

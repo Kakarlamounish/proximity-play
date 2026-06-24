@@ -1,6 +1,3 @@
-import * as tf from '@tensorflow/tfjs';
-import * as use from '@tensorflow-models/universal-sentence-encoder';
-
 interface UserProfile {
   id: string;
   interests: string[];
@@ -29,37 +26,10 @@ export interface RecommendationResult {
 }
 
 export class RecommendationEngine {
-  private model: use.UniversalSentenceEncoder | null = null;
-  private isInitialized = false;
-
   async initialize(): Promise<void> {
-    if (this.isInitialized) return;
-
-    try {
-      await tf.ready();
-      this.model = await use.load();
-      this.isInitialized = true;
-      console.log('Recommendation engine initialized');
-    } catch (error) {
-      console.error('Failed to initialize recommendation engine:', error);
-      throw error;
-    }
-  }
-
-  async getEmbeddings(texts: string[]): Promise<number[][]> {
-    if (!this.model) {
-      throw new Error('Model not initialized');
-    }
-
-    const embeddings = await this.model.embed(texts);
-    return embeddings.arraySync() as number[][];
-  }
-
-  calculateCosineSimilarity(vecA: number[], vecB: number[]): number {
-    const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
-    const normA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
-    const normB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
-    return dotProduct / (normA * normB);
+    // No-op since we removed TensorFlow
+    console.log('Lightweight recommendation engine initialized');
+    return Promise.resolve();
   }
 
   calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -80,35 +50,34 @@ export class RecommendationEngine {
     userLocation?: { latitude: number; longitude: number },
     limit: number = 10
   ): Promise<RecommendationResult[]> {
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
-
     const recommendations: RecommendationResult[] = [];
 
-    // Create user interest text for embedding
-    const userInterestsText = userProfile.interests.join(' ') + (userProfile.bio || '');
-
-    // Get embeddings for user interests and bubble descriptions
-    const texts = [userInterestsText, ...availableBubbles.map(b => `${b.name} ${b.description} ${b.interest_tag}`)];
-    const embeddings = await this.getEmbeddings(texts);
-
-    const userEmbedding = embeddings[0];
-    const bubbleEmbeddings = embeddings.slice(1);
-
-    for (let i = 0; i < availableBubbles.length; i++) {
-      const bubble = availableBubbles[i];
-      const bubbleEmbedding = bubbleEmbeddings[i];
-
+    for (const bubble of availableBubbles) {
       let score = 0;
       const reasons: string[] = [];
 
-      // Interest similarity (weighted heavily)
-      const interestSimilarity = this.calculateCosineSimilarity(userEmbedding, bubbleEmbedding);
-      score += interestSimilarity * 0.6;
-      reasons.push(`Interest match: ${(interestSimilarity * 100).toFixed(1)}%`);
+      // Direct interest tag match
+      const directMatch = userProfile.interests.some(interest =>
+        bubble.interest_tag.toLowerCase().includes(interest.toLowerCase()) ||
+        interest.toLowerCase().includes(bubble.interest_tag.toLowerCase())
+      );
 
-      // Location proximity (if user location available)
+      if (directMatch) {
+        score += 0.5;
+        reasons.push('Direct interest match');
+      }
+
+      // Keyword match in description
+      const keywordMatch = userProfile.interests.some(interest => 
+        bubble.description.toLowerCase().includes(interest.toLowerCase())
+      );
+
+      if (keywordMatch && !directMatch) {
+        score += 0.3;
+        reasons.push('Related interests');
+      }
+
+      // Location proximity
       if (userLocation && bubble.latitude && bubble.longitude) {
         const distance = this.calculateDistance(
           userLocation.latitude,
@@ -117,47 +86,26 @@ export class RecommendationEngine {
           bubble.longitude
         );
 
-        // Closer bubbles get higher scores (inverse relationship)
         const proximityScore = Math.max(0, 1 - (distance / 100)); // Max 100km consideration
-        score += proximityScore * 0.2;
+        score += proximityScore * 0.3;
         reasons.push(`Distance: ${distance.toFixed(1)}km`);
       }
 
-      // Member count preference (medium-sized bubbles preferred)
+      // Member count preference
       const memberScore = Math.min(bubble.member_count / 50, 1) * (1 - Math.min(bubble.member_count / 50, 1));
       score += memberScore * 0.1;
       reasons.push(`${bubble.member_count} members`);
 
-      // Age appropriateness (rough heuristic)
-      if (userProfile.age) {
-        const ageMatch = bubble.interest_tag.toLowerCase().includes('gaming') ||
-                        bubble.interest_tag.toLowerCase().includes('music') ||
-                        bubble.interest_tag.toLowerCase().includes('sports') ? 0.1 : 0;
-        score += ageMatch;
-        if (ageMatch > 0) reasons.push('Age-appropriate content');
+      if (score > 0) {
+        recommendations.push({
+          bubbleId: bubble.id,
+          score: Math.min(score, 1),
+          reasons,
+        });
       }
-
-      // Direct interest tag match bonus
-      const directMatch = userProfile.interests.some(interest =>
-        bubble.interest_tag.toLowerCase().includes(interest.toLowerCase()) ||
-        interest.toLowerCase().includes(bubble.interest_tag.toLowerCase())
-      );
-      if (directMatch) {
-        score += 0.1;
-        reasons.push('Direct interest match');
-      }
-
-      recommendations.push({
-        bubbleId: bubble.id,
-        score: Math.min(score, 1), // Cap at 1.0
-        reasons,
-      });
     }
 
-    // Sort by score and return top recommendations
-    return recommendations
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
+    return recommendations.sort((a, b) => b.score - a.score).slice(0, limit);
   }
 
   async findSimilarUsers(
@@ -165,29 +113,12 @@ export class RecommendationEngine {
     allUsers: UserProfile[],
     limit: number = 5
   ): Promise<{ userId: string; similarity: number; reasons: string[] }[]> {
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
-
     const similarities: { userId: string; similarity: number; reasons: string[] }[] = [];
 
-    // Create target user text
-    const targetText = targetUser.interests.join(' ') + (targetUser.bio || '');
-
-    // Get embeddings for all users
-    const texts = [targetText, ...allUsers.map(u => u.interests.join(' ') + (u.bio || ''))];
-    const embeddings = await this.getEmbeddings(texts);
-
-    const targetEmbedding = embeddings[0];
-    const userEmbeddings = embeddings.slice(1);
-
-    for (let i = 0; i < allUsers.length; i++) {
-      const user = allUsers[i];
+    for (const user of allUsers) {
       if (user.id === targetUser.id) continue;
 
-      const userEmbedding = userEmbeddings[i];
-      const similarity = this.calculateCosineSimilarity(targetEmbedding, userEmbedding);
-
+      let similarity = 0;
       const reasons: string[] = [];
 
       // Shared interests
@@ -199,6 +130,7 @@ export class RecommendationEngine {
       );
 
       if (sharedInterests.length > 0) {
+        similarity += (sharedInterests.length / Math.max(targetUser.interests.length, 1)) * 0.6;
         reasons.push(`Shared interests: ${sharedInterests.join(', ')}`);
       }
 
@@ -206,6 +138,7 @@ export class RecommendationEngine {
       if (targetUser.age && user.age) {
         const ageDiff = Math.abs(targetUser.age - user.age);
         if (ageDiff <= 5) {
+          similarity += 0.2;
           reasons.push('Similar age');
         }
       }
@@ -219,21 +152,22 @@ export class RecommendationEngine {
           user.location.longitude
         );
 
-        if (distance <= 50) { // Within 50km
+        if (distance <= 50) {
+          similarity += 0.2;
           reasons.push(`Nearby: ${distance.toFixed(1)}km away`);
         }
       }
 
-      similarities.push({
-        userId: user.id,
-        similarity,
-        reasons,
-      });
+      if (similarity > 0) {
+        similarities.push({
+          userId: user.id,
+          similarity: Math.min(similarity, 1),
+          reasons,
+        });
+      }
     }
 
-    return similarities
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, limit);
+    return similarities.sort((a, b) => b.similarity - a.similarity).slice(0, limit);
   }
 
   async analyzeContent(content: string): Promise<{
@@ -242,17 +176,12 @@ export class RecommendationEngine {
     categories: string[];
     confidence: number;
   }> {
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
-
-    // Simple rule-based content analysis (in production, use more sophisticated ML models)
+    // Basic rule-based analysis without ML models
     const lowerContent = content.toLowerCase();
 
-    // Sentiment analysis (basic)
     let sentiment: 'positive' | 'negative' | 'neutral' = 'neutral';
-    const positiveWords = ['good', 'great', 'awesome', 'excellent', 'amazing', 'love', 'like', 'happy', 'excited'];
-    const negativeWords = ['bad', 'terrible', 'awful', 'hate', 'dislike', 'sad', 'angry', 'upset', 'horrible'];
+    const positiveWords = ['good', 'great', 'awesome', 'excellent', 'amazing', 'love', 'happy'];
+    const negativeWords = ['bad', 'terrible', 'awful', 'hate', 'sad', 'angry', 'upset'];
 
     const positiveCount = positiveWords.filter(word => lowerContent.includes(word)).length;
     const negativeCount = negativeWords.filter(word => lowerContent.includes(word)).length;
@@ -260,80 +189,38 @@ export class RecommendationEngine {
     if (positiveCount > negativeCount) sentiment = 'positive';
     else if (negativeCount > positiveCount) sentiment = 'negative';
 
-    // Toxicity detection (basic)
-    const toxicWords = ['hate', 'stupid', 'idiot', 'dumb', 'ugly', 'fat', 'ugly', 'disgusting'];
+    const toxicWords = ['hate', 'stupid', 'idiot', 'dumb', 'ugly', 'fat'];
     const toxicity = toxicWords.filter(word => lowerContent.includes(word)).length / toxicWords.length;
 
-    // Content categorization
     const categories: string[] = [];
-    if (lowerContent.includes('music') || lowerContent.includes('song') || lowerContent.includes('band')) {
-      categories.push('music');
-    }
-    if (lowerContent.includes('sport') || lowerContent.includes('game') || lowerContent.includes('play')) {
-      categories.push('sports');
-    }
-    if (lowerContent.includes('food') || lowerContent.includes('eat') || lowerContent.includes('cook')) {
-      categories.push('food');
-    }
-    if (lowerContent.includes('tech') || lowerContent.includes('code') || lowerContent.includes('programming')) {
-      categories.push('technology');
-    }
+    if (lowerContent.includes('music') || lowerContent.includes('song')) categories.push('music');
+    if (lowerContent.includes('sport') || lowerContent.includes('game')) categories.push('sports');
+    if (lowerContent.includes('food') || lowerContent.includes('eat')) categories.push('food');
+    if (lowerContent.includes('tech') || lowerContent.includes('code')) categories.push('technology');
 
-    return {
+    return Promise.resolve({
       sentiment,
       toxicity,
       categories,
-      confidence: 0.7, // Placeholder confidence score
-    };
+      confidence: 0.5,
+    });
   }
 
   async generateContentSuggestions(userProfile: UserProfile): Promise<string[]> {
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
-
     const suggestions: string[] = [];
 
-    // Interest-based suggestions
-    if (userProfile.interests.includes('music')) {
-      suggestions.push('Share your favorite playlist');
-      suggestions.push('Recommend a new artist you discovered');
-      suggestions.push('Ask others about concert experiences');
-    }
+    if (userProfile.interests.includes('music')) suggestions.push('Share your favorite playlist');
+    if (userProfile.interests.includes('sports')) suggestions.push('Discuss recent game highlights');
+    if (userProfile.interests.includes('technology')) suggestions.push('Share a cool coding project');
+    if (userProfile.interests.includes('food')) suggestions.push('Share a recipe you love');
 
-    if (userProfile.interests.includes('sports')) {
-      suggestions.push('Share your favorite sports team');
-      suggestions.push('Ask about local sports events');
-      suggestions.push('Discuss recent game highlights');
-    }
+    if (userProfile.location) suggestions.push('Ask about local events happening nearby');
+    if (userProfile.age && userProfile.age < 25) suggestions.push('Share college or school experiences');
 
-    if (userProfile.interests.includes('technology')) {
-      suggestions.push('Share a cool coding project');
-      suggestions.push('Ask about favorite programming languages');
-      suggestions.push('Discuss latest tech news');
-    }
+    if (suggestions.length === 0) suggestions.push('Say hi to the community!');
 
-    if (userProfile.interests.includes('food')) {
-      suggestions.push('Share a recipe you love');
-      suggestions.push('Ask for restaurant recommendations');
-      suggestions.push('Discuss cooking techniques');
-    }
-
-    // Location-based suggestions
-    if (userProfile.location) {
-      suggestions.push('Ask about local events happening nearby');
-      suggestions.push('Share your favorite local spots');
-    }
-
-    // Age-based suggestions
-    if (userProfile.age && userProfile.age < 25) {
-      suggestions.push('Connect with others your age for study groups');
-      suggestions.push('Share college or school experiences');
-    }
-
-    return suggestions.slice(0, 5); // Return top 5 suggestions
+    return Promise.resolve(suggestions.slice(0, 5));
   }
 }
 
-// Singleton instance
 export const recommendationEngine = new RecommendationEngine();

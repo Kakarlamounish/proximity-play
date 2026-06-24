@@ -88,9 +88,6 @@ export function Navigation(): JSX.Element {
     { to: '/maps', label: '🗺️ Snap Map' },
     { to: '/friends', label: '👥 Friends', badge: pendingRequestCount },
     { to: '/calls', label: '📞 Calls' },
-    { to: '/memory-lane', label: '🔥 Memory Lane' },
-    { to: '/ar', label: '📷 AR View' },
-    { to: '/premium', label: '👑 Premium' },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -126,7 +123,7 @@ export function Navigation(): JSX.Element {
             </div>
 
             {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center gap-0.5 flex-1 justify-center">
+            <div className="hidden lg:flex items-center gap-1 flex-1 justify-center overflow-x-auto no-scrollbar mx-2">
               {navLinks.map((link) => (
                 <Link
                   key={link.to}

@@ -403,7 +403,7 @@ export function FriendsMap() {
                 {(Object.keys(MAP_TILES) as MapStyle[]).map(key => (
                   <button
                     key={key}
-                    onClick={() => { setMapStyle(key); setShowStylePicker(false); }}
+                    onClick={() => { haptic('selection'); setMapStyle(key); setShowStylePicker(false); }}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       mapStyle === key
                         ? 'bg-primary text-primary-foreground'

@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/Navigation';
 import { FriendsMap } from '@/components/FriendsMap';
+import { SmartStatusChip } from '@/components/SmartStatusChip';
 import { Loader2 } from 'lucide-react';
 
 const Maps = () => {
@@ -26,8 +27,10 @@ const Maps = () => {
       <div className="container mx-auto px-4 py-6">
         <FriendsMap />
       </div>
+      <SmartStatusChip />
     </div>
   );
 };
 
 export default Maps;
+

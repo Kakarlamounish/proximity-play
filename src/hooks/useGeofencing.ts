@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { useGeofenceStore } from '../stores/useGeofenceStore';
 import { useAppStore } from '../stores/useAppStore';
+import { haptic } from '../lib/haptics';
 
 // Calculate distance between two points in meters using Haversine formula
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {

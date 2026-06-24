@@ -39,6 +39,7 @@ export function useGeofencing() {
       const isInside = distance <= geofence.radius;
 
       if (isInside && geofence.alertOnEnter) {
+        haptic('warning');
         addNotification({
           id: crypto.randomUUID(),
           type: 'system',

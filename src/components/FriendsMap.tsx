@@ -229,13 +229,21 @@ export function FriendsMap() {
     };
   }, [user]);
 
-  // Watch own location and share it
+  // Watch own location and share it (battery-aware)
   useEffect(() => {
     if (!user || !sharing) return;
+
+    let lastWriteAt = 0;
+    const writeIntervalMs = battery.pollIntervalMs;
 
     const updateLocation = (position: GeolocationPosition) => {
       const { latitude, longitude } = position.coords;
       setMyLocation({ lat: latitude, lng: longitude });
+
+      // Throttle DB writes to battery-aware cadence
+      const now = Date.now();
+      if (now - lastWriteAt < writeIntervalMs) return;
+      lastWriteAt = now;
 
       supabase.from('profiles').update({
         latitude,
@@ -249,15 +257,15 @@ export function FriendsMap() {
     const watchId = navigator.geolocation?.watchPosition(updateLocation, (err) => {
       console.warn('Geolocation error:', err);
     }, {
-      enableHighAccuracy: true,
-      maximumAge: 10000,
+      enableHighAccuracy: !battery.saverActive,
+      maximumAge: battery.maximumAgeMs,
       timeout: 15000,
     });
 
     return () => {
       if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
     };
-  }, [user, sharing]);
+  }, [user, sharing, battery.saverActive, battery.pollIntervalMs, battery.maximumAgeMs]);
 
   const handleSharingToggle = async (enabled: boolean) => {
     setSharing(enabled);

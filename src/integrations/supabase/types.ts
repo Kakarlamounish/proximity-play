@@ -1233,6 +1233,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_friend_locations: {
+        Args: never
+        Returns: {
+          first_name: string
+          ghost_mode: boolean
+          id: string
+          latitude: number
+          longitude: number
+          profile_photo_url: string
+        }[]
+      }
       get_nearby_dead_drops: {
         Args: { user_lat: number; user_lng: number }
         Returns: {

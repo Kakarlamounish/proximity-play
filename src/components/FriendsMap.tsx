@@ -8,10 +8,12 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { MapPin, Eye, EyeOff, Users, Wifi, WifiOff, Navigation2, Globe, Layers, Mountain, Satellite } from 'lucide-react';
+import { MapPin, Eye, EyeOff, Users, Wifi, WifiOff, Navigation2, Globe, Layers, Mountain, Satellite, BatteryLow } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
+import { useBatterySaver } from '@/hooks/useBatterySaver';
+import { haptic } from '@/lib/haptics';
 
 interface FriendOnMap {
   user_id: string;

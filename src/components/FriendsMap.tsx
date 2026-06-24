@@ -8,10 +8,12 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { MapPin, Eye, EyeOff, Users, Wifi, WifiOff, Navigation2, Globe, Layers, Mountain, Satellite } from 'lucide-react';
+import { MapPin, Eye, EyeOff, Users, Wifi, WifiOff, Navigation2, Globe, Layers, Mountain, Satellite, BatteryLow } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
+import { useBatterySaver } from '@/hooks/useBatterySaver';
+import { haptic } from '@/lib/haptics';
 
 interface FriendOnMap {
   user_id: string;
@@ -139,6 +141,7 @@ export function FriendsMap() {
   const [loading, setLoading] = useState(true);
   const [mapStyle, setMapStyle] = useState<MapStyle>('dark');
   const [showStylePicker, setShowStylePicker] = useState(false);
+  const battery = useBatterySaver();
 
   const fetchFriendsOnMap = useCallback(async () => {
     if (!user) return;
@@ -226,13 +229,21 @@ export function FriendsMap() {
     };
   }, [user]);
 
-  // Watch own location and share it
+  // Watch own location and share it (battery-aware)
   useEffect(() => {
     if (!user || !sharing) return;
+
+    let lastWriteAt = 0;
+    const writeIntervalMs = battery.pollIntervalMs;
 
     const updateLocation = (position: GeolocationPosition) => {
       const { latitude, longitude } = position.coords;
       setMyLocation({ lat: latitude, lng: longitude });
+
+      // Throttle DB writes to battery-aware cadence
+      const now = Date.now();
+      if (now - lastWriteAt < writeIntervalMs) return;
+      lastWriteAt = now;
 
       supabase.from('profiles').update({
         latitude,
@@ -246,18 +257,19 @@ export function FriendsMap() {
     const watchId = navigator.geolocation?.watchPosition(updateLocation, (err) => {
       console.warn('Geolocation error:', err);
     }, {
-      enableHighAccuracy: true,
-      maximumAge: 10000,
+      enableHighAccuracy: !battery.saverActive,
+      maximumAge: battery.maximumAgeMs,
       timeout: 15000,
     });
 
     return () => {
       if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
     };
-  }, [user, sharing]);
+  }, [user, sharing, battery.saverActive, battery.pollIntervalMs, battery.maximumAgeMs]);
 
   const handleSharingToggle = async (enabled: boolean) => {
     setSharing(enabled);
+    haptic(enabled ? 'success' : 'warning');
     if (!enabled && user) {
       await supabase.from('profiles').update({ ghost_mode: true }).eq('id', user.id);
       toastRef.current({ title: 'Location hidden', description: 'Friends can no longer see you on the map.' });
@@ -314,6 +326,12 @@ export function FriendsMap() {
             <Users className="h-3 w-3 mr-1" />
             {friends.length} sharing · {onlineFriends.length} online
           </Badge>
+          {battery.saverActive && (
+            <Badge variant="outline" className="text-xs gap-1" title={battery.backgrounded ? 'App backgrounded' : `Battery ${Math.round((battery.level ?? 0) * 100)}%`}>
+              <BatteryLow className="h-3 w-3" />
+              Battery saver
+            </Badge>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -385,7 +403,7 @@ export function FriendsMap() {
                 {(Object.keys(MAP_TILES) as MapStyle[]).map(key => (
                   <button
                     key={key}
-                    onClick={() => { setMapStyle(key); setShowStylePicker(false); }}
+                    onClick={() => { haptic('selection'); setMapStyle(key); setShowStylePicker(false); }}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       mapStyle === key
                         ? 'bg-primary text-primary-foreground'

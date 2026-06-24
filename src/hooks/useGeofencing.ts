@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { useGeofenceStore } from '../stores/useGeofenceStore';
 import { useAppStore } from '../stores/useAppStore';
+import { haptic } from '../lib/haptics';
 
 // Calculate distance between two points in meters using Haversine formula
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -38,6 +39,7 @@ export function useGeofencing() {
       const isInside = distance <= geofence.radius;
 
       if (isInside && geofence.alertOnEnter) {
+        haptic('warning');
         addNotification({
           id: crypto.randomUUID(),
           type: 'system',
@@ -58,6 +60,7 @@ export function useGeofencing() {
         );
         const friendIsInside = friendDistance <= geofence.radius;
         if (friendIsInside && geofence.friendId === friend.id && geofence.alertOnEnter) {
+          haptic('success');
           addNotification({
             id: crypto.randomUUID(),
             type: 'system',

@@ -32,13 +32,13 @@ export function SmartStatusChip() {
     setPosting(true);
     haptic('success');
     try {
-      const { error } = await supabase.from('status_updates').insert({
-        user_id: user.id,
-        content: `${suggestion.emoji} ${suggestion.label}`,
-        mood: suggestion.key,
-      });
+      const newBio = `${suggestion.emoji} ${suggestion.label}`;
+      const { error } = await supabase
+        .from('profiles')
+        .update({ bio: newBio, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
       if (error) throw error;
-      toast({ title: 'Status updated', description: `${suggestion.emoji} ${suggestion.label}` });
+      toast({ title: 'Status updated', description: newBio });
       setLastPostedKey(suggestion.key);
     } catch (err: any) {
       toast({ title: "Couldn't update status", description: err.message, variant: 'destructive' });

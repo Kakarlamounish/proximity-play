@@ -60,6 +60,7 @@ export function useGeofencing() {
         );
         const friendIsInside = friendDistance <= geofence.radius;
         if (friendIsInside && geofence.friendId === friend.id && geofence.alertOnEnter) {
+          haptic('success');
           addNotification({
             id: crypto.randomUUID(),
             type: 'system',

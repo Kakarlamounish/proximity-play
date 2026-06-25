@@ -80,6 +80,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           description: error.message,
           variant: "destructive",
         });
+      } else {
+        setUser(null);
+        setSession(null);
+        window.location.href = '/auth';
       }
     } catch (error) {
       console.error('Sign out error:', error);

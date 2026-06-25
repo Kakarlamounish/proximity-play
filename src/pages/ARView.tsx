@@ -105,11 +105,34 @@ const ARView = () => {
   const [permissionGranted, setPermissionGranted] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Demo friends (in production these come from Supabase live_locations)
-  const demoFriends = [
-    { id: '1', name: 'Alice', lat: 0, lng: 0 },
-    { id: '2', name: 'Bob', lat: 0, lng: 0 },
-  ];
+  // Friends fetched from Supabase via secure RPC `get_friend_locations`
+  const friendsRawRef = useRef<Array<{ id: string; name: string; lat: number; lng: number }>>([]);
+  const [loadingFriends, setLoadingFriends] = useState(true);
+
+  const fetchFriends = useCallback(async () => {
+    const { data, error } = await supabase.rpc('get_friend_locations');
+    if (error) {
+      console.error('[ARView] failed to fetch friend locations', error);
+      setLoadingFriends(false);
+      return;
+    }
+    friendsRawRef.current = (data ?? [])
+      .filter((row: any) => row.id !== user?.id && row.latitude != null && row.longitude != null)
+      .map((row: any) => ({
+        id: row.id,
+        name: row.first_name ?? 'Friend',
+        lat: row.latitude,
+        lng: row.longitude,
+      }));
+    setLoadingFriends(false);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchFriends();
+    const interval = setInterval(fetchFriends, 15000); // refresh every 15s
+    return () => clearInterval(interval);
+  }, [user, fetchFriends]);
 
   const startCamera = async () => {
     try {

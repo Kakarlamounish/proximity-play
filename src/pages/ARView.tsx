@@ -258,6 +258,14 @@ const ARView = () => {
               <FriendArrow key={friend.id} friend={friend} deviceHeading={deviceHeading} />
             ))}
 
+            {/* Empty state — no friends sharing live */}
+            {friends.length === 0 && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full text-xs font-medium text-white pointer-events-none"
+                   style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}>
+                {loadingFriends ? 'Finding friends…' : 'No friends sharing location nearby'}
+              </div>
+            )}
+
             {/* Compass ring */}
             <div
               className="absolute bottom-32 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full border-2 border-white/40 flex items-center justify-center"

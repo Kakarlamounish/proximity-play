@@ -161,7 +161,7 @@ export function Navigation(): JSX.Element {
                   ⚙️
                 </Link>
 
-                <Link to="/?sheet=profile" className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-muted transition-all duration-150 group">
+                <Link to="/profile" className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-muted transition-all duration-150 group">
                   <div className="w-7 h-7 rounded-full overflow-hidden border-2 border-primary/40 group-hover:border-primary transition-colors flex-shrink-0">
                     <img src={avatarUrl ?? '/placeholder.svg'} alt="avatar" className="w-full h-full object-cover" />
                   </div>
@@ -243,7 +243,7 @@ export function Navigation(): JSX.Element {
               </Link>
 
               <Link
-                to="/?sheet=profile"
+                to="/profile"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="flex items-center space-x-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
               >

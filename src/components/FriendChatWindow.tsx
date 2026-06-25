@@ -46,7 +46,7 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [showImageUpload, setShowImageUpload] = useState(false);
-  const [messageType, setMessageType] = useState<'text' | 'video'>('text');
+  const [messageType, setMessageType] = useState<'text' | 'video' | 'voice'>('text');
   const [isDisappearing, setIsDisappearing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streak = streaks.find(s => s.friend_id === friend.id);

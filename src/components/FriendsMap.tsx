@@ -161,7 +161,15 @@ function createMyMarker() {
 
 export function FriendsMap({ showMemoryLane = false }: { showMemoryLane?: boolean }) {
   const { user } = useAuth();
-  const { points: allPoints } = useHeatmapStore();
+  const { points: allPoints, fetchHeatmap } = useHeatmapStore();
+
+  // Auto-fetch heatmap data when Memory Lane is toggled on
+  useEffect(() => {
+    if (showMemoryLane && user) {
+      fetchHeatmap(user.id, 'month');
+    }
+  }, [showMemoryLane, user, fetchHeatmap]);
+
   const { toast } = useToast();
   const toastRef = useRef(toast);
   toastRef.current = toast;

@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -104,11 +105,34 @@ const ARView = () => {
   const [permissionGranted, setPermissionGranted] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Demo friends (in production these come from Supabase live_locations)
-  const demoFriends = [
-    { id: '1', name: 'Alice', lat: 0, lng: 0 },
-    { id: '2', name: 'Bob', lat: 0, lng: 0 },
-  ];
+  // Friends fetched from Supabase via secure RPC `get_friend_locations`
+  const friendsRawRef = useRef<Array<{ id: string; name: string; lat: number; lng: number }>>([]);
+  const [loadingFriends, setLoadingFriends] = useState(true);
+
+  const fetchFriends = useCallback(async () => {
+    const { data, error } = await supabase.rpc('get_friend_locations');
+    if (error) {
+      console.error('[ARView] failed to fetch friend locations', error);
+      setLoadingFriends(false);
+      return;
+    }
+    friendsRawRef.current = (data ?? [])
+      .filter((row: any) => row.id !== user?.id && row.latitude != null && row.longitude != null)
+      .map((row: any) => ({
+        id: row.id,
+        name: row.first_name ?? 'Friend',
+        lat: row.latitude,
+        lng: row.longitude,
+      }));
+    setLoadingFriends(false);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchFriends();
+    const interval = setInterval(fetchFriends, 15000); // refresh every 15s
+    return () => clearInterval(interval);
+  }, [user, fetchFriends]);
 
   const startCamera = async () => {
     try {
@@ -150,18 +174,19 @@ const ARView = () => {
     return () => navigator.geolocation.clearWatch(id);
   }, []);
 
-  // Compute friend overlays (demo: place them around user)
+  // Compute friend overlays from live Supabase data
   useEffect(() => {
-    if (!myLocation) return;
-    const computed: FriendMarker[] = demoFriends.map((f, i) => {
-      const offsetLat = myLocation.lat + (Math.random() - 0.5) * 0.01;
-      const offsetLng = myLocation.lng + (Math.random() - 0.5) * 0.01;
-      const dist = haversineDistance(myLocation.lat, myLocation.lng, offsetLat, offsetLng);
-      const bearing = getBearing(myLocation.lat, myLocation.lng, offsetLat, offsetLng);
-      return { ...f, lat: offsetLat, lng: offsetLng, distance: dist, bearing };
+    if (!myLocation) {
+      setFriends([]);
+      return;
+    }
+    const computed: FriendMarker[] = friendsRawRef.current.map((f) => {
+      const dist = haversineDistance(myLocation.lat, myLocation.lng, f.lat, f.lng);
+      const bearing = getBearing(myLocation.lat, myLocation.lng, f.lat, f.lng);
+      return { id: f.id, name: f.name, distance: dist, bearing };
     });
     setFriends(computed);
-  }, [myLocation]);
+  }, [myLocation, loadingFriends]);
 
   useEffect(() => {
     return () => stopCamera(); // cleanup on unmount
@@ -232,6 +257,14 @@ const ARView = () => {
             {friends.map(friend => (
               <FriendArrow key={friend.id} friend={friend} deviceHeading={deviceHeading} />
             ))}
+
+            {/* Empty state — no friends sharing live */}
+            {friends.length === 0 && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full text-xs font-medium text-white pointer-events-none"
+                   style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}>
+                {loadingFriends ? 'Finding friends…' : 'No friends sharing location nearby'}
+              </div>
+            )}
 
             {/* Compass ring */}
             <div

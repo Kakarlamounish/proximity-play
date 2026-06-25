@@ -5,7 +5,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
 function createMarkerClusterGroup(props: any, context: any) {
-  const markerClusterGroup = L.markerClusterGroup({
+  const markerClusterGroup = (L as any).markerClusterGroup({
     showCoverageOnHover: false,
     maxClusterRadius: 60,
     spiderfyOnMaxZoom: true,

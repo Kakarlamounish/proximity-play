@@ -174,18 +174,19 @@ const ARView = () => {
     return () => navigator.geolocation.clearWatch(id);
   }, []);
 
-  // Compute friend overlays (demo: place them around user)
+  // Compute friend overlays from live Supabase data
   useEffect(() => {
-    if (!myLocation) return;
-    const computed: FriendMarker[] = demoFriends.map((f, i) => {
-      const offsetLat = myLocation.lat + (Math.random() - 0.5) * 0.01;
-      const offsetLng = myLocation.lng + (Math.random() - 0.5) * 0.01;
-      const dist = haversineDistance(myLocation.lat, myLocation.lng, offsetLat, offsetLng);
-      const bearing = getBearing(myLocation.lat, myLocation.lng, offsetLat, offsetLng);
-      return { ...f, lat: offsetLat, lng: offsetLng, distance: dist, bearing };
+    if (!myLocation) {
+      setFriends([]);
+      return;
+    }
+    const computed: FriendMarker[] = friendsRawRef.current.map((f) => {
+      const dist = haversineDistance(myLocation.lat, myLocation.lng, f.lat, f.lng);
+      const bearing = getBearing(myLocation.lat, myLocation.lng, f.lat, f.lng);
+      return { id: f.id, name: f.name, distance: dist, bearing };
     });
     setFriends(computed);
-  }, [myLocation]);
+  }, [myLocation, loadingFriends]);
 
   useEffect(() => {
     return () => stopCamera(); // cleanup on unmount

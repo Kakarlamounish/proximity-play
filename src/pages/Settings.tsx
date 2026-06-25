@@ -306,6 +306,11 @@ const Settings = () => {
     }
   };
 
+  // Redirect unauthenticated users
+  if (!user && !loading) {
+    return <Navigate to="/auth" replace />;
+  }
+
   if (loading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

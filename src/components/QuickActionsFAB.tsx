@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Camera, MapPin, Users, X } from 'lucide-react';
 import { useHapticFeedback } from '@/hooks/useHapticFeedback';
 import { useLocation } from '@/hooks/useLocation';
+import { useAuth } from '@/contexts/AuthContext';
 import { CreateBubbleDialog } from '@/components/CreateBubbleDialog';
 import CreateStoryDialog from '@/components/CreateStoryDialog';
 import CreateARPinDialog from '@/components/CreateARPinDialog';
@@ -12,7 +13,10 @@ export const QuickActionsFAB: React.FC = () => {
   const [activeDialog, setActiveDialog] = useState<'bubble' | 'story' | 'ar_pin' | null>(null);
   const haptic = useHapticFeedback();
   const { latitude, longitude } = useLocation();
+  const { user } = useAuth();
   const userLocation: [number, number] | null = latitude && longitude ? [latitude, longitude] : null;
+
+  if (!user) return null;
 
   const toggleOpen = () => {
     haptic.light();

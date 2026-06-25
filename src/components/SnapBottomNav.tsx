@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { MessageSquare, Camera, Map, Users, User } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const tabs = [
   { to: '/messages', icon: MessageSquare, label: 'Chat' },
@@ -12,8 +13,10 @@ const tabs = [
 
 export function SnapBottomNav() {
   const { pathname } = useLocation();
-  // Hide on camera page
-  if (pathname === '/camera') return null;
+  const { user } = useAuth();
+  
+  // Hide on camera page or if unauthenticated
+  if (!user || pathname === '/camera') return null;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-md border-t border-border safe-bottom md:hidden">

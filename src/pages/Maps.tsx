@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate, Link, useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/Navigation';
 import { FriendsMap } from '@/components/FriendsMap';
@@ -8,18 +8,30 @@ import { MobileBottomSheet } from '@/components/MobileBottomSheet';
 import Messages from './Messages';
 import Profile from './Profile';
 import Friends from './Friends';
-import { MemoryLanePanel } from '@/components/MemoryLanePanel';
-import { Loader2, Flame, Navigation as NavIcon } from 'lucide-react';
+import { Loader2, Flame, Navigation as NavIcon, X } from 'lucide-react';
+import { haptic } from '@/lib/haptics';
+
 
 const Maps = () => {
   const { user, loading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   
   const currentSheet = searchParams.get('sheet');
+  const memoryLaneActive = searchParams.get('memory') === '1';
   const isSheetOpen = !!currentSheet;
 
   const closeSheet = () => {
-    setSearchParams({});
+    const next = new URLSearchParams(searchParams);
+    next.delete('sheet');
+    setSearchParams(next);
+  };
+
+  const toggleMemoryLane = () => {
+    haptic('selection');
+    const next = new URLSearchParams(searchParams);
+    if (memoryLaneActive) next.delete('memory');
+    else next.set('memory', '1');
+    setSearchParams(next);
   };
 
   if (!user && !loading) {
@@ -49,44 +61,63 @@ const Maps = () => {
             <p className="text-xs text-muted-foreground mt-1">Real-time friends location</p>
           </div>
           
-          <Link 
-            to="/?sheet=memory-lane"
-            className="flex items-center gap-2 px-4 py-2.5 bg-secondary text-secondary-foreground hover:bg-secondary/90 rounded-2xl font-semibold transition-all shadow-lg pointer-events-auto w-fit"
+          <button
+            onClick={toggleMemoryLane}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-semibold transition-all shadow-lg pointer-events-auto w-fit ${
+              memoryLaneActive
+                ? 'bg-orange-500 text-white hover:bg-orange-600'
+                : 'bg-secondary text-secondary-foreground hover:bg-secondary/90'
+            }`}
           >
-            <Flame className="w-4 h-4 text-orange-500" />
+            <Flame className={`w-4 h-4 ${memoryLaneActive ? 'text-white' : 'text-orange-500'}`} />
             <span className="text-sm">Memory Lane</span>
-          </Link>
+            {memoryLaneActive && <X className="w-3.5 h-3.5 ml-1 opacity-80" />}
+          </button>
         </div>
       </div>
 
       {/* Edge-to-edge Map Container */}
       <div className="absolute inset-0 z-0">
-        <FriendsMap showMemoryLane={currentSheet === 'memory-lane'} />
+        <FriendsMap showMemoryLane={memoryLaneActive} />
       </div>
+
+      {/* Floating Memory Lane legend (renders over the map when active) */}
+      {memoryLaneActive && (
+        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-[1001] pointer-events-auto">
+          <div className="bg-card/90 backdrop-blur-md border rounded-full shadow-xl px-4 py-2 flex items-center gap-3 text-xs">
+            <span className="font-semibold flex items-center gap-1.5">
+              <Flame className="w-3.5 h-3.5 text-orange-500" /> Last 30 days
+            </span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" />Rare</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-purple-500" />Some</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" />Often</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-500" />Hot</span>
+          </div>
+        </div>
+      )}
       
       <div className="z-50 pointer-events-auto">
         <SmartStatusChip />
       </div>
 
-      {/* Bottom Sheet Overlays */}
+      {/* Bottom Sheet Overlays (Memory Lane no longer uses a sheet) */}
       <MobileBottomSheet
         isOpen={isSheetOpen}
         onClose={closeSheet}
         title={
           currentSheet === 'messages' ? 'Chat' : 
           currentSheet === 'profile' ? 'Profile' : 
-          currentSheet === 'friends' ? 'Friends' :
-          currentSheet === 'memory-lane' ? 'Memory Lane' : ''
+          currentSheet === 'friends' ? 'Friends' : ''
         }
       >
         <div className="h-full overflow-hidden">
           {currentSheet === 'messages' && <Messages isOverlay={true} />}
           {currentSheet === 'profile' && <Profile isOverlay={true} />}
           {currentSheet === 'friends' && <Friends isOverlay={true} />}
-          {currentSheet === 'memory-lane' && <MemoryLanePanel />}
         </div>
       </MobileBottomSheet>
     </div>
+
   );
 };
 

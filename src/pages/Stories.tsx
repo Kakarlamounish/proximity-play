@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Loader2, Map } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { PlusCircle, Loader2, Map, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import CreateStoryDialog from '@/components/CreateStoryDialog';
@@ -12,16 +13,59 @@ import { EmptyState } from '@/components/EmptyState';
 import { StoryRing } from '@/components/StoryRing';
 import { useSnapScore } from '@/hooks/useSnapScore';
 
+interface StoryProfile {
+  id: string;
+  first_name: string | null;
+  profile_photo_url: string | null;
+}
+
+interface Story {
+  id: string;
+  created_at: string;
+  expires_at: string;
+  description: string;
+  user_id: string;
+  profiles?: StoryProfile;
+  image_url?: string | null;
+  latitude?: number;
+  longitude?: number;
+  visibility_radius?: number;
+}
+
+interface FriendStoryCreator {
+  id: string;
+  first_name: string;
+  profile_photo_url: string | null;
+  hasUnwatched: boolean;
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function expiresIn(dateStr: string): string {
+  const ms = new Date(dateStr).getTime() - Date.now();
+  if (ms <= 0) return 'Expired';
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  if (h > 0) return `${h}h ${m}m left`;
+  return `${m}m left`;
+}
+
 const Stories = () => {
   const { user } = useAuth();
-  const [stories, setStories] = useState<any[]>([]);
+  const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
   const [storyDialogOpen, setStoryDialogOpen] = useState(false);
-  const [profile, setProfile] = useState<any>(null);
-  const [storyReactions, setStoryReactions] = useState<{[key: string]: any[]}>({});
+  const [profile, setProfile] = useState<StoryProfile | null>(null);
+  const [storyReactions, setStoryReactions] = useState<{[key: string]: {reaction_type: string; user_id: string}[]}>({});
   const [userReactions, setUserReactions] = useState<{[key: string]: string}>({});
   const [storyViews, setStoryViews] = useState<{[key: string]: number}>({});
-  const [friendStoryCreators, setFriendStoryCreators] = useState<Array<{ id: string; first_name: string; profile_photo_url: string | null; hasUnwatched: boolean }>>([]);
+  const [friendStoryCreators, setFriendStoryCreators] = useState<FriendStoryCreator[]>([]);
   const { latitude, longitude } = useLocation();
   const { incrementScore } = useSnapScore();
 
@@ -364,23 +408,29 @@ const Stories = () => {
 
           {stories.length > 0 ? (
             <div className="stories-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {stories.map((story) => {
+              {stories.map((story: Story) => {
                 const isExpired = new Date(story.expires_at) < new Date();
                 return (
                   <div key={story.id} className={`stories-card backdrop-blur-sm bg-card/95 border-0 rounded-xl p-6 ${isExpired ? 'opacity-60' : ''}`}>
                     <div className="flex items-center gap-3 mb-4">
-                      <img
-                        src={story.profiles?.profile_photo_url || '/avatar-placeholder.png'}
-                        alt={story.profiles?.first_name || 'User'}
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
-                      <div className="flex-1">
-                        <p className="font-medium">{story.profiles?.first_name || 'Anonymous'}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(story.created_at).toLocaleDateString()}
-                          {isExpired && <span className="text-destructive ml-2">• Expired</span>}
-                        </p>
-                      </div>
+                        <img
+                          src={story.profiles?.profile_photo_url || '/avatar-placeholder.png'}
+                          alt={story.profiles?.first_name || 'User'}
+                          className="w-10 h-10 rounded-full object-cover border-2 border-border"
+                        />
+                        <div className="flex-1">
+                          <p className="font-semibold">{story.profiles?.first_name || 'Anonymous'}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <p className="text-xs text-muted-foreground">{timeAgo(story.created_at)}</p>
+                            <Badge
+                              variant={new Date(story.expires_at) < new Date() ? 'destructive' : 'secondary'}
+                              className="text-[10px] py-0 h-4 gap-0.5"
+                            >
+                              <Clock className="h-2.5 w-2.5" />
+                              {expiresIn(story.expires_at)}
+                            </Badge>
+                          </div>
+                        </div>
                       <div className="flex gap-1">
                         <Button
                           variant="ghost"

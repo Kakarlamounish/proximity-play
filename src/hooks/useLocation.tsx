@@ -8,7 +8,13 @@ interface LocationState {
   longitude: number | null;
   loading: boolean;
   error: string | null;
+  isPWA: boolean;
 }
+
+// Detect if running as installed PWA (standalone mode)
+const detectPWA = () =>
+  window.matchMedia('(display-mode: standalone)').matches ||
+  (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
 
 export const useLocation = () => {
   const { user } = useAuth();
@@ -18,7 +24,23 @@ export const useLocation = () => {
     longitude: null,
     loading: true,
     error: null,
+    isPWA: detectPWA(),
   });
+
+  // Show a one-time PWA location notice so users understand why location may go stale
+  useEffect(() => {
+    if (!detectPWA()) return;
+    const shown = sessionStorage.getItem('pwa-location-notice');
+    if (shown) return;
+    sessionStorage.setItem('pwa-location-notice', '1');
+    toast({
+      title: '📍 Location runs while app is open',
+      description:
+        'As a PWA, location tracking only works while this screen is visible. For live tracking, keep the app open.',
+      duration: 7000,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const requestLocation = useCallback(async () => {
     if (!navigator.geolocation) {
@@ -35,13 +57,14 @@ export const useLocation = () => {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-        
-        setLocation({
+
+        setLocation(prev => ({
+          ...prev,
           latitude,
           longitude,
           loading: false,
           error: null,
-        });
+        }));
 
         // Update user's location in database
         if (user) {
@@ -61,7 +84,7 @@ export const useLocation = () => {
       },
       (error) => {
         let errorMessage = 'Unable to retrieve location';
-        
+
         switch (error.code) {
           case error.PERMISSION_DENIED:
             errorMessage = 'Location access denied by user';

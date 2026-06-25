@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +19,22 @@ import {
 } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton-loader';
 import Navigation from '@/components/Navigation';
+
+interface BadgeRow {
+  id: string;
+  earned_at: string;
+  badge: {
+    name: string;
+    icon: string;
+    description: string;
+  } | null;
+}
+
+interface ActivityRow {
+  id: string;
+  activity_type: string;
+  created_at: string;
+}
 
 interface AnalyticsData {
   totalBubbles: number;
@@ -43,8 +60,8 @@ export default function Analytics() {
     badgesEarned: 0,
     activeDays: 0,
   });
-  const [badges, setBadges] = useState<any[]>([]);
-  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [badges, setBadges] = useState<BadgeRow[]>([]);
+  const [recentActivities, setRecentActivities] = useState<ActivityRow[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -134,7 +151,7 @@ export default function Analytics() {
   }: {
     title: string;
     value: number;
-    icon: any;
+    icon: React.ComponentType<{ className?: string }>;
     description?: string;
     trend?: number;
   }) => (
@@ -155,6 +172,38 @@ export default function Analytics() {
       </CardContent>
     </Card>
   );
+
+  // Auth guard
+  if (!user && !loading) return <Navigate to="/auth" replace />;
+
+  // Visual bar chart for activity breakdown
+  const UsageChart = () => {
+    const items = [
+      { label: 'Messages', value: analytics.totalMessages, color: 'bg-blue-500' },
+      { label: 'Stories', value: analytics.totalStories, color: 'bg-purple-500' },
+      { label: 'Bubbles', value: analytics.totalBubbles, color: 'bg-green-500' },
+      { label: 'Friends', value: analytics.totalFriends, color: 'bg-orange-500' },
+    ];
+    const max = Math.max(...items.map(i => i.value), 1);
+    return (
+      <div className="space-y-3">
+        {items.map(item => (
+          <div key={item.label}>
+            <div className="flex items-center justify-between text-sm mb-1">
+              <span className="font-medium">{item.label}</span>
+              <span className="text-muted-foreground font-mono">{item.value.toLocaleString()}</span>
+            </div>
+            <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className={`h-full rounded-full ${item.color} transition-all duration-700`}
+                style={{ width: `${Math.max((item.value / max) * 100, item.value > 0 ? 4 : 0)}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   if (loading) {
     return <PageSkeleton />;
@@ -184,28 +233,24 @@ export default function Analytics() {
                 value={analytics.totalBubbles}
                 icon={MapPin}
                 description="Active communities"
-                trend={12}
               />
               <StatCard
                 title="Friends"
                 value={analytics.totalFriends}
                 icon={Users}
                 description="Connected users"
-                trend={8}
               />
               <StatCard
                 title="Messages Sent"
                 value={analytics.totalMessages}
                 icon={MessageSquare}
                 description="Total conversations"
-                trend={25}
               />
               <StatCard
                 title="Stories Posted"
                 value={analytics.totalStories}
                 icon={Activity}
                 description="Shared moments"
-                trend={15}
               />
             </div>
 
@@ -220,17 +265,28 @@ export default function Analytics() {
                     <span className="text-sm font-medium">Active Days</span>
                     <span className="text-sm text-muted-foreground">{analytics.activeDays} days</span>
                   </div>
-                  <Progress value={(analytics.activeDays / 365) * 100} />
+                  <Progress value={Math.min((analytics.activeDays / 365) * 100, 100)} />
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium">Badges Earned</span>
                     <span className="text-sm text-muted-foreground">
-                      {analytics.badgesEarned} / 20
+                      {analytics.badgesEarned} earned
                     </span>
                   </div>
-                  <Progress value={(analytics.badgesEarned / 20) * 100} />
+                  <Progress value={analytics.badgesEarned > 0 ? Math.min((analytics.badgesEarned / Math.max(analytics.badgesEarned + 3, 10)) * 100, 100) : 0} />
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Activity Breakdown Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Activity Breakdown</CardTitle>
+                <CardDescription>How you spend your time on Proximity Play</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <UsageChart />
               </CardContent>
             </Card>
           </TabsContent>
@@ -277,12 +333,20 @@ export default function Analytics() {
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">Most active in</span>
-                    <Badge variant="secondary">Bubbles</Badge>
+                    <span className="text-sm">Most active feature</span>
+                    <Badge variant="secondary">
+                      {analytics.totalMessages >= analytics.totalStories && analytics.totalMessages >= analytics.totalBubbles
+                        ? 'Chat'
+                        : analytics.totalStories >= analytics.totalBubbles
+                        ? 'Stories'
+                        : 'Bubbles'}
+                    </Badge>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">Response rate</span>
-                    <Badge variant="secondary">Fast</Badge>
+                    <span className="text-sm">Total interactions</span>
+                    <Badge variant="secondary">
+                      {(analytics.totalMessages + analytics.storiesReactions + analytics.storiesViews).toLocaleString()}
+                    </Badge>
                   </div>
                 </div>
               </CardContent>

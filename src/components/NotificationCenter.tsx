@@ -16,7 +16,7 @@ interface Notification {
   type: string;
   title: string;
   body: string;
-  data?: any;
+  data?: unknown;
   read: boolean;
   created_at: string;
 }

@@ -6,13 +6,15 @@ import { ChatWindow } from '@/components/ChatWindow';
 import {FriendChatWindow} from '@/components/FriendChatWindow';
 import { MeetupDialog } from '@/components/MeetupDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageCircle, Users, User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { MessageCircle, Users, User, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 import { Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface MessagesProps {
   isOverlay?: boolean;
@@ -114,6 +116,8 @@ const Messages = ({ isOverlay = false }: MessagesProps = {}) => {
       fetchData();
     }
   }, [user, loading, fetchData]);
+
+  if (!user && !loading) return <Navigate to="/auth" replace />;
 
   if (loading || profileLoading) {
     return (
@@ -229,11 +233,15 @@ const Messages = ({ isOverlay = false }: MessagesProps = {}) => {
                                 setSelectedBubble(null);
                               }}
                             >
-                              <Avatar className="h-10 w-10">
-                                <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground">
-                                  {friend.first_name?.[0] || 'U'}
-                                </AvatarFallback>
-                              </Avatar>
+                              <div className="relative">
+                                <Avatar className="h-10 w-10">
+                                  <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground">
+                                    {friend.first_name?.[0] || 'U'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                {/* Online presence dot */}
+                                <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background bg-green-500" />
+                              </div>
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium truncate">{friend.first_name}</p>
                                 {friend.bio && (

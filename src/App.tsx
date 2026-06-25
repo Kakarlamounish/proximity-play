@@ -14,6 +14,7 @@ import { PresenceTracker } from '@/components/PresenceTracker';
 import { SnapBottomNav } from '@/components/SnapBottomNav';
 import { SmartStatusChip } from '@/components/SmartStatusChip';
 import { BatterySaverBanner } from '@/components/BatterySaverBanner';
+import { PWALocationBanner } from '@/components/PWALocationBanner';
 import { QuickActionsFAB } from '@/components/QuickActionsFAB';
 
 // Lazy load pages
@@ -37,6 +38,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const Camera = lazy(() => import("./pages/Camera"));
 const ARView = lazy(() => import("./pages/ARView"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
+const Premium = lazy(() => import("./pages/Premium"));
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -68,31 +70,33 @@ function App() {
                   <PresenceTracker />
                   {/* Global floating UI */}
                   <BatterySaverBanner />
+                  <PWALocationBanner />
                   <SmartStatusChip />
                   <div id="main-content" role="main" className="min-h-screen bg-background">
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
-                        <Route path="/" element={<Maps />} />
-                        <Route path="/dashboard" element={<Index />} />
-                        <Route path="/auth" element={<Auth />} />
-                        <Route path="/profile-setup" element={<ProfileSetup />} />
-                        <Route path="/discover" element={<Discover />} />
-                        <Route path="/friends" element={<Friends />} />
-                        <Route path="/messages" element={<Messages />} />
-                        <Route path="/live" element={<Live />} />
-                        <Route path="/calls" element={<Calls />} />
-                        <Route path="/stories" element={<Stories />} />
-                        <Route path="/profile" element={<Profile />} />
-                        <Route path="/settings" element={<Settings />} />
-                        <Route path="/analytics" element={<Analytics />} />
-                        <Route path="/install" element={<Install />} />
-                        <Route path="/missed-calls" element={<MissedCalls />} />
-                        <Route path="/camera" element={<Camera />} />
-                        <Route path="/join/:inviteCode" element={<JoinBubble />} />
+                        <Route path="/" element={<ErrorBoundary><Maps /></ErrorBoundary>} />
+                        <Route path="/dashboard" element={<ErrorBoundary><Index /></ErrorBoundary>} />
+                        <Route path="/auth" element={<ErrorBoundary><Auth /></ErrorBoundary>} />
+                        <Route path="/profile-setup" element={<ErrorBoundary><ProfileSetup /></ErrorBoundary>} />
+                        <Route path="/discover" element={<ErrorBoundary><Discover /></ErrorBoundary>} />
+                        <Route path="/friends" element={<ErrorBoundary><Friends /></ErrorBoundary>} />
+                        <Route path="/messages" element={<ErrorBoundary><Messages /></ErrorBoundary>} />
+                        <Route path="/live" element={<ErrorBoundary><Live /></ErrorBoundary>} />
+                        <Route path="/calls" element={<ErrorBoundary><Calls /></ErrorBoundary>} />
+                        <Route path="/stories" element={<ErrorBoundary><Stories /></ErrorBoundary>} />
+                        <Route path="/profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
+                        <Route path="/settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
+                        <Route path="/analytics" element={<ErrorBoundary><Analytics /></ErrorBoundary>} />
+                        <Route path="/install" element={<ErrorBoundary><Install /></ErrorBoundary>} />
+                        <Route path="/missed-calls" element={<ErrorBoundary><MissedCalls /></ErrorBoundary>} />
+                        <Route path="/camera" element={<ErrorBoundary><Camera /></ErrorBoundary>} />
+                        <Route path="/join/:inviteCode" element={<ErrorBoundary><JoinBubble /></ErrorBoundary>} />
                         {/* New routes */}
-                        <Route path="/ar" element={<ARView />} />
-                        <Route path="/leaderboard" element={<Leaderboard />} />
-                        <Route path="*" element={<NotFound />} />
+                        <Route path="/ar" element={<ErrorBoundary><ARView /></ErrorBoundary>} />
+                        <Route path="/leaderboard" element={<ErrorBoundary><Leaderboard /></ErrorBoundary>} />
+                        <Route path="/premium" element={<ErrorBoundary><Premium /></ErrorBoundary>} />
+                        <Route path="*" element={<ErrorBoundary><NotFound /></ErrorBoundary>} />
                       </Routes>
                     </Suspense>
                   </div>

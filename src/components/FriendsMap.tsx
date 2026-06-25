@@ -20,16 +20,28 @@ import { MarkerClusterGroup } from './map/MarkerClusterGroup';
 import { AnimatedMarker } from './map/AnimatedMarker';
 import { useHeatmapStore } from '@/stores/useHeatmapStore';
 
+interface LeafletHeatLayer extends L.Layer {
+  setLatLngs(latlngs: [number, number, number?][]): this;
+}
+
 function HeatLayer({ points }: { points: [number, number, number?][] }) {
   const map = useMap();
-  const heatRef = useRef<any>(null);
+  const heatRef = useRef<LeafletHeatLayer | null>(null);
 
   useEffect(() => {
     if (heatRef.current) {
       map.removeLayer(heatRef.current);
     }
     if (points.length > 0) {
-      heatRef.current = (L as any).heatLayer(points, {
+      const leafletWithHeat = L as typeof L & {
+        heatLayer: (latlngs: [number, number, number?][], options: {
+          radius?: number;
+          blur?: number;
+          maxZoom?: number;
+          gradient?: Record<number, string>;
+        }) => LeafletHeatLayer;
+      };
+      heatRef.current = leafletWithHeat.heatLayer(points, {
         radius: 30,
         blur: 20,
         maxZoom: 17,
@@ -210,7 +222,16 @@ export function FriendsMap({ showMemoryLane = false }: { showMemoryLane?: boolea
 
       // Fetch friend locations via security-definer RPC
       const { data: allFriendLocations } = await supabase.rpc('get_friend_locations');
-      const profiles = (allFriendLocations || []).filter((p: any) => friendIds.includes(p.id));
+      
+      interface FriendProfile {
+        id: string;
+        first_name: string;
+        profile_photo_url?: string | null;
+        latitude: number;
+        longitude: number;
+      }
+
+      const profiles = ((allFriendLocations as FriendProfile[] | null) || []).filter(p => friendIds.includes(p.id));
 
       // Fetch presence data
       const { data: presenceData } = await supabase
@@ -223,7 +244,7 @@ export function FriendsMap({ showMemoryLane = false }: { showMemoryLane?: boolea
         presenceMap.set(p.user_id, { status: p.status, last_seen: p.last_seen });
       });
 
-      const mapped: FriendOnMap[] = (profiles || []).map(p => {
+      const mapped: FriendOnMap[] = profiles.map(p => {
         const presence = presenceMap.get(p.id);
         return {
           user_id: p.id,

@@ -88,6 +88,8 @@ export function Navigation(): JSX.Element {
     { to: '/', label: '🗺️ Snap Map' },
     { to: '/friends', label: '👥 Friends', badge: pendingRequestCount },
     { to: '/calls', label: '📞 Calls' },
+    { to: '/live', label: '📡 Live' },
+    { to: '/leaderboard', label: '🏆 Scores' },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -231,6 +233,42 @@ export function Navigation(): JSX.Element {
               >
                 <span className="text-lg">📷</span>
                 <span className="font-medium">AR View</span>
+              </Link>
+
+              <Link
+                to="/live"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
+              >
+                <span className="text-lg">📡</span>
+                <span className="font-medium">Live Sharing</span>
+              </Link>
+
+              <Link
+                to="/leaderboard"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
+              >
+                <span className="text-lg">🏆</span>
+                <span className="font-medium">Leaderboard</span>
+              </Link>
+
+              <Link
+                to="/analytics"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
+              >
+                <span className="text-lg">📊</span>
+                <span className="font-medium">Analytics</span>
+              </Link>
+
+              <Link
+                to="/premium"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
+              >
+                <span className="text-lg">👑</span>
+                <span className="font-medium">Go Premium</span>
               </Link>
 
               <Link

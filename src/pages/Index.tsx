@@ -344,7 +344,13 @@ const Index = () => {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <Select value={radius} onValueChange={setRadius}>
+                    <Select
+                      value={radius}
+                      onValueChange={(val) => {
+                        setRadius(val);
+                        setFilters(prev => ({ ...prev, radius: parseFloat(val) }));
+                      }}
+                    >
                       <SelectTrigger className="w-32">
                         <SelectValue />
                       </SelectTrigger>

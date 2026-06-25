@@ -1,5 +1,5 @@
-import React from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/Navigation';
 import { FriendsMap } from '@/components/FriendsMap';
@@ -10,11 +10,45 @@ import Profile from './Profile';
 import Friends from './Friends';
 import { Loader2, Flame, Navigation as NavIcon, X } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
+import { supabase } from '@/integrations/supabase/client';
 
 
 const Maps = () => {
   const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [profileChecked, setProfileChecked] = useState(false);
+
+  useEffect(() => {
+    const checkProfile = async () => {
+      if (!user) return;
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('first_name, age')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error('[Maps] Error checking profile:', error);
+        }
+
+        if (!data || !data.first_name || !data.age) {
+          console.log('[Maps] Profile incomplete or missing. Redirecting to profile-setup.');
+          navigate('/profile-setup');
+        } else {
+          setProfileChecked(true);
+        }
+      } catch (err) {
+        console.error('[Maps] Profile check error:', err);
+        setProfileChecked(true);
+      }
+    };
+
+    if (user && !loading) {
+      checkProfile();
+    }
+  }, [user, loading, navigate]);
   
   const currentSheet = searchParams.get('sheet');
   const memoryLaneActive = searchParams.get('memory') === '1';
@@ -38,7 +72,7 @@ const Maps = () => {
     return <Navigate to="/auth" replace />;
   }
 
-  if (loading) {
+  if (loading || (!profileChecked && user)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

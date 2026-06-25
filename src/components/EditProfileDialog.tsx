@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Edit2, Plus, X, Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { ImageUpload } from './ImageUpload';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -27,6 +28,7 @@ const INTERESTS_OPTIONS = [
 ];
 
 export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ profile, onProfileUpdate }) => {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -52,23 +54,25 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ profile, o
     setLoading(true);
 
     try {
-      const updateData: Partial<ProfilesRow> = {
+      const profileId = profile?.id || user?.id;
+      if (!profileId) {
+        throw new Error('User session not found. Please log in again.');
+      }
+
+      const updateData = {
+        id: profileId,
         first_name: formData.first_name,
-        bio: formData.bio,
+        bio: formData.bio || null,
         age: formData.age,
         interests: formData.interests,
-        profile_photo_url: formData.profile_photo_url,
+        profile_photo_url: formData.profile_photo_url || null,
+        gender: formData.gender || null,
         updated_at: new Date().toISOString()
       };
 
-      if (formData.gender) {
-        updateData.gender = formData.gender;
-      }
-
       const { data, error } = await supabase
         .from('profiles')
-        .update(updateData)
-        .eq('id', profile.id)
+        .upsert(updateData)
         .select()
         .single();
 

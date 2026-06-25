@@ -14,6 +14,7 @@ import { BubbleFilters } from '@/components/BubbleFilters';
 import { Navigation } from '@/components/Navigation';
 import type { Database } from '@/integrations/supabase/types';
 import { CardSkeleton, BubbleSkeleton } from '@/components/ui/skeleton-loader';
+import { useLocation } from '@/hooks/useLocation';
 
 interface NearbyUser {
   id: string;
@@ -43,62 +44,37 @@ interface Bubble {
 export default function Discover() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { latitude, longitude, loading: locationLoading, error: locationError } = useLocation();
   const [nearbyUsers, setNearbyUsers] = useState<NearbyUser[]>([]);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [radiusKm, setRadiusKm] = useState([5]);
-  const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [selectedInterest, setSelectedInterest] = useState('all');
   const [sortBy, setSortBy] = useState('nearest');
   const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
 
+  const myLocation = latitude && longitude ? { lat: latitude, lng: longitude } : null;
+
   useEffect(() => {
     const fetchProfile = async () => {
       if (!user) return;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
-      
-      if (error) {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        if (error) throw error;
+        setProfile(data);
+      } catch (error) {
         console.error('Error fetching profile:', error);
-        return;
-      }
-      setProfile(data);
-    };
-
-    const fetchMyLocation = async () => {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('latitude, longitude')
-        .eq('id', user?.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching location:', error);
-        return;
-      }
-
-      if (profile?.latitude && profile?.longitude) {
-        setMyLocation({ lat: profile.latitude, lng: profile.longitude });
       }
     };
 
     fetchProfile();
-    fetchMyLocation();
   }, [user]);
-
-  const fetchProfile = async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-    setProfile(data);
-  };
 
   useEffect(() => {
     if (myLocation) {
@@ -106,23 +82,6 @@ export default function Discover() {
       fetchNearbyBubbles();
     }
   }, [myLocation, radiusKm, selectedInterest, sortBy]);
-
-  const fetchMyLocation = async () => {
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('latitude, longitude')
-      .eq('id', user?.id)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Error fetching location:', error);
-      return;
-    }
-
-    if (profile?.latitude && profile?.longitude) {
-      setMyLocation({ lat: profile.latitude, lng: profile.longitude });
-    }
-  };
 
   const fetchNearbyUsers = async () => {
     if (!myLocation || !user) return;
@@ -316,18 +275,39 @@ export default function Discover() {
     b.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  if (locationLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="container mx-auto p-6 max-w-6xl pt-24">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold mb-2 bg-clip-text text-transparent">
+              Discover
+            </h1>
+            <p className="text-muted-foreground">Getting your location...</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <CardSkeleton />
+            <CardSkeleton />
+            <CardSkeleton />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!myLocation) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen bg-background">
         <Navigation />
-        <div className="container mx-auto p-6 max-w-6xl">
-        <Card className="p-8 text-center">
-          <MapPin className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-          <h2 className="text-2xl font-bold mb-2">Location Required</h2>
-          <p className="text-muted-foreground">
-            Please update your location in your profile to discover nearby users
-          </p>
-        </Card>
+        <div className="container mx-auto p-6 max-w-6xl pt-24">
+          <Card className="p-8 text-center glass border-destructive/20 max-w-md mx-auto shadow-2xl">
+            <MapPin className="w-16 h-16 mx-auto mb-4 text-destructive animate-bounce" />
+            <h2 className="text-2xl font-bold mb-2">Location Access Required</h2>
+            <p className="text-muted-foreground mb-4">
+              {locationError || "Please enable location services in your browser or device to discover nearby people and communities."}
+            </p>
+          </Card>
         </div>
       </div>
     );

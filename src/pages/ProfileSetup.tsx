@@ -33,6 +33,19 @@ const ProfileSetup = () => {
   const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Pre-fill from Google Metadata if available
+  useEffect(() => {
+    if (user) {
+      const metadata = user.user_metadata;
+      if (metadata) {
+        const name = metadata.full_name || metadata.name || metadata.given_name || '';
+        const photo = metadata.avatar_url || metadata.picture || '';
+        if (name && !firstName) setFirstName(name);
+        if (photo && !profilePhotoUrl) setProfilePhotoUrl(photo);
+      }
+    }
+  }, [user, firstName, profilePhotoUrl]);
+
   // Redirect unauthenticated users
   if (!user && !loading) {
     return <Navigate to="/auth" replace />;
@@ -62,7 +75,7 @@ const ProfileSetup = () => {
     if (parseInt(age) < 15) {
       toast({
         title: "Age requirement",
-        description: "You must be at least 15 years old to use Social Bubble.",
+        description: "You must be at least 15 years old to use Proximity Play.",
         variant: "destructive",
       });
       return;
@@ -73,14 +86,15 @@ const ProfileSetup = () => {
     try {
         const { error } = await supabase
           .from('profiles')
-          .insert({
+          .upsert({
             id: user.id,
             first_name: firstName,
             age: parseInt(age),
-            gender: gender as "male" | "female" | "non_binary" | "prefer_not_to_say" | null,
+            gender: (gender || null) as "male" | "female" | "non_binary" | "prefer_not_to_say" | null,
             bio: bio || null,
             interests,
             profile_photo_url: profilePhotoUrl || null,
+            updated_at: new Date().toISOString()
           });
 
       if (error) {
@@ -89,7 +103,7 @@ const ProfileSetup = () => {
 
       toast({
         title: "Profile created!",
-        description: "Welcome to Social Bubble. Let's find your bubbles!",
+        description: "Welcome to Proximity Play. Let's find your bubbles!",
       });
 
       navigate('/');

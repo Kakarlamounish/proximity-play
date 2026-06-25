@@ -133,6 +133,25 @@ export const StoryCard: React.FC<StoryCardProps> = memo(({ story }) => {
       setLiked(true);
       setLikesCount(prev => prev + 1);
       haptic.success();
+
+      // Notify the story author (skip self-likes)
+      if (story.reporter_id && story.reporter_id !== user.id) {
+        try {
+          const { data: liker } = await supabase
+            .from('profiles')
+            .select('first_name')
+            .eq('id', user.id)
+            .maybeSingle();
+          await supabase.from('notifications').insert({
+            user_id: story.reporter_id,
+            type: 'story_reaction',
+            title: `❤️ ${liker?.first_name || 'Someone'} liked your post`,
+            body: story.description?.substring(0, 60) || 'Tap to view',
+            read: false,
+            data: { story_id: story.id, liker_id: user.id },
+          });
+        } catch (_) {}
+      }
     }
   };
 

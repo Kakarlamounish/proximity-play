@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 
 /**
- * Plays a high-fidelity iPhone 15 notification chime (using an external CDN),
+ * Plays the custom WhatsApp notification sound from /public,
  * with a robust fallback to a Web Audio API synthesized chime.
  */
 export function useNotificationSound() {
@@ -43,11 +43,12 @@ export function useNotificationSound() {
   const play = useCallback(() => {
     try {
       if (!audioRef.current) {
-        audioRef.current = new Audio('https://archive.org/download/iphone-original-ringtones/Tritone.mp3');
+        // Use the custom WhatsApp notification sound from /public
+        audioRef.current = new Audio('/WhatsApp Audio 2026-06-25 at 5.48.32 PM.mp3');
       }
       audioRef.current.currentTime = 0;
       audioRef.current.play().catch(err => {
-        console.warn('Failed to play iPhone notification sound, falling back to synthesizer:', err);
+        console.warn('Failed to play notification sound, falling back to synthesizer:', err);
         playSynthesizedFallback();
       });
     } catch (err) {

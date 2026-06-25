@@ -29,9 +29,16 @@ export function NotificationCenter() {
 
   useEffect(() => {
     if (!user) return;
-
     loadNotifications();
   }, [user]);
+
+  // Auto-mark all as read when the panel is opened (WhatsApp behaviour)
+  useEffect(() => {
+    if (isOpen && unreadCount > 0) {
+      markAllAsRead();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   useRealtimeNotifications({
     onNewNotification: (newNotification) => {
@@ -131,10 +138,11 @@ export function NotificationCenter() {
       case 'friend_request':
         return '👥';
       case 'bubble_activity':
-        return '🫧';
+        return '🪷';
       case 'meetup':
         return '📍';
       case 'story_reaction':
+      case 'like':
         return '❤️';
       case 'missed_call':
         return '📞';
@@ -146,14 +154,22 @@ export function NotificationCenter() {
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground hover:bg-muted">
-          <Bell className="h-5 w-5" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative text-muted-foreground hover:text-foreground hover:bg-muted"
+        >
+          {/* Pulse ring when there are unread notifications */}
           {unreadCount > 0 && (
-            <Badge 
-              variant="destructive" 
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+            <span className="absolute inset-0 rounded-full animate-ping bg-destructive/30 pointer-events-none" />
+          )}
+          <Bell className={`h-5 w-5 ${unreadCount > 0 ? 'text-destructive' : ''}`} />
+          {unreadCount > 0 && (
+            <Badge
+              variant="destructive"
+              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs font-bold"
             >
-              {unreadCount > 9 ? '9+' : unreadCount}
+              {unreadCount > 99 ? '99+' : unreadCount}
             </Badge>
           )}
         </Button>

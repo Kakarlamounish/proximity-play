@@ -208,6 +208,23 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
         setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, id: data.id } : m));
       }
 
+      // Notify the recipient via the notifications table (triggers bell badge)
+      try {
+        const { data: senderProfile } = await supabase
+          .from('profiles')
+          .select('first_name')
+          .eq('id', user!.id)
+          .maybeSingle();
+        await supabase.from('notifications').insert({
+          user_id: friend.id,
+          type: 'message',
+          title: `💬 ${senderProfile?.first_name || 'Someone'} sent you a message`,
+          body: content.substring(0, 80) + (content.length > 80 ? '...' : ''),
+          read: false,
+          data: { sender_id: user!.id, message_id: data?.id },
+        });
+      } catch (_) {}
+
       // Update streak and snap score
       updateStreak(friend.id);
       incrementScore('snaps_sent');

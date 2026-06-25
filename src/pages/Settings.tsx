@@ -194,6 +194,12 @@ const Settings = () => {
 
   // Theme is now managed by ThemeContext - no need for local state
 
+  const handleSignOut = () => {
+    if (confirm('Are you sure you want to sign out?')) {
+      signOut();
+    }
+  };
+
   const handleDeleteAccount = async () => {
     if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
       return;
@@ -716,7 +722,7 @@ const Settings = () => {
                 <CardTitle>Account Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Button variant="outline" className="w-full" onClick={signOut}>
+                <Button variant="outline" className="w-full" onClick={handleSignOut}>
                   Sign Out
                 </Button>
                 

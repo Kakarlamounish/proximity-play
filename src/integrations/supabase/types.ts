@@ -329,6 +329,60 @@ export type Database = {
         }
         Relationships: []
       }
+      hangout_zones: {
+        Row: {
+          bubble_id: string | null
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          inside_user_ids: string[] | null
+          latitude: number
+          longitude: number
+          name: string
+          radius: number
+        }
+        Insert: {
+          bubble_id?: string | null
+          created_at?: string
+          created_by: string
+          expires_at?: string
+          id?: string
+          inside_user_ids?: string[] | null
+          latitude: number
+          longitude: number
+          name?: string
+          radius?: number
+        }
+        Update: {
+          bubble_id?: string | null
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          inside_user_ids?: string[] | null
+          latitude?: number
+          longitude?: number
+          name?: string
+          radius?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hangout_zones_bubble_id_fkey"
+            columns: ["bubble_id"]
+            isOneToOne: false
+            referencedRelation: "bubbles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hangout_zones_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       live_locations: {
         Row: {
           bubble_id: string
@@ -738,6 +792,44 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      }
+      safety_alerts: {
+        Row: {
+          created_at: string
+          id: string
+          latitude: number | null
+          longitude: number | null
+          response: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          response?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          response?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "safety_alerts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       snap_scores: {
         Row: {

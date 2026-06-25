@@ -105,7 +105,7 @@ export function Navigation(): JSX.Element {
       )}
 
       {/* Floating Pill Navigation */}
-      <nav className="fixed top-2 sm:top-4 left-2 right-2 lg:left-1/2 lg:-translate-x-1/2 lg:w-[850px] lg:right-auto z-50 glass rounded-full shadow-2xl border border-white/20 transition-all duration-300">
+      <nav className="fixed top-2 sm:top-4 left-2 right-2 lg:left-1/2 lg:-translate-x-1/2 lg:w-[96%] xl:w-[1150px] 2xl:w-[1280px] lg:right-auto z-50 glass rounded-full shadow-2xl border border-white/20 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex items-center justify-between h-14 gap-2">
             {/* Logo */}
@@ -126,7 +126,7 @@ export function Navigation(): JSX.Element {
             </div>
 
             {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center gap-1.5 flex-1 justify-start xl:justify-center overflow-x-auto no-scrollbar mx-2">
+            <div className="hidden lg:flex items-center gap-1.5 flex-1 justify-start overflow-x-auto no-scrollbar mx-2">
               {navLinks.map((link) => (
                 <Link
                   key={link.to}

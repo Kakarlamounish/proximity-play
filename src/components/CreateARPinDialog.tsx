@@ -57,10 +57,10 @@ const CreateARPinDialog: React.FC<CreateARPinDialogProps> = ({ open, onClose, us
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogHeader>
-        <DialogTitle>Drop AR Pin / Note</DialogTitle>
-      </DialogHeader>
       <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Drop AR Pin / Note</DialogTitle>
+        </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Textarea
             placeholder="Leave a note for others to discover..."

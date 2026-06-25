@@ -12,6 +12,7 @@ import { StorySkeleton, PageSkeleton } from '@/components/ui/skeleton-loader';
 import { EmptyState } from '@/components/EmptyState';
 import { StoryRing } from '@/components/StoryRing';
 import { useSnapScore } from '@/hooks/useSnapScore';
+import { toast } from 'sonner';
 
 interface StoryProfile {
   id: string;
@@ -279,17 +280,23 @@ const Stories = () => {
         const viewedStories = views?.filter(v => v.viewer_id === user.id).map(v => v.story_id) || [];
         const unviewedStories = stories.filter(s => !viewedStories.includes(s.id));
 
+        let recordedNew = false;
         for (const story of unviewedStories) {
-          await supabase
+          const { error } = await supabase
             .from('story_views')
             .insert({
               story_id: story.id,
               viewer_id: user.id
             });
+          if (!error) {
+            recordedNew = true;
+          } else {
+            console.error(`Error recording view for story ${story.id}:`, error.message);
+          }
         }
 
         // Refresh view counts after recording new views
-        if (unviewedStories.length > 0) {
+        if (recordedNew) {
           const { data: updatedViews } = await supabase
             .from('story_views')
             .select('story_id')
@@ -316,11 +323,17 @@ const Stories = () => {
 
       if (existingReaction === reactionType) {
         // Remove reaction
-        await supabase
+        const { error } = await supabase
           .from('story_reactions')
           .delete()
           .eq('story_id', storyId)
           .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Error deleting reaction:', error);
+          toast.error(`Failed to remove reaction: ${error.message}`);
+          return;
+        }
 
         setUserReactions(prev => {
           const newState = { ...prev };
@@ -329,13 +342,19 @@ const Stories = () => {
         });
       } else {
         // Add or update reaction
-        await supabase
+        const { error } = await supabase
           .from('story_reactions')
           .upsert({
             story_id: storyId,
             user_id: user.id,
             reaction_type: reactionType
           });
+
+        if (error) {
+          console.error('Error upserting reaction:', error);
+          toast.error(`Failed to save reaction: ${error.message}`);
+          return;
+        }
 
         setUserReactions(prev => ({
           ...prev,
@@ -446,7 +465,7 @@ const Stories = () => {
                           className={`text-sm ${userReactions[story.id] === 'love' ? 'text-pink-400' : 'text-muted-foreground hover:text-foreground'}`}
                           onClick={() => handleReaction(story.id, 'love')}
                         >
-                          ❤️ {storyReactions[story.id]?.filter(r => r.reaction_type === 'love').length || 0}
+                          💖 {storyReactions[story.id]?.filter(r => r.reaction_type === 'love').length || 0}
                         </Button>
                         <Button
                           variant="ghost"

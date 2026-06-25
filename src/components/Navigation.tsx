@@ -217,7 +217,7 @@ export function Navigation(): JSX.Element {
 
             <div className="border-t border-border pt-4 mt-4">
               <Link
-                to="/memory-lane"
+                to="/?sheet=memory-lane"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="flex items-center space-x-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
               >

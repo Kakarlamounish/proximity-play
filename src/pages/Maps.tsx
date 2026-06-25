@@ -8,6 +8,7 @@ import { MobileBottomSheet } from '@/components/MobileBottomSheet';
 import Messages from './Messages';
 import Profile from './Profile';
 import Friends from './Friends';
+import { MemoryLanePanel } from '@/components/MemoryLanePanel';
 import { Loader2, Flame, Navigation as NavIcon } from 'lucide-react';
 
 const Maps = () => {
@@ -49,7 +50,7 @@ const Maps = () => {
           </div>
           
           <Link 
-            to="/memory-lane"
+            to="/?sheet=memory-lane"
             className="flex items-center gap-2 px-4 py-2.5 bg-secondary text-secondary-foreground hover:bg-secondary/90 rounded-2xl font-semibold transition-all shadow-lg pointer-events-auto w-fit"
           >
             <Flame className="w-4 h-4 text-orange-500" />
@@ -60,7 +61,7 @@ const Maps = () => {
 
       {/* Edge-to-edge Map Container */}
       <div className="absolute inset-0 z-0">
-        <FriendsMap />
+        <FriendsMap showMemoryLane={currentSheet === 'memory-lane'} />
       </div>
       
       <div className="z-50 pointer-events-auto">
@@ -74,13 +75,15 @@ const Maps = () => {
         title={
           currentSheet === 'messages' ? 'Chat' : 
           currentSheet === 'profile' ? 'Profile' : 
-          currentSheet === 'friends' ? 'Friends' : ''
+          currentSheet === 'friends' ? 'Friends' :
+          currentSheet === 'memory-lane' ? 'Memory Lane' : ''
         }
       >
         <div className="h-full overflow-hidden">
           {currentSheet === 'messages' && <Messages isOverlay={true} />}
           {currentSheet === 'profile' && <Profile isOverlay={true} />}
           {currentSheet === 'friends' && <Friends isOverlay={true} />}
+          {currentSheet === 'memory-lane' && <MemoryLanePanel />}
         </div>
       </MobileBottomSheet>
     </div>

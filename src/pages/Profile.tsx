@@ -255,7 +255,7 @@ const Profile = ({ isOverlay = false }: ProfileProps = {}) => {
                       <div key={membership.bubble_id} className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
                         <Avatar className="h-12 w-12 bg-gradient-to-br from-secondary to-primary">
                           <AvatarFallback className="text-primary-foreground font-semibold">
-                            {membership.bubbles.interest_tag[0].toUpperCase()}
+                            {membership.bubbles.interest_tag?.[0]?.toUpperCase() || 'B'}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1">

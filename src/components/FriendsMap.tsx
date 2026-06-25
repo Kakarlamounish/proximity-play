@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.heat';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -17,6 +18,32 @@ import { useBatterySaver } from '@/hooks/useBatterySaver';
 import { haptic } from '@/lib/haptics';
 import { MarkerClusterGroup } from './map/MarkerClusterGroup';
 import { AnimatedMarker } from './map/AnimatedMarker';
+import { useHeatmapStore } from '@/stores/useHeatmapStore';
+
+function HeatLayer({ points }: { points: [number, number, number?][] }) {
+  const map = useMap();
+  const heatRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (heatRef.current) {
+      map.removeLayer(heatRef.current);
+    }
+    if (points.length > 0) {
+      heatRef.current = (L as any).heatLayer(points, {
+        radius: 30,
+        blur: 20,
+        maxZoom: 17,
+        gradient: { 0.2: '#3b82f6', 0.5: '#8b5cf6', 0.7: '#f59e0b', 1.0: '#ef4444' },
+      });
+      heatRef.current.addTo(map);
+    }
+    return () => {
+      if (heatRef.current) map.removeLayer(heatRef.current);
+    };
+  }, [points, map]);
+
+  return null;
+}
 
 interface FriendOnMap {
   user_id: string;
@@ -132,8 +159,9 @@ function createMyMarker() {
   });
 }
 
-export function FriendsMap() {
+export function FriendsMap({ showMemoryLane = false }: { showMemoryLane?: boolean }) {
   const { user } = useAuth();
+  const { points: allPoints } = useHeatmapStore();
   const { toast } = useToast();
   const toastRef = useRef(toast);
   toastRef.current = toast;
@@ -335,6 +363,11 @@ export function FriendsMap() {
         <MapContainer center={center} zoom={friends.length > 0 ? 12 : 3} className="w-full h-full z-0 bg-background" zoomControl={false}>
           <DynamicTileLayer style={mapStyle} />
           <FitBounds locations={friends} myLocation={myLocation} />
+
+          {/* Memory Lane Heatmap */}
+          {showMemoryLane && user && allPoints[user.id] && allPoints[user.id].length > 0 && (
+            <HeatLayer points={allPoints[user.id].map(p => [p.latitude, p.longitude, Math.min(p.intensity, 1)])} />
+          )}
 
           {/* My location - blue dot */}
           {myLocation && sharing && (

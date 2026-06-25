@@ -36,6 +36,7 @@ const MissedCalls = lazy(() => import("./pages/MissedCalls"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Camera = lazy(() => import("./pages/Camera"));
 const ARView = lazy(() => import("./pages/ARView"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 

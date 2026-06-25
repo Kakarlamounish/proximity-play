@@ -82,11 +82,11 @@ export function Navigation(): JSX.Element {
 
   const navLinks: NavItem[] = [
     { to: '/dashboard', label: '🏠 Dash' },
-    { to: '/?sheet=messages', label: '💬 Chat' },
+    { to: '/messages', label: '💬 Chat' },
     { to: '/discover', label: '🔍 Discover' },
     { to: '/stories', label: '📖 Stories' },
     { to: '/', label: '🗺️ Snap Map' },
-    { to: '/?sheet=friends', label: '👥 Friends', badge: pendingRequestCount },
+    { to: '/friends', label: '👥 Friends', badge: pendingRequestCount },
     { to: '/calls', label: '📞 Calls' },
   ];
 

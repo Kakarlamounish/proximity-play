@@ -14,6 +14,7 @@ import { PresenceTracker } from '@/components/PresenceTracker';
 import { SnapBottomNav } from '@/components/SnapBottomNav';
 import { SmartStatusChip } from '@/components/SmartStatusChip';
 import { BatterySaverBanner } from '@/components/BatterySaverBanner';
+import { QuickActionsFAB } from '@/components/QuickActionsFAB';
 
 // Lazy load pages
 const Index = lazy(() => import("./pages/Index"));
@@ -95,6 +96,7 @@ function App() {
                       </Routes>
                     </Suspense>
                   </div>
+                  <QuickActionsFAB />
                   <SnapBottomNav />
                 </BrowserRouter>
               </TooltipProvider>

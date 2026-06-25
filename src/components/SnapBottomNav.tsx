@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { MessageSquare, Camera, Map, Users, User } from 'lucide-react';
 
 const tabs = [
-  { to: '/?sheet=messages', icon: MessageSquare, label: 'Chat' },
+  { to: '/messages', icon: MessageSquare, label: 'Chat' },
   { to: '/', icon: Map, label: 'Map' },
   { to: '/camera', icon: Camera, label: '', isCenter: true },
   { to: '/stories', icon: Users, label: 'Stories' },

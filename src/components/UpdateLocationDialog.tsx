@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from '@/components/ui/responsive-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -144,18 +150,18 @@ export const UpdateLocationDialog: React.FC<UpdateLocationDialogProps> = ({ onLo
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+    <ResponsiveDialog open={open} onOpenChange={setOpen}>
+      <ResponsiveDialogTrigger asChild>
         <Button variant="outline" className="w-full justify-start">
           <MapPin className="h-4 w-4 mr-2" />
           Update Location
         </Button>
-      </DialogTrigger>
+      </ResponsiveDialogTrigger>
       
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Update Your Location</DialogTitle>
-        </DialogHeader>
+      <ResponsiveDialogContent className="max-w-md p-4 pt-8">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Update Your Location</ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="text-sm text-muted-foreground mb-4">
@@ -223,7 +229,7 @@ export const UpdateLocationDialog: React.FC<UpdateLocationDialogProps> = ({ onLo
             </Button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 };

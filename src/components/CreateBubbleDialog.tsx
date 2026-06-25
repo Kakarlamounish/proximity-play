@@ -22,6 +22,9 @@ const INTEREST_OPTIONS = [
 
 interface CreateBubbleDialogProps {
   onBubbleCreated?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  trigger?: React.ReactNode;
 }
 
 interface FormData {
@@ -33,11 +36,27 @@ interface FormData {
   custom_interest_input: string;
 }
 
-export const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({ onBubbleCreated }) => {
+export const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({ 
+  onBubbleCreated,
+  open: controlledOpen,
+  onOpenChange: setControlledOpen,
+  trigger
+}) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { latitude, longitude, requestLocation } = useLocation();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  
+  const setOpen = (newOpen: boolean) => {
+    if (isControlled && setControlledOpen) {
+      setControlledOpen(newOpen);
+    } else {
+      setInternalOpen(newOpen);
+    }
+  };
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -163,12 +182,16 @@ export const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({ onBubble
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="bg-gradient-to-r from-secondary to-primary">
-          <Plus className="h-4 w-4 mr-2" />
-          Create Bubble
-        </Button>
-      </DialogTrigger>
+      {trigger ? (
+        <DialogTrigger asChild>{trigger}</DialogTrigger>
+      ) : (
+        <DialogTrigger asChild>
+          <Button className="bg-gradient-to-r from-secondary to-primary">
+            <Plus className="h-4 w-4 mr-2" />
+            Create Bubble
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Create New Bubble</DialogTitle>

@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -50,11 +55,11 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onClose, us
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogHeader>
-        <DialogTitle>Create Event / Meetup</DialogTitle>
-      </DialogHeader>
-      <DialogContent>
+    <ResponsiveDialog open={open} onOpenChange={onClose}>
+      <ResponsiveDialogContent className="sm:max-w-md p-4 pt-8">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Create Event / Meetup</ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             placeholder="Event Title"
@@ -73,12 +78,12 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onClose, us
             onChange={e => setDate(e.target.value)}
           />
           {error && <div className="text-red-500 text-sm">{error}</div>}
-          <Button type="submit" disabled={loading || !userLocation}>
+          <Button type="submit" disabled={loading || !userLocation} className="w-full">
             {loading ? "Creating..." : "Create Event"}
           </Button>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 };
 

@@ -91,6 +91,7 @@ function App() {
                         <Route path="/join/:inviteCode" element={<JoinBubble />} />
                         {/* New routes */}
                         <Route path="/ar" element={<ARView />} />
+                        <Route path="/leaderboard" element={<Leaderboard />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </Suspense>

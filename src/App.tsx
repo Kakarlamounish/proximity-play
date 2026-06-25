@@ -36,6 +36,7 @@ const MissedCalls = lazy(() => import("./pages/MissedCalls"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Camera = lazy(() => import("./pages/Camera"));
 const ARView = lazy(() => import("./pages/ARView"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -90,6 +91,7 @@ function App() {
                         <Route path="/join/:inviteCode" element={<JoinBubble />} />
                         {/* New routes */}
                         <Route path="/ar" element={<ARView />} />
+                        <Route path="/leaderboard" element={<Leaderboard />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </Suspense>

@@ -6,7 +6,7 @@ import { useHapticFeedback, hapticPatterns } from '@/hooks/useHapticFeedback';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Party, Users, MapPin, Plus, Trash2, Zap, Circle as CircleIcon } from 'lucide-react';
+import { PartyPopper as Party, Users, MapPin, Plus, Trash2, Zap, Circle as CircleIcon } from 'lucide-react';
 
 interface HangoutZone {
   id: string;

@@ -403,7 +403,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ExplorationBadge } from '@/components/ui/exploration-badge';
 import { UserMarker } from '@/components/user-marker';
 import { createRoot } from 'react-dom/client';
-import { mapStyle } from '@/components/map-style';
+
 import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
 import { Tooltip } from 'react-leaflet';
 import { Polyline, Polygon } from 'react-leaflet';

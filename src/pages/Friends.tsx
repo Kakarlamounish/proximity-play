@@ -289,7 +289,7 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
   };
 
   const searchUsers = useCallback(async (query: string) => {
-    if (!query.trim()) {
+    if (!query.trim() && searchRange === 'global') {
       setSearchResults([]);
       return;
     }
@@ -299,9 +299,13 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
       let queryBuilder = supabase
         .from('profiles')
         .select('id, first_name, profile_photo_url, bio, interests, latitude, longitude')
-        .neq('id', user?.id)
-        .ilike('first_name', `%${query}%`)
-        .limit(20);
+        .neq('id', user?.id);
+
+      if (query.trim()) {
+        queryBuilder = queryBuilder.ilike('first_name', `%${query}%`).limit(50);
+      } else {
+        queryBuilder = queryBuilder.limit(100);
+      }
 
       // If we have user location and search range, filter by distance
       if (userLocation && searchRange !== 'global') {
@@ -364,10 +368,12 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
   }, [user]);
 
   useEffect(() => {
-    if (searchQuery.trim()) {
+    if (searchQuery.trim() || (searchRange !== 'global' && userLocation)) {
       searchUsers(searchQuery);
+    } else {
+      setSearchResults([]);
     }
-  }, [searchRange, searchUsers]);
+  }, [searchQuery, searchRange, userLocation, searchUsers]);
 
   useEffect(() => {
     fetchSuggestedFriends();
@@ -379,7 +385,7 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
       
       <div className="container max-w-4xl mx-auto px-4 pb-12">
         <div className="mb-8">
-          <h1 className="text-4xl font-extrabold mb-2 text-primary-foreground">
+          <h1 className="text-4xl font-extrabold mb-2 text-foreground">
             Friends
           </h1>
           <p className="text-muted-foreground">Find and manage your connections</p>
@@ -419,10 +425,10 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
           </div>
 
           {/* Search Results */}
-          {searchQuery && (
+          {(searchQuery || (searchRange !== 'global' && userLocation)) && (
             <div className="mt-6">
               <h3 className="text-lg font-semibold mb-4">
-                Search Results {searchResults?.length > 0 && `(${searchResults.length})`}
+                {searchQuery ? 'Search Results' : 'Nearby People'} {searchResults?.length > 0 && `(${searchResults.length})`}
               </h3>
 
               {searchLoading ? (
@@ -431,7 +437,10 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
                 </div>
               ) : (searchResults?.length || 0) === 0 ? (
                 <p className="text-muted-foreground text-center py-8">
-                  No users found matching "{searchQuery}"
+                  {searchQuery 
+                    ? `No users found matching "${searchQuery}"`
+                    : 'No users found nearby'
+                  }
                   {searchRange !== 'global' && ` within ${searchRange}km`}
                 </p>
               ) : (

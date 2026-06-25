@@ -10,6 +10,7 @@ import { CallProvider } from "@/contexts/CallContext";
 import SkipLinks from "@/components/SkipLinks";
 import { PageSkeleton } from "@/components/ui/skeleton-loader";
 import { FriendRequestNotifier } from '@/components/FriendRequestNotifier';
+import { RealtimeNotificationListener } from '@/components/RealtimeNotificationListener';
 import { PresenceTracker } from '@/components/PresenceTracker';
 import { SnapBottomNav } from '@/components/SnapBottomNav';
 import { SmartStatusChip } from '@/components/SmartStatusChip';
@@ -67,6 +68,7 @@ function App() {
                 <Sonner />
                 <BrowserRouter>
                   <FriendRequestNotifier />
+                  <RealtimeNotificationListener />
                   <PresenceTracker />
                   {/* Global floating UI */}
                   <BatterySaverBanner />

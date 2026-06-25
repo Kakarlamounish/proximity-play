@@ -72,15 +72,15 @@ export const useRingtone = () => {
     isPlayingRef.current = true;
 
     if (type === 'incoming' || type === 'outgoing') {
-      // Play the F1 theme song (DriveFast) by default!
+      // Play the local F1 "Lose My Mind" ringtone from /public
       if (!audioRef.current) {
-        audioRef.current = new Audio('https://archive.org/download/tvtunes_33772/33772.mp3');
+        audioRef.current = new Audio('/F1- Lose My Mind Ringtone Download - MobCup.Com.Co.mp3');
         audioRef.current.loop = true;
       }
       audioRef.current.currentTime = 0;
       audioRef.current.play().catch(err => {
         console.warn('Failed to play F1 ringtone, falling back to synthesizer:', err);
-        // Fallback to synthesizer
+        // Fallback to synthesizer ring pattern
         playRingPattern(type);
         const intervalDuration = type === 'incoming' ? 2000 : 3000;
         intervalRef.current = setInterval(() => {

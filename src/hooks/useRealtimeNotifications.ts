@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useNotificationSound } from '@/hooks/useNotificationSound';
 import { Database } from '@/integrations/supabase/types';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -18,8 +19,10 @@ interface UseRealtimeNotificationsOptions {
 export const useRealtimeNotifications = (options: UseRealtimeNotificationsOptions = {}) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { playNotificationSound } = useNotificationSound();
   const optionsRef = useRef(options);
   const toastRef = useRef(toast);
+  const playSoundRef = useRef(playNotificationSound);
 
   useEffect(() => {
     optionsRef.current = options;
@@ -28,6 +31,10 @@ export const useRealtimeNotifications = (options: UseRealtimeNotificationsOption
   useEffect(() => {
     toastRef.current = toast;
   }, [toast]);
+
+  useEffect(() => {
+    playSoundRef.current = playNotificationSound;
+  }, [playNotificationSound]);
 
   useEffect(() => {
     if (!user) return;
@@ -56,6 +63,8 @@ export const useRealtimeNotifications = (options: UseRealtimeNotificationsOption
           if (!isMounted) return;
           const n = payload.new as Notification;
 
+          // Play notification chime + show toast card
+          playSoundRef.current();
           toastRef.current({
             title: n.title || 'New Notification',
             description: n.body || '',
@@ -95,8 +104,10 @@ export const useRealtimeNotifications = (options: UseRealtimeNotificationsOption
                   supabase.from('bubbles').select('name').eq('id', message.bubble_id).single(),
                 ]);
 
+                // Play notification chime + show toast card
+                playSoundRef.current();
                 toastRef.current({
-                  title: `New message in ${bubble?.name || 'bubble'}`,
+                  title: `💬 ${bubble?.name || 'Bubble'}`,
                   description: `${sender?.first_name || 'Someone'}: ${message.content.substring(0, 50)}${message.content.length > 50 ? '...' : ''}`,
                 });
 

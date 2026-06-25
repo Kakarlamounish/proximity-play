@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useRef, ReactNode, useCallb
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useRingtone } from '@/hooks/useRingtone';
 import { VideoCall } from '@/components/VideoCall';
 import { IncomingCallNotification } from '@/components/IncomingCallNotification';
 
@@ -53,6 +54,7 @@ const getCallTimeoutSeconds = (): number => {
 export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { startRinging: startOutgoingRing, stopRinging: stopOutgoingRing } = useRingtone();
 
   const [activeCall, setActiveCall] = useState<ActiveCallState | null>(null);
   const [callerProfile, setCallerProfile] = useState<CallerProfile | null>(null);
@@ -188,9 +190,12 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       toast({
-        title: 'Calling...',
-        description: `Starting ${type} call`,
+        title: '📞 Calling...',
+        description: `Ringing ${type} call — waiting for answer`,
       });
+
+      // Play outgoing ring on the caller's device
+      startOutgoingRing('outgoing');
     } catch (error) {
       console.error('Error starting call:', error);
       toast({
@@ -199,9 +204,10 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         variant: 'destructive',
       });
     }
-  }, [user, toast]);
+  }, [user, toast, startOutgoingRing]);
 
   const acceptCall = useCallback(async (callId: string, callType: 'audio' | 'video', callerId: string) => {
+    stopOutgoingRing(); // stop outgoing ring if caller accepts their own side
     const { data: profile } = await supabase
       .from('profiles')
       .select('id, first_name, profile_photo_url')
@@ -209,10 +215,11 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       .maybeSingle();
     setCallerProfile(profile);
     setActiveCall({ friendId: callerId, type: callType, isInitiator: false, callLogId: callId });
-  }, []);
+  }, [stopOutgoingRing]);
 
   // FIX #2: declineCall now writes to Supabase
   const declineCall = useCallback(async (callId: string) => {
+    stopOutgoingRing(); // stop outgoing ring if receiver declines
     try {
       await supabase
         .from('call_logs')
@@ -225,7 +232,7 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       title: 'Call Declined',
       description: 'You declined the incoming call',
     });
-  }, [toast]);
+  }, [toast, stopOutgoingRing]);
 
   // FIX #3: reads from activeCallRef so the closure never goes stale
   const endCall = useCallback(async () => {
@@ -270,10 +277,11 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     }
 
+    stopOutgoingRing(); // always stop outgoing ring when ending
     setActiveCall(null);
     setCallerProfile(null);
     setBubbleInfo(null);
-  }, [user]); // removed activeCall from deps — using ref instead
+  }, [user, stopOutgoingRing]); // removed activeCall from deps — using ref instead
 
   return (
     <CallContext.Provider value={{ activeCall, startCall, acceptCall, declineCall, endCall }}>

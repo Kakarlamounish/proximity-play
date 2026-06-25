@@ -364,6 +364,12 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
   }, [user]);
 
   useEffect(() => {
+    if (searchQuery.trim()) {
+      searchUsers(searchQuery);
+    }
+  }, [searchRange, searchUsers]);
+
+  useEffect(() => {
     fetchSuggestedFriends();
   }, [fetchSuggestedFriends, user, profile, friends]);
 

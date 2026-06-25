@@ -171,6 +171,30 @@ function createMyMarker() {
   });
 }
 
+// "You" marker - Snapchat style avatar with blue pulsing border
+function createMySnapMarker(name: string, avatarUrl?: string) {
+  const avatarHtml = avatarUrl
+    ? `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.style.display='none';this.nextSibling.style.display='flex'" /><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;background:linear-gradient(135deg,#007AFF,#00C6FF);border-radius:50%;color:white;font-weight:800;font-size:20px">${name?.[0] || 'Y'}</div>`
+    : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#007AFF,#00C6FF);border-radius:50%;color:white;font-weight:800;font-size:20px">${name?.[0] || 'Y'}</div>`;
+
+  return L.divIcon({
+    html: `
+      <div style="position:relative;filter:drop-shadow(0 4px 12px rgba(0,122,255,0.5))">
+        <div style="position:absolute;top:-4px;left:-4px;width:60px;height:60px;border-radius:50%;background:rgba(0,122,255,0.25);animation:pulseMe 2s infinite;z-index:-1"></div>
+        <div style="width:52px;height:52px;border-radius:50%;border:3px solid #007AFF;overflow:hidden;background:#1a1a2e">
+          ${avatarHtml}
+        </div>
+        <div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;background:#007AFF;border-radius:50%;border:2.5px solid #1a1a2e;z-index:2"></div>
+        <div style="position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:800;color:white;text-shadow:0 1px 4px rgba(0,0,0,0.8);max-width:80px;overflow:hidden;text-overflow:ellipsis">You</div>
+      </div>
+      <style>@keyframes pulseMe{0%{transform:scale(1);opacity:0.7}70%{transform:scale(1.3);opacity:0}100%{transform:scale(1.3);opacity:0}}</style>
+    `,
+    className: '',
+    iconSize: [52, 72],
+    iconAnchor: [26, 26],
+  });
+}
+
 export function FriendsMap({ showMemoryLane = false }: { showMemoryLane?: boolean }) {
   const { user } = useAuth();
   const { points: allPoints, fetchHeatmap } = useHeatmapStore();
@@ -194,6 +218,35 @@ export function FriendsMap({ showMemoryLane = false }: { showMemoryLane?: boolea
   const [mapStyle, setMapStyle] = useState<MapStyle>(theme === 'dark' ? 'dark' : 'street');
   const [showStylePicker, setShowStylePicker] = useState(false);
   const battery = useBatterySaver();
+  const [myProfile, setMyProfile] = useState<any>(null);
+
+  // Load own profile and initial location on mount
+  useEffect(() => {
+    if (!user) return;
+    
+    const loadMyProfile = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        if (error) throw error;
+        if (data) {
+          setMyProfile(data);
+          setSharing(!data.ghost_mode);
+          if (data.latitude && data.longitude) {
+            setMyLocation({ lat: Number(data.latitude), lng: Number(data.longitude) });
+          }
+        }
+      } catch (err) {
+        console.error('Error loading own profile on map:', err);
+      }
+    };
+    
+    loadMyProfile();
+  }, [user]);
 
   // Sync map style with global theme
   useEffect(() => {
@@ -398,12 +451,16 @@ export function FriendsMap({ showMemoryLane = false }: { showMemoryLane?: boolea
             <HeatLayer points={allPoints[user.id].map(p => [p.latitude, p.longitude, Math.min(p.intensity, 1)])} />
           )}
 
-          {/* My location - blue dot */}
+          {/* My location - avatar marker with blue pulse */}
           {myLocation && sharing && (
-            <Marker position={[myLocation.lat, myLocation.lng]} icon={createMyMarker()}>
+            <Marker 
+              position={[myLocation.lat, myLocation.lng]} 
+              icon={myProfile ? createMySnapMarker(myProfile.first_name || 'You', myProfile.profile_photo_url) : createMyMarker()}
+            >
               <Popup>
                 <div className="text-center p-1">
                   <p className="font-bold text-sm">📍 You are here</p>
+                  {myProfile && <p className="text-xs text-muted-foreground mt-1">{myProfile.first_name}</p>}
                 </div>
               </Popup>
             </Marker>

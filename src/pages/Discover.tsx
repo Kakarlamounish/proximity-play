@@ -53,6 +53,8 @@ export default function Discover() {
   const [selectedInterest, setSelectedInterest] = useState('all');
   const [sortBy, setSortBy] = useState('nearest');
   const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
+  const [friendIds, setFriendIds] = useState<string[]>([]);
+  const [pendingSentRequests, setPendingSentRequests] = useState<string[]>([]);
 
   const myLocation = latitude && longitude ? { lat: latitude, lng: longitude } : null;
 
@@ -77,17 +79,38 @@ export default function Discover() {
   }, [user]);
 
   useEffect(() => {
-    if (myLocation) {
+    if (latitude && longitude) {
       fetchNearbyUsers();
       fetchNearbyBubbles();
     }
-  }, [myLocation, radiusKm, selectedInterest, sortBy]);
+  }, [latitude, longitude, radiusKm, selectedInterest, sortBy]);
 
   const fetchNearbyUsers = async () => {
     if (!myLocation || !user) return;
 
     setLoading(true);
     try {
+      // Get friendships
+      const { data: friendships, error: friendshipsError } = await supabase
+        .from('friendships')
+        .select('user_id_1, user_id_2')
+        .or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id}`);
+
+      if (friendshipsError) throw friendshipsError;
+      const fIds = friendships?.map(f => f.user_id_1 === user.id ? f.user_id_2 : f.user_id_1) || [];
+      setFriendIds(fIds);
+
+      // Get pending sent friend requests
+      const { data: sentRequests, error: requestsError } = await supabase
+        .from('friend_requests')
+        .select('receiver_id')
+        .eq('sender_id', user.id)
+        .eq('status', 'pending');
+
+      if (requestsError) throw requestsError;
+      const pRequests = sentRequests?.map(r => r.receiver_id) || [];
+      setPendingSentRequests(pRequests);
+
       // Fetch all profiles with location data
       const { data: profiles, error } = await supabase
         .from('profiles')
@@ -102,10 +125,10 @@ export default function Discover() {
       const usersWithDistance = profiles
         ?.map(profile => {
           const distance = calculateDistance(
-            myLocation.lat,
-            myLocation.lng,
-            profile.latitude!,
-            profile.longitude!
+            Number(myLocation.lat),
+            Number(myLocation.lng),
+            Number(profile.latitude),
+            Number(profile.longitude)
           );
           return { ...profile, distance };
         })
@@ -417,13 +440,23 @@ export default function Discover() {
                       </div>
                     )}
 
-                    <Button
-                      onClick={() => sendFriendRequest(nearbyUser.id)}
-                      className="w-full bg-gradient-to-r from-secondary to-primary"
-                    >
-                      <UserPlus className="w-4 h-4 mr-2" />
-                      Add Friend
-                    </Button>
+                    {friendIds.includes(nearbyUser.id) ? (
+                      <Button disabled className="w-full bg-muted text-muted-foreground border border-border">
+                        Already Friends
+                      </Button>
+                    ) : pendingSentRequests.includes(nearbyUser.id) ? (
+                      <Button disabled className="w-full bg-muted text-muted-foreground border border-border">
+                        Request Pending
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => sendFriendRequest(nearbyUser.id)}
+                        className="w-full bg-gradient-to-r from-secondary to-primary"
+                      >
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Add Friend
+                      </Button>
+                    )}
                   </div>
                 </Card>
               ))}

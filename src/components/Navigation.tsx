@@ -126,18 +126,18 @@ export function Navigation(): JSX.Element {
             </div>
 
             {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center gap-1 flex-1 justify-center overflow-x-auto no-scrollbar mx-2">
+            <div className="hidden lg:flex items-center gap-1.5 flex-1 justify-start xl:justify-center overflow-x-auto no-scrollbar mx-2">
               {navLinks.map((link) => (
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`relative px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 whitespace-nowrap ${
+                  className={`relative px-3 py-2 rounded-xl text-xs xl:text-sm font-bold transition-all duration-200 whitespace-nowrap ${
                     isActive(link.to)
                       ? 'bg-primary text-primary-foreground shadow-snap'
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                   }`}
                 >
-                  {link.label === '🏠 Home' ? '🏠 Dash' : link.label}
+                  {link.label}
                   {link.badge !== undefined && link.badge > 0 && (
                     <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1">
                       {link.badge}

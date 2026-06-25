@@ -17,12 +17,25 @@ import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UpdateLocationDialog } from '@/components/UpdateLocationDialog';
 import { Link } from 'react-router-dom';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 
 const Settings = () => {
   const { user, loading, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [deleteDataOpen, setDeleteDataOpen] = useState(false);
   const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [notifications, setNotifications] = useState({
@@ -195,16 +208,15 @@ const Settings = () => {
   // Theme is now managed by ThemeContext - no need for local state
 
   const handleSignOut = () => {
-    if (confirm('Are you sure you want to sign out?')) {
-      signOut();
-    }
+    setSignOutOpen(true);
   };
 
-  const handleDeleteAccount = async () => {
-    if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-      return;
-    }
+  const handleDeleteAccount = () => {
+    setDeleteAccountOpen(true);
+  };
 
+  const executeDeleteAccount = async () => {
+    setDeleteAccountOpen(false);
     try {
       // Delete user profile (this will cascade delete related data)
       const { error } = await supabase
@@ -215,7 +227,7 @@ const Settings = () => {
       if (error) throw error;
 
       toast({
-        title: 'Account deleted',
+        title: 'Account deleted 🗑️',
         description: 'Your account has been permanently deleted.',
       });
 
@@ -273,8 +285,12 @@ const Settings = () => {
     }
   };
 
-  const handleDeleteAllData = async () => {
-    if (!confirm('Delete ALL your location history, trips, and dead drops? This cannot be undone. (Your account and profile will remain.)')) return;
+  const handleDeleteAllData = () => {
+    setDeleteDataOpen(true);
+  };
+
+  const executeDeleteAllData = async () => {
+    setDeleteDataOpen(false);
     try {
       await Promise.all([
         supabase.from('location_history').delete().eq('user_id', user?.id),
@@ -751,6 +767,77 @@ const Settings = () => {
           </div>
         </div>
       </div>
+
+      <AlertDialog open={signOutOpen} onOpenChange={setSignOutOpen}>
+        <AlertDialogContent className="glass border-white/10 text-foreground">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold">Sign Out</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              Are you sure you want to sign out? You will need to sign in again to access your proximity matches and chats.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel className="bg-muted text-foreground hover:bg-muted/80 border-0 rounded-xl">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setSignOutOpen(false);
+                signOut();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0 rounded-xl"
+            >
+              Yes, Sign Out
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Account Confirmation Dialog */}
+      <AlertDialog open={deleteAccountOpen} onOpenChange={setDeleteAccountOpen}>
+        <AlertDialogContent className="glass border-white/10 text-foreground">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold text-destructive">Delete Account</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              Are you sure you want to delete your account? This action is permanent, cannot be undone, and will delete all your profile details, matches, and chats.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel className="bg-muted text-foreground hover:bg-muted/80 border-0 rounded-xl">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeDeleteAccount}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0 rounded-xl"
+            >
+              Delete Permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete All Data Confirmation Dialog */}
+      <AlertDialog open={deleteDataOpen} onOpenChange={setDeleteDataOpen}>
+        <AlertDialogContent className="glass border-white/10 text-foreground">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold text-destructive">Delete History & Activity</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              Are you sure you want to delete ALL your location history, trips, and dead drops? This action cannot be undone. Your account and profile will remain active.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel className="bg-muted text-foreground hover:bg-muted/80 border-0 rounded-xl">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeDeleteAllData}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0 rounded-xl"
+            >
+              Delete All Data
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

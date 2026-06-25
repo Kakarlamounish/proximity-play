@@ -35,28 +35,7 @@ interface Props {
   onDecline: (callId: string) => void;
 }
 
-// Request browser notification permission once on mount
-function requestNotificationPermission() {
-  if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-    Notification.requestPermission().catch(() => {});
-  }
-}
-
-// Fire a browser-level notification (shows even if tab is backgrounded)
-function fireBrowserNotification(callType: 'audio' | 'video', callerName: string) {
-  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-  try {
-    const n = new Notification(`Incoming ${callType} call`, {
-      body: `${callerName} is calling you…`,
-      icon: '/logo.svg',
-      tag: 'incoming-call',
-      renotify: true,
-      requireInteraction: true,
-    } as any);
-    // Clicking the notification focuses the tab
-    n.onclick = () => { window.focus(); n.close(); };
-  } catch { /* Safari, etc. */ }
-}
+// Native browser notification permission requests and popups disabled to rely purely on in-app dialog cards.
 
 export const IncomingCallNotification: React.FC<Props> = ({ onAccept, onDecline }) => {
   const { user } = useAuth();
@@ -95,13 +74,11 @@ export const IncomingCallNotification: React.FC<Props> = ({ onAccept, onDecline 
     seenIds.current.add(raw.id);
     const resolved = await resolveCall(raw);
     setIncomingCall(resolved);
-    fireBrowserNotification(resolved.call_type, resolved.caller_name);
   }, [resolveCall]);
 
   // ── Strategy 1: Supabase realtime INSERT ──
   useEffect(() => {
     if (!user) return;
-    requestNotificationPermission();
 
     const channel = supabase
       .channel(`incoming-calls-${user.id}`)
@@ -163,10 +140,6 @@ export const IncomingCallNotification: React.FC<Props> = ({ onAccept, onDecline 
           if (s && s !== 'ringing' && s !== 'pending') {
             stopRinging();
             setIncomingCall(null);
-            // Close any browser notification
-            if (typeof Notification !== 'undefined') {
-              new Notification('', { tag: 'incoming-call' }).close();
-            }
           }
         }
       )

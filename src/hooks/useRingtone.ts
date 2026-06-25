@@ -29,6 +29,7 @@ const createRingtoneContext = () => {
 export type RingtoneType = 'incoming' | 'outgoing' | 'hangup';
 
 export const useRingtone = () => {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const contextRef = useRef<{ audioContext: AudioContext; playTone: (freq: number, dur: number, delay?: number) => void } | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isPlayingRef = useRef(false);
@@ -70,18 +71,37 @@ export const useRingtone = () => {
     if (isPlayingRef.current) return;
     isPlayingRef.current = true;
 
-    // Play immediately
-    playRingPattern(type);
-
-    // Repeat pattern
-    const intervalDuration = type === 'incoming' ? 2000 : 3000;
-    intervalRef.current = setInterval(() => {
+    if (type === 'incoming' || type === 'outgoing') {
+      // Play the F1 theme song (DriveFast) by default!
+      if (!audioRef.current) {
+        audioRef.current = new Audio('https://archive.org/download/tvtunes_33772/33772.mp3');
+        audioRef.current.loop = true;
+      }
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(err => {
+        console.warn('Failed to play F1 ringtone, falling back to synthesizer:', err);
+        // Fallback to synthesizer
+        playRingPattern(type);
+        const intervalDuration = type === 'incoming' ? 2000 : 3000;
+        intervalRef.current = setInterval(() => {
+          playRingPattern(type);
+        }, intervalDuration);
+      });
+    } else {
       playRingPattern(type);
-    }, intervalDuration);
+    }
   }, [playRingPattern]);
 
   const stopRinging = useCallback(() => {
     isPlayingRef.current = false;
+    if (audioRef.current) {
+      try {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      } catch (err) {
+        console.warn('Failed to stop audio ringtone:', err);
+      }
+    }
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;

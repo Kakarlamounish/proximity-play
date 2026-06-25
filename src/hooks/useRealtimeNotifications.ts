@@ -151,10 +151,6 @@ export const useRealtimeNotifications = (options: UseRealtimeNotificationsOption
 
     setupBubbleSubs();
 
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-
     return cleanup;
   }, [user]);
 };

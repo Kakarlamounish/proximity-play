@@ -1,12 +1,14 @@
 import { useCallback, useRef } from 'react';
 
 /**
- * Plays a short pleasant notification chime using Web Audio API.
+ * Plays a high-fidelity iPhone 15 notification chime (using an external CDN),
+ * with a robust fallback to a Web Audio API synthesized chime.
  */
 export function useNotificationSound() {
   const ctxRef = useRef<AudioContext | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const play = useCallback(() => {
+  const playSynthesizedFallback = useCallback(() => {
     try {
       if (!ctxRef.current) {
         ctxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -33,10 +35,26 @@ export function useNotificationSound() {
         osc.start(now + n.start);
         osc.stop(now + n.start + n.dur);
       }
-    } catch {
-      // Audio not available
+    } catch (e) {
+      console.warn('Failed to play synthesized fallback chime:', e);
     }
   }, []);
+
+  const play = useCallback(() => {
+    try {
+      if (!audioRef.current) {
+        audioRef.current = new Audio('https://archive.org/download/iphone-original-ringtones/Tritone.mp3');
+      }
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(err => {
+        console.warn('Failed to play iPhone notification sound, falling back to synthesizer:', err);
+        playSynthesizedFallback();
+      });
+    } catch (err) {
+      console.warn('Error playing audio element, falling back to synthesizer:', err);
+      playSynthesizedFallback();
+    }
+  }, [playSynthesizedFallback]);
 
   return { playNotificationSound: play };
 }

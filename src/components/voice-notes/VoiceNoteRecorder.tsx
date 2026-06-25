@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useVoiceNoteStore } from '../../stores/useVoiceNoteStore';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 interface VoiceNoteRecorderProps {
   chatId: string;
@@ -24,7 +25,7 @@ export const VoiceNoteRecorder: React.FC<VoiceNoteRecorderProps> = ({
 
   const startRecording = async () => {
     if (!user) {
-      alert('Please sign in to record voice notes.');
+      toast.error('Please sign in to record voice notes.');
       return;
     }
     try {
@@ -64,7 +65,7 @@ export const VoiceNoteRecorder: React.FC<VoiceNoteRecorderProps> = ({
       }, 1000);
     } catch (error) {
       console.error('Error accessing microphone:', error);
-      alert('Microphone access denied. Please enable microphone permissions.');
+      toast.error('Microphone access denied. Please enable microphone permissions.');
     }
   };
 

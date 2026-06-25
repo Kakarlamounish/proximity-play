@@ -73,24 +73,61 @@ describe('Settings Page', () => {
   });
 
   it('shows a confirmation dialog before signing out', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     renderSettings();
     await waitFor(() => {
       const signOutBtn = screen.getByRole('button', { name: /sign out/i });
       fireEvent.click(signOutBtn);
     });
-    expect(confirmSpy).toHaveBeenCalledWith('Are you sure you want to sign out?');
+    
+    expect(screen.getByText(/Are you sure you want to sign out\?/i)).toBeInTheDocument();
+    
+    // Click Cancel
+    const cancelBtn = screen.getByRole('button', { name: /cancel/i });
+    fireEvent.click(cancelBtn);
+    
     expect(mockSignOut).not.toHaveBeenCalled();
   });
 
   it('calls signOut when user confirms', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderSettings();
     await waitFor(() => {
       const signOutBtn = screen.getByRole('button', { name: /sign out/i });
       fireEvent.click(signOutBtn);
     });
+    
+    // Click Yes, Sign Out
+    const confirmBtn = screen.getByRole('button', { name: /yes, sign out/i });
+    fireEvent.click(confirmBtn);
+    
     expect(mockSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a confirmation dialog before deleting account', async () => {
+    renderSettings();
+    await waitFor(() => {
+      const deleteBtn = screen.getByRole('button', { name: /delete account/i });
+      fireEvent.click(deleteBtn);
+    });
+    
+    expect(screen.getByText(/Are you sure you want to delete your account\? This action is permanent/i)).toBeInTheDocument();
+    
+    // Click Cancel
+    const cancelBtn = screen.getByRole('button', { name: /cancel/i });
+    fireEvent.click(cancelBtn);
+  });
+
+  it('shows a confirmation dialog before deleting all data', async () => {
+    renderSettings();
+    await waitFor(() => {
+      const deleteBtn = screen.getByRole('button', { name: /delete location history/i });
+      fireEvent.click(deleteBtn);
+    });
+    
+    expect(screen.getByText(/Are you sure you want to delete ALL your location history, trips, and dead drops\?/i)).toBeInTheDocument();
+    
+    // Click Cancel
+    const cancelBtn = screen.getByRole('button', { name: /cancel/i });
+    fireEvent.click(cancelBtn);
   });
 
   it('redirects to /auth when no user is present', () => {

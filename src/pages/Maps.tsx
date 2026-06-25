@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate, Link, useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/Navigation';
 import { FriendsMap } from '@/components/FriendsMap';
@@ -8,8 +8,9 @@ import { MobileBottomSheet } from '@/components/MobileBottomSheet';
 import Messages from './Messages';
 import Profile from './Profile';
 import Friends from './Friends';
-import { MemoryLanePanel } from '@/components/MemoryLanePanel';
-import { Loader2, Flame, Navigation as NavIcon } from 'lucide-react';
+import { Loader2, Flame, Navigation as NavIcon, X } from 'lucide-react';
+import { haptic } from '@/lib/haptics';
+
 
 const Maps = () => {
   const { user, loading } = useAuth();

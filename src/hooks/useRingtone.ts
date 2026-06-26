@@ -23,8 +23,6 @@ const createRingtoneContext = () => {
     oscillator.stop(audioContext.currentTime + delay + duration);
   };
   
-  };
-  
   return { audioContext, playTone };
 };
 

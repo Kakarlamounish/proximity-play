@@ -105,6 +105,9 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const startCall = useCallback(async (targetId: string, type: 'audio' | 'video', isBubble: boolean) => {
     if (!user) return;
 
+    // Play outgoing ring synchronously before any awaits to bypass Safari/Chrome autoplay restrictions
+    startOutgoingRing('outgoing');
+
     try {
       if (!isBubble) {
         const { data: profile } = await supabase
@@ -134,7 +137,11 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Stop ringing if we failed to create the call
+        stopOutgoingRing();
+        throw error;
+      }
 
       if (isBubble) {
         setActiveCall({ bubbleId: targetId, type, isInitiator: true, callLogId: callLog.id });
@@ -194,17 +201,16 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         description: `Ringing ${type} call — waiting for answer`,
       });
 
-      // Play outgoing ring on the caller's device
-      startOutgoingRing('outgoing');
     } catch (error) {
       console.error('Error starting call:', error);
+      stopOutgoingRing();
       toast({
         title: 'Error',
         description: 'Could not start call',
         variant: 'destructive',
       });
     }
-  }, [user, toast, startOutgoingRing]);
+  }, [user, toast, startOutgoingRing, stopOutgoingRing]);
 
   const acceptCall = useCallback(async (callId: string, callType: 'audio' | 'video', callerId: string) => {
     stopOutgoingRing(); // stop outgoing ring if caller accepts their own side

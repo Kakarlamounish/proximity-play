@@ -23,26 +23,59 @@ const createRingtoneContext = () => {
     oscillator.stop(audioContext.currentTime + delay + duration);
   };
   
+  };
+  
   return { audioContext, playTone };
 };
+
+// Global audio instances to bypass Safari/Chrome autoplay restrictions
+let globalAudio: HTMLAudioElement | null = null;
+let globalContext: { audioContext: AudioContext; playTone: (freq: number, dur: number, delay?: number) => void } | null = null;
+
+// Helper to unlock audio globally on first user interaction
+const unlockGlobalAudio = () => {
+  if (!globalAudio) {
+    globalAudio = new Audio(encodeURI('/F1- Lose My Mind Ringtone Download - MobCup.Com.Co.mp3'));
+    globalAudio.loop = true;
+    globalAudio.volume = 0; // mute for unlocking
+    globalAudio.play().then(() => {
+      globalAudio!.pause();
+      globalAudio!.currentTime = 0;
+      globalAudio!.volume = 1;
+    }).catch(() => {});
+  }
+  
+  if (!globalContext) {
+    try {
+      globalContext = createRingtoneContext();
+    } catch (e) {}
+  }
+  
+  if (globalContext?.audioContext.state === 'suspended') {
+    globalContext.audioContext.resume().catch(() => {});
+  }
+};
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('click', unlockGlobalAudio, { once: true });
+  window.addEventListener('touchstart', unlockGlobalAudio, { once: true });
+}
 
 export type RingtoneType = 'incoming' | 'outgoing' | 'hangup';
 
 export const useRingtone = () => {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const contextRef = useRef<{ audioContext: AudioContext; playTone: (freq: number, dur: number, delay?: number) => void } | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isPlayingRef = useRef(false);
 
   const initContext = useCallback(() => {
-    if (!contextRef.current) {
+    if (!globalContext) {
       try {
-        contextRef.current = createRingtoneContext();
+        globalContext = createRingtoneContext();
       } catch (error) {
         console.warn('Failed to create audio context:', error);
       }
     }
-    return contextRef.current;
+    return globalContext;
   }, []);
 
   const playRingPattern = useCallback((type: RingtoneType) => {
@@ -76,12 +109,12 @@ export const useRingtone = () => {
 
     if (type === 'incoming' || type === 'outgoing') {
       // Play the local F1 "Lose My Mind" ringtone from /public
-      if (!audioRef.current) {
-        audioRef.current = new Audio(encodeURI('/F1- Lose My Mind Ringtone Download - MobCup.Com.Co.mp3'));
-        audioRef.current.loop = true;
+      if (!globalAudio) {
+        globalAudio = new Audio(encodeURI('/F1- Lose My Mind Ringtone Download - MobCup.Com.Co.mp3'));
+        globalAudio.loop = true;
       }
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(err => {
+      globalAudio.currentTime = 0;
+      globalAudio.play().catch(err => {
         console.warn('Failed to play F1 ringtone, falling back to synthesizer:', err);
         // Fallback to synthesizer ring pattern
         playRingPattern(type);
@@ -97,10 +130,10 @@ export const useRingtone = () => {
 
   const stopRinging = useCallback(() => {
     isPlayingRef.current = false;
-    if (audioRef.current) {
+    if (globalAudio) {
       try {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
+        globalAudio.pause();
+        globalAudio.currentTime = 0;
       } catch (err) {
         console.warn('Failed to stop audio ringtone:', err);
       }
@@ -119,9 +152,7 @@ export const useRingtone = () => {
   useEffect(() => {
     return () => {
       stopRinging();
-      if (contextRef.current?.audioContext) {
-        contextRef.current.audioContext.close().catch(() => {});
-      }
+      // We no longer close the audio context here because it's shared globally
     };
   }, [stopRinging]);
 

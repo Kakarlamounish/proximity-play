@@ -114,12 +114,12 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
     if (!user) return;
     const { data } = await supabase
       .from('friend_requests')
-      .select('receiver_id')
-      .eq('sender_id', user.id)
+      .select('sender_id, receiver_id')
+      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
       .eq('status', 'pending');
     
     if (data) {
-      setSentRequests(data.map(r => r.receiver_id));
+      setSentRequests(data.map(r => r.sender_id === user.id ? r.receiver_id : r.sender_id));
     }
   };
 
@@ -268,9 +268,13 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
         description: 'They will be notified of your request',
       });
 
+      // Update local state so it persists across searches without reload
+      setSentRequests(prev => [...prev, receiverId]);
+      
       // Remove from suggestions and search results
       setSuggestedFriends(prev => prev.filter(f => f.id !== receiverId));
-      setSearchResults(prev => prev.filter(f => f.id !== receiverId));
+      // Optional: keep in search results but it will be disabled now
+      // setSearchResults(prev => prev.filter(f => f.id !== receiverId));
     } catch (error) {
       console.error('Error sending friend request:', error);
       toast({

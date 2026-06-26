@@ -48,6 +48,9 @@ export const useRingtone = () => {
   const playRingPattern = useCallback((type: RingtoneType) => {
     const context = initContext();
     if (!context) return;
+    if (context.audioContext.state === 'suspended') {
+      context.audioContext.resume().catch(() => {});
+    }
 
     if (type === 'incoming') {
       // Classic phone ring pattern - two quick tones
@@ -74,7 +77,7 @@ export const useRingtone = () => {
     if (type === 'incoming' || type === 'outgoing') {
       // Play the local F1 "Lose My Mind" ringtone from /public
       if (!audioRef.current) {
-        audioRef.current = new Audio('/F1- Lose My Mind Ringtone Download - MobCup.Com.Co.mp3');
+        audioRef.current = new Audio(encodeURI('/F1- Lose My Mind Ringtone Download - MobCup.Com.Co.mp3'));
         audioRef.current.loop = true;
       }
       audioRef.current.currentTime = 0;

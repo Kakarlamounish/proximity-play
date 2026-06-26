@@ -171,7 +171,7 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         // FIX #1: store channel ref so endCall can clean it up
         const callChannel = supabase
-          .channel(`call-timeout-${callId}-${user.id}`)
+          .channel(`call-timeout-${callId}-${user.id}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`)
           .on(
             'postgres_changes',
             { event: 'UPDATE', schema: 'public', table: 'call_logs', filter: `id=eq.${callId}` },

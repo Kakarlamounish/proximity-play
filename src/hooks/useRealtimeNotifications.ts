@@ -41,7 +41,7 @@ export const useRealtimeNotifications = (options: UseRealtimeNotificationsOption
 
     let isMounted = true;
     const activeChannels: RealtimeChannel[] = [];
-    const channelId = `rt-${user.id}-${Date.now()}`;
+    const channelId = `rt-${user.id}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
     const cleanup = () => {
       isMounted = false;

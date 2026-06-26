@@ -349,7 +349,7 @@ const Live = () => {
     };
     fetchLiveLocations();
     const channel = supabase
-      .channel('live_locations')
+      .channel(`live_locations-${selectedBubble.id}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'live_locations', filter: `bubble_id=eq.${selectedBubble.id}` },
         () => { fetchLiveLocations(); }
       );

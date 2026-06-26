@@ -81,7 +81,7 @@ export const IncomingCallNotification: React.FC<Props> = ({ onAccept, onDecline 
     if (!user) return;
 
     const channel = supabase
-      .channel(`incoming-calls-${user.id}`)
+      .channel(`incoming-calls-${user.id}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'call_logs', filter: `receiver_id=eq.${user.id}` },
@@ -131,7 +131,7 @@ export const IncomingCallNotification: React.FC<Props> = ({ onAccept, onDecline 
     if (!incomingCall) return;
 
     const statusChannel = supabase
-      .channel(`call-status-${incomingCall.id}`)
+      .channel(`call-status-${incomingCall.id}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`)
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'call_logs', filter: `id=eq.${incomingCall.id}` },

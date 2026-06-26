@@ -14,6 +14,9 @@ export function useNotificationSound() {
         ctxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
       const ctx = ctxRef.current;
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
       const now = ctx.currentTime;
 
       // Two-note chime: C5 → E5
@@ -44,7 +47,7 @@ export function useNotificationSound() {
     try {
       if (!audioRef.current) {
         // Use the custom WhatsApp notification sound from /public
-        audioRef.current = new Audio('/WhatsApp Audio 2026-06-25 at 5.48.32 PM.mp3');
+        audioRef.current = new Audio(encodeURI('/WhatsApp Audio 2026-06-25 at 5.48.32 PM.mp3'));
       }
       audioRef.current.currentTime = 0;
       audioRef.current.play().catch(err => {

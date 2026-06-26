@@ -59,7 +59,7 @@ interface VoiceNoteState {
     duration: number;
     chatId: string;
     senderId: string;
-  }) => Promise<VoiceNote | null>;
+  }) => Promise<{ url: string, duration: number } | null>;
   markAsPlayed: (id: string) => Promise<void>;
   setRecording: (isRecording: boolean) => void;
   setRecordingBlob: (blob: Blob | null) => void;
@@ -106,23 +106,13 @@ export const useVoiceNoteStore = create<VoiceNoteState>()((set, get) => ({
       console.error('voice upload error:', upErr);
       return null;
     }
-    const { data, error } = await supabase
-      .from('voice_messages')
-      .insert({
-        url: path,
-        duration,
-        chat_id: chatId,
-        sender_id: senderId,
-      })
-      .select('*')
-      .single();
-    if (error || !data) {
-      console.error('voice insert error:', error);
-      return null;
-    }
-    const note = await rowToVoiceNote(data as VoiceNoteRow);
-    set((s) => ({ voiceNotes: [...s.voiceNotes, note] }));
-    return note;
+    
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from(BUCKET)
+      .getPublicUrl(path);
+      
+    return { url: publicUrl, duration };
   },
 
   markAsPlayed: async (id) => {

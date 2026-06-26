@@ -39,6 +39,7 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
   const navigate = useNavigate();
   const { streaks } = useSnapStreaks();
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [sentRequests, setSentRequests] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   interface Profile {
     id: string;
@@ -106,6 +107,19 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSentRequests = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('friend_requests')
+      .select('receiver_id')
+      .eq('sender_id', user.id)
+      .eq('status', 'pending');
+    
+    if (data) {
+      setSentRequests(data.map(r => r.receiver_id));
     }
   };
 
@@ -240,6 +254,15 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
 
       if (error) throw error;
 
+      // Send notification
+      await supabase.from('notifications').insert({
+        user_id: receiverId,
+        type: 'friend_request',
+        title: 'New Friend Request',
+        body: `${profile?.first_name || 'Someone'} sent you a friend request.`,
+        data: { sender_id: user?.id }
+      });
+
       toast({
         title: 'Friend request sent!',
         description: 'They will be notified of your request',
@@ -364,6 +387,7 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
   useEffect(() => {
     fetchProfile();
     fetchFriends();
+    fetchSentRequests();
     getUserLocation();
   }, [user]);
 
@@ -449,7 +473,7 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
                     <Card key={person.id} className="p-4 hover:shadow-lg transition-shadow">
                       <div className="flex items-start gap-4">
                         <Avatar className="w-12 h-12">
-                          <AvatarImage src={person.profile_photo_url} />
+                          <AvatarImage src={person.profile_photo_url || undefined} />
                           <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground">
                             {person.first_name?.[0] || 'U'}
                           </AvatarFallback>
@@ -478,10 +502,14 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
                             size="sm"
                             onClick={() => sendFriendRequest(person.id)}
                             className="w-full bg-gradient-to-r from-secondary to-primary"
-                            disabled={friends?.some(f => f.id === person.id)}
+                            disabled={friends?.some(f => f.id === person.id) || sentRequests.includes(person.id)}
                           >
                             <UserPlus className="w-3 h-3 mr-1" />
-                            {friends?.some(f => f.id === person.id) ? 'Already Friends' : 'Add Friend'}
+                            {friends?.some(f => f.id === person.id) 
+                              ? 'Already Friends' 
+                              : sentRequests.includes(person.id)
+                                ? 'Request Sent'
+                                : 'Add Friend'}
                           </Button>
                         </div>
                       </div>
@@ -511,7 +539,7 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
                   <Card key={suggested.id} className="p-4 hover:shadow-lg transition-shadow">
                     <div className="flex items-start gap-4">
                       <Avatar className="w-16 h-16">
-                        <AvatarImage src={suggested.profile_photo_url} />
+                        <AvatarImage src={suggested.profile_photo_url || undefined} />
                         <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground">
                           {suggested.first_name?.[0] || 'U'}
                         </AvatarFallback>
@@ -544,9 +572,13 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
                           size="sm"
                           onClick={() => sendFriendRequest(suggested.id)}
                           className="bg-gradient-to-r from-secondary to-primary"
-                          disabled={friends?.some(f => f.id === suggested.id)}
+                          disabled={friends?.some(f => f.id === suggested.id) || sentRequests.includes(suggested.id)}
                         >
-                          {friends?.some(f => f.id === suggested.id) ? 'Already Friends' : 'Add Friend'}
+                          {friends?.some(f => f.id === suggested.id) 
+                            ? 'Already Friends' 
+                            : sentRequests.includes(suggested.id)
+                              ? 'Request Sent'
+                              : 'Add Friend'}
                         </Button>
                       </div>
                     </div>
@@ -583,7 +615,7 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
                   <Card key={friend.id} className="p-4 hover:shadow-lg transition-shadow">
                     <div className="flex items-start gap-4">
                       <Avatar className="w-16 h-16">
-                        <AvatarImage src={friend.profile_photo_url} />
+                        <AvatarImage src={friend.profile_photo_url || undefined} />
                         <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground">
                           {friend.first_name?.[0] || 'U'}
                         </AvatarFallback>

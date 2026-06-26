@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 
 interface VoiceNoteRecorderProps {
   chatId: string;
-  onUploadComplete: () => void;
+  onUploadComplete: (url?: string, duration?: number) => void;
 }
 
 export const VoiceNoteRecorder: React.FC<VoiceNoteRecorderProps> = ({
@@ -43,7 +43,7 @@ export const VoiceNoteRecorder: React.FC<VoiceNoteRecorderProps> = ({
       mediaRecorder.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
         setUploading(true);
-        await uploadAndAddVoiceNote({
+        const result = await uploadAndAddVoiceNote({
           blob,
           duration: recordingTime,
           chatId,
@@ -52,7 +52,11 @@ export const VoiceNoteRecorder: React.FC<VoiceNoteRecorderProps> = ({
         setUploading(false);
 
         stream.getTracks().forEach((track) => track.stop());
-        onUploadComplete();
+        if (result) {
+          onUploadComplete(result.url, result.duration);
+        } else {
+          onUploadComplete();
+        }
       };
 
       mediaRecorder.start();

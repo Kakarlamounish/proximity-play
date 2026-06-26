@@ -109,6 +109,19 @@ export const FriendRequests = memo(() => {
 
       if (error) throw error;
 
+      if (action === 'accepted') {
+        const request = requests.find(r => r.id === requestId);
+        if (request && user) {
+          await supabase.from('notifications').insert({
+            user_id: request.sender_id,
+            type: 'friend_request_accepted',
+            title: 'Request Accepted',
+            body: `${user.first_name || 'Someone'} accepted your friend request.`,
+            data: { receiver_id: user.id }
+          });
+        }
+      }
+
       toast({
         title: action === 'accepted' ? 'Friend added!' : 'Request declined',
         description: action === 'accepted'
@@ -149,10 +162,10 @@ export const FriendRequests = memo(() => {
       <h2 className="text-2xl font-bold mb-4">Friend Requests</h2>
       {requests.map((request) => (
         <Card key={request.id} className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Avatar className="w-12 h-12">
-                <AvatarImage src={request.sender.profile_photo_url} />
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4 min-w-0">
+              <Avatar className="w-12 h-12 shrink-0">
+                <AvatarImage src={request.sender.profile_photo_url || undefined} className="object-cover" />
                 <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-white">
                   {request.sender.first_name?.[0] || 'U'}
                 </AvatarFallback>

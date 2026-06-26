@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, MoreVertical, Phone, Video, ImageIcon, Type, Ghost, Eye, EyeOff, Flame, Check, CheckCheck, Mic } from 'lucide-react';
 import { ImageUpload } from '@/components/ImageUpload';
 import { VoiceNoteRecorder } from '@/components/voice-notes/VoiceNoteRecorder';
+import { VoiceMessagePlayer } from '@/components/VoiceMessagePlayer';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -157,23 +158,8 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (messageType === 'text') {
-      if (!newMessage.trim() || !user) return;
-    } else if (messageType === 'video') {
-      toast({
-        title: 'Video recording',
-        description: 'Video message feature is coming soon!',
-        variant: 'default',
-      });
-      return;
-    }
-
-    const content = messageType === 'text'
-      ? newMessage.trim()
-      : '🎥 Video message (feature coming soon)';
+  const sendMessageContent = async (content: string, type: 'text' | 'voice' | 'video' = 'text') => {
+    if (!user) return;
 
     // Optimistic update — show message immediately
     const optimisticId = `optimistic-${Date.now()}`;
@@ -181,22 +167,21 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
       id: optimisticId,
       content,
       created_at: new Date().toISOString(),
-      sender_id: user!.id,
+      sender_id: user.id,
       recipient_id: friend.id,
       sender: { first_name: 'You', profile_photo_url: null },
     };
     setMessages(prev => [...prev, optimisticMsg]);
-    if (messageType === 'text') setNewMessage('');
 
     try {
       const { data, error } = await supabase
         .from('messages')
         .insert({
           content,
-          sender_id: user!.id,
+          sender_id: user.id,
           recipient_id: friend.id,
           is_disappearing: isDisappearing,
-          message_type: 'text',
+          message_type: type,
         })
         .select('id')
         .single();
@@ -213,15 +198,15 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
         const { data: senderProfile } = await supabase
           .from('profiles')
           .select('first_name')
-          .eq('id', user!.id)
+          .eq('id', user.id)
           .maybeSingle();
         await supabase.from('notifications').insert({
           user_id: friend.id,
           type: 'message',
           title: `💬 ${senderProfile?.first_name || 'Someone'} sent you a message`,
-          body: content.substring(0, 80) + (content.length > 80 ? '...' : ''),
+          body: type === 'voice' ? '🎵 Voice Message' : content.substring(0, 80) + (content.length > 80 ? '...' : ''),
           read: false,
-          data: { sender_id: user!.id, message_id: data?.id },
+          data: { sender_id: user.id, message_id: data?.id },
         });
       } catch (_) {}
 
@@ -231,12 +216,30 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
     } catch (error: unknown) {
       // Remove optimistic message on failure
       setMessages(prev => prev.filter(m => m.id !== optimisticId));
-      if (messageType === 'text') setNewMessage(content);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       toast({
         title: 'Error sending message',
         description: errorMessage,
         variant: 'destructive',
+      });
+      // Optionally re-populate input if text message
+      if (type === 'text') setNewMessage(content);
+    }
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (messageType === 'text') {
+      if (!newMessage.trim() || !user) return;
+      const content = newMessage.trim();
+      setNewMessage('');
+      await sendMessageContent(content, 'text');
+    } else if (messageType === 'video') {
+      toast({
+        title: 'Video recording',
+        description: 'Video message feature is coming soon!',
+        variant: 'default',
       });
     }
   };
@@ -345,7 +348,11 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
                       : 'bg-muted text-foreground rounded-bl-sm'
                   }`}
                 >
-                  <p className="text-sm leading-relaxed">{message.content}</p>
+                  {message.content.startsWith('🎵 Voice Message: ') ? (
+                    <VoiceMessagePlayer audioUrl={message.content.replace('🎵 Voice Message: ', '')} duration={0} />
+                  ) : (
+                    <p className="text-sm leading-relaxed">{message.content}</p>
+                  )}
                 </div>
                 <div className={`flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground ${isMine ? 'justify-end' : ''}`}>
                   <span>{formatMessageTime(message.created_at)}</span>
@@ -428,8 +435,14 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
             <div className="flex-1">
               <VoiceNoteRecorder
                 chatId={`dm-${[user?.id, friend.id].sort().join('-')}`}
-                onUploadComplete={() => {
-                  toast({ title: '🎤 Voice note sent!' });
+                onUploadComplete={(url, duration) => {
+                  if (url) {
+                    sendMessageContent(`🎵 Voice Message: ${url}`, 'voice');
+                    toast({ title: '🎤 Voice note sent!' });
+                    setMessageType('text');
+                  } else {
+                    toast({ title: 'Error sending voice note', variant: 'destructive' });
+                  }
                 }}
               />
             </div>

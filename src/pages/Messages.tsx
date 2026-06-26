@@ -14,20 +14,27 @@ import { MessageCircle, Users, User, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 import { Loader2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
 
 interface MessagesProps {
   isOverlay?: boolean;
 }
 
+type FriendWithLastMessage = Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'first_name' | 'profile_photo_url' | 'bio'> & {
+  last_message_at?: string;
+  last_message_content?: string;
+};
+
 const Messages = ({ isOverlay = false }: MessagesProps = {}) => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
   const [bubbles, setBubbles] = useState<Database['public']['Tables']['bubbles']['Row'][]>([]);
-  const [friends, setFriends] = useState<Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'first_name' | 'profile_photo_url' | 'bio'>[]>([]);
+  const [friends, setFriends] = useState<FriendWithLastMessage[]>([]);
   const [selectedBubble, setSelectedBubble] = useState<Database['public']['Tables']['bubbles']['Row'] | null>(null);
-  const [selectedFriend, setSelectedFriend] = useState<Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'first_name' | 'profile_photo_url' | 'bio'> | null>(null);
+  const [selectedFriend, setSelectedFriend] = useState<FriendWithLastMessage | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [meetupDialogOpen, setMeetupDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'bubbles' | 'friends'>('bubbles');
@@ -97,7 +104,27 @@ const Messages = ({ isOverlay = false }: MessagesProps = {}) => {
             .select('id, first_name, profile_photo_url, bio')
             .in('id', friendIds);
 
-          setFriends(friendsData || []);
+          const { data: recentMessages } = await supabase
+            .from('messages')
+            .select('sender_id, recipient_id, content, created_at')
+            .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
+            .order('created_at', { ascending: false });
+
+          const mappedFriends = (friendsData || []).map(friend => {
+            const messages = recentMessages?.filter(m => (m.sender_id === friend.id || m.recipient_id === friend.id)) || [];
+            const lastMsg = messages[0];
+            return {
+              ...friend,
+              last_message_at: lastMsg?.created_at,
+              last_message_content: lastMsg?.content,
+            };
+          }).sort((a, b) => {
+            if (!a.last_message_at) return 1;
+            if (!b.last_message_at) return -1;
+            return new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime();
+          });
+
+          setFriends(mappedFriends);
         }
 
         // Auto-select first bubble if none selected
@@ -116,6 +143,20 @@ const Messages = ({ isOverlay = false }: MessagesProps = {}) => {
       fetchData();
     }
   }, [user, loading, fetchData]);
+
+  useEffect(() => {
+    const selectedFriendIdFromState = location.state?.selectedFriendId;
+    if (friends.length > 0 && selectedFriendIdFromState) {
+      const friend = friends.find(f => f.id === selectedFriendIdFromState);
+      if (friend && friend.id !== selectedFriend?.id) {
+        setSelectedFriend(friend);
+        setSelectedBubble(null);
+        setActiveTab('friends');
+        // Clear state so it doesn't re-trigger
+        window.history.replaceState({}, document.title)
+      }
+    }
+  }, [friends, location.state?.selectedFriendId]);
 
   if (!user && !loading) return <Navigate to="/auth" replace />;
 
@@ -234,7 +275,8 @@ const Messages = ({ isOverlay = false }: MessagesProps = {}) => {
                               }}
                             >
                               <div className="relative">
-                                <Avatar className="h-10 w-10">
+                                <Avatar className="h-10 w-10 shrink-0">
+                                  <AvatarImage src={friend.profile_photo_url || undefined} className="object-cover" />
                                   <AvatarFallback className="bg-gradient-to-r from-secondary to-primary text-primary-foreground">
                                     {friend.first_name?.[0] || 'U'}
                                   </AvatarFallback>
@@ -243,12 +285,19 @@ const Messages = ({ isOverlay = false }: MessagesProps = {}) => {
                                 <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background bg-green-500" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium truncate">{friend.first_name}</p>
-                                {friend.bio && (
-                                  <p className="text-xs text-muted-foreground truncate mt-1">
-                                    {friend.bio}
-                                  </p>
-                                )}
+                                <div className="flex justify-between items-center">
+                                  <p className="font-medium truncate">{friend.first_name}</p>
+                                  {friend.last_message_at && (
+                                    <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
+                                      {formatDistanceToNow(new Date(friend.last_message_at), { addSuffix: true })}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                  {friend.last_message_content 
+                                    ? (friend.last_message_content.startsWith('🎵 Voice Message:') ? '🎤 Voice Message' : friend.last_message_content)
+                                    : friend.bio || 'No messages yet'}
+                                </p>
                               </div>
                             </div>
                           ))

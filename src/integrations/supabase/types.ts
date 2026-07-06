@@ -1006,7 +1006,7 @@ export type Database = {
             foreignKeyName: "story_comments_story_id_fkey"
             columns: ["story_id"]
             isOneToOne: false
-            referencedRelation: "user_reports"
+            referencedRelation: "location_stories"
             referencedColumns: ["id"]
           },
         ]
@@ -1038,7 +1038,7 @@ export type Database = {
             foreignKeyName: "story_reactions_story_id_fkey"
             columns: ["story_id"]
             isOneToOne: false
-            referencedRelation: "user_reports"
+            referencedRelation: "location_stories"
             referencedColumns: ["id"]
           },
         ]
@@ -1067,7 +1067,7 @@ export type Database = {
             foreignKeyName: "story_views_story_id_fkey"
             columns: ["story_id"]
             isOneToOne: false
-            referencedRelation: "user_reports"
+            referencedRelation: "location_stories"
             referencedColumns: ["id"]
           },
         ]

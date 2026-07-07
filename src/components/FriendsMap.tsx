@@ -251,7 +251,9 @@ export function FriendsMap({
           setMyProfile(data);
           setSharing(!data.ghost_mode);
           if (data.latitude && data.longitude) {
-            setMyLocation({ lat: Number(data.latitude), lng: Number(data.longitude) });
+            const loc = { lat: Number(data.latitude), lng: Number(data.longitude) };
+            setMyLocation(loc);
+            onMyLocationChange?.(loc);
           }
         }
       } catch (err) {

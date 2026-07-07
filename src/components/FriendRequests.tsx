@@ -116,7 +116,7 @@ export const FriendRequests = memo(() => {
             user_id: request.sender_id,
             type: 'friend_request_accepted',
             title: 'Request Accepted',
-            body: `${user.first_name || 'Someone'} accepted your friend request.`,
+            body: `${(user.user_metadata as any)?.first_name || 'Someone'} accepted your friend request.`,
             data: { receiver_id: user.id }
           });
         }

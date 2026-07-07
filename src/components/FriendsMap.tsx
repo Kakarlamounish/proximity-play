@@ -195,7 +195,21 @@ function createMySnapMarker(name: string, avatarUrl?: string) {
   });
 }
 
-export function FriendsMap({ showMemoryLane = false }: { showMemoryLane?: boolean }) {
+interface FriendsMapProps {
+  showMemoryLane?: boolean;
+  showFriends?: boolean;
+  showFriendsBar?: boolean;
+  onNavigateToFriend?: (friend: { user_id: string; first_name: string; latitude: number; longitude: number }) => void;
+  onMyLocationChange?: (loc: { lat: number; lng: number } | null) => void;
+}
+
+export function FriendsMap({
+  showMemoryLane = false,
+  showFriends = true,
+  showFriendsBar = true,
+  onNavigateToFriend,
+  onMyLocationChange,
+}: FriendsMapProps) {
   const { user } = useAuth();
   const { points: allPoints, fetchHeatmap } = useHeatmapStore();
 

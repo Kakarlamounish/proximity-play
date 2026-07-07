@@ -484,34 +484,57 @@ export function FriendsMap({
           )}
 
           {/* Friend markers - Clustered & Animated */}
-          <MarkerClusterGroup>
-            {friends.map(friend => (
-              <AnimatedMarker
-                key={friend.user_id}
-                position={[friend.latitude, friend.longitude]}
-                icon={createSnapMarker(friend.first_name, friend.profile_photo_url, friend.presence_status === 'online')}
-              >
-                <Popup>
-                  <div className="flex items-center gap-3 p-2 min-w-[180px]">
-                    <Avatar className="w-10 h-10 border-2 border-primary">
-                      <AvatarImage src={friend.profile_photo_url} />
-                      <AvatarFallback className="bg-primary text-primary-foreground font-bold">{friend.first_name?.[0]}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-bold text-sm">{friend.first_name}</p>
-                      <p className="text-xs flex items-center gap-1">
-                        {friend.presence_status === 'online' ? (
-                          <><Wifi className="h-3 w-3 text-green-500" /> Online</>
-                        ) : (
-                          <><WifiOff className="h-3 w-3 text-gray-400" /> {getTimeAgo(friend.last_seen)}</>
-                        )}
-                      </p>
+          {showFriends && (
+            <MarkerClusterGroup>
+              {friends.map(friend => (
+                <AnimatedMarker
+                  key={friend.user_id}
+                  position={[friend.latitude, friend.longitude]}
+                  icon={createSnapMarker(friend.first_name, friend.profile_photo_url, friend.presence_status === 'online')}
+                >
+                  <Popup>
+                    <div className="p-2 min-w-[200px]">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Avatar className="w-10 h-10 border-2 border-primary">
+                          <AvatarImage src={friend.profile_photo_url} />
+                          <AvatarFallback className="bg-primary text-primary-foreground font-bold">{friend.first_name?.[0]}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-bold text-sm">{friend.first_name}</p>
+                          <p className="text-xs flex items-center gap-1">
+                            {friend.presence_status === 'online' ? (
+                              <><Wifi className="h-3 w-3 text-green-500" /> Online</>
+                            ) : (
+                              <><WifiOff className="h-3 w-3 text-gray-400" /> {getTimeAgo(friend.last_seen)}</>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      {onNavigateToFriend && (
+                        <Button
+                          size="sm"
+                          className="w-full gap-1.5 h-8 text-xs font-semibold"
+                          onClick={() => {
+                            haptic('success');
+                            onNavigateToFriend({
+                              user_id: friend.user_id,
+                              first_name: friend.first_name,
+                              latitude: friend.latitude,
+                              longitude: friend.longitude,
+                            });
+                          }}
+                        >
+                          <Navigation2 className="h-3.5 w-3.5" />
+                          On my way 🚗
+                        </Button>
+                      )}
                     </div>
-                  </div>
-                </Popup>
-              </AnimatedMarker>
-            ))}
-          </MarkerClusterGroup>
+                  </Popup>
+                </AnimatedMarker>
+              ))}
+            </MarkerClusterGroup>
+          )}
+
         </MapContainer>
 
         {/* Map style picker - floating button */}

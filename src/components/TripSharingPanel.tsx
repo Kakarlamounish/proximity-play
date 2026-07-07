@@ -13,6 +13,7 @@ import {
 
 interface TripSharingPanelProps {
   userLocation?: { lat: number; lng: number } | null;
+  initialDestination?: { name: string; lat: number; lng: number } | null;
 }
 
 interface SearchResult {
@@ -32,7 +33,7 @@ function formatETA(isoString: string | null): string {
   return `${hrs}h ${rem}m`;
 }
 
-export function TripSharingPanel({ userLocation }: TripSharingPanelProps) {
+export function TripSharingPanel({ userLocation, initialDestination }: TripSharingPanelProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const haptic = useHapticFeedback();
@@ -50,6 +51,41 @@ export function TripSharingPanel({ userLocation }: TripSharingPanelProps) {
   useEffect(() => {
     if (user) fetchTrips();
   }, [user]);
+
+  // Pre-fill destination when navigating from a friend pin
+  const prefilledRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialDestination || !userLocation) return;
+    const key = `${initialDestination.lat},${initialDestination.lng}`;
+    if (prefilledRef.current === key) return;
+    prefilledRef.current = key;
+    const dest: SearchResult = {
+      display_name: initialDestination.name,
+      lat: String(initialDestination.lat),
+      lon: String(initialDestination.lng),
+    };
+    setSelectedDest(dest);
+    setSearchQuery(initialDestination.name);
+    // Fetch route info
+    fetch(
+      `https://router.project-osrm.org/route/v1/driving/${userLocation.lng},${userLocation.lat};${initialDestination.lng},${initialDestination.lat}?overview=false`
+    )
+      .then(r => r.json())
+      .then(data => {
+        if (data.routes?.[0]) {
+          const dist = data.routes[0].distance;
+          const dur = data.routes[0].duration;
+          setRouteInfo({
+            distance: dist > 1000 ? `${(dist / 1000).toFixed(1)} km` : `${Math.round(dist)} m`,
+            duration: dur > 3600
+              ? `${Math.floor(dur / 3600)}h ${Math.round((dur % 3600) / 60)}m`
+              : `${Math.round(dur / 60)} min`,
+          });
+        }
+      })
+      .catch(() => { /* skip */ });
+  }, [initialDestination, userLocation]);
+
 
   const searchDestination = async () => {
     if (!searchQuery.trim()) return;

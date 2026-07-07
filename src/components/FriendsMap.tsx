@@ -195,7 +195,21 @@ function createMySnapMarker(name: string, avatarUrl?: string) {
   });
 }
 
-export function FriendsMap({ showMemoryLane = false }: { showMemoryLane?: boolean }) {
+interface FriendsMapProps {
+  showMemoryLane?: boolean;
+  showFriends?: boolean;
+  showFriendsBar?: boolean;
+  onNavigateToFriend?: (friend: { user_id: string; first_name: string; latitude: number; longitude: number }) => void;
+  onMyLocationChange?: (loc: { lat: number; lng: number } | null) => void;
+}
+
+export function FriendsMap({
+  showMemoryLane = false,
+  showFriends = true,
+  showFriendsBar = true,
+  onNavigateToFriend,
+  onMyLocationChange,
+}: FriendsMapProps) {
   const { user } = useAuth();
   const { points: allPoints, fetchHeatmap } = useHeatmapStore();
 
@@ -237,7 +251,9 @@ export function FriendsMap({ showMemoryLane = false }: { showMemoryLane?: boolea
           setMyProfile(data);
           setSharing(!data.ghost_mode);
           if (data.latitude && data.longitude) {
-            setMyLocation({ lat: Number(data.latitude), lng: Number(data.longitude) });
+            const loc = { lat: Number(data.latitude), lng: Number(data.longitude) };
+            setMyLocation(loc);
+            onMyLocationChange?.(loc);
           }
         }
       } catch (err) {
@@ -358,6 +374,7 @@ export function FriendsMap({ showMemoryLane = false }: { showMemoryLane?: boolea
     const updateLocation = (position: GeolocationPosition) => {
       const { latitude, longitude } = position.coords;
       setMyLocation({ lat: latitude, lng: longitude });
+      onMyLocationChange?.({ lat: latitude, lng: longitude });
 
       const now = Date.now();
       if (now - lastWriteAt < writeIntervalMs) return;
@@ -467,34 +484,57 @@ export function FriendsMap({ showMemoryLane = false }: { showMemoryLane?: boolea
           )}
 
           {/* Friend markers - Clustered & Animated */}
-          <MarkerClusterGroup>
-            {friends.map(friend => (
-              <AnimatedMarker
-                key={friend.user_id}
-                position={[friend.latitude, friend.longitude]}
-                icon={createSnapMarker(friend.first_name, friend.profile_photo_url, friend.presence_status === 'online')}
-              >
-                <Popup>
-                  <div className="flex items-center gap-3 p-2 min-w-[180px]">
-                    <Avatar className="w-10 h-10 border-2 border-primary">
-                      <AvatarImage src={friend.profile_photo_url} />
-                      <AvatarFallback className="bg-primary text-primary-foreground font-bold">{friend.first_name?.[0]}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-bold text-sm">{friend.first_name}</p>
-                      <p className="text-xs flex items-center gap-1">
-                        {friend.presence_status === 'online' ? (
-                          <><Wifi className="h-3 w-3 text-green-500" /> Online</>
-                        ) : (
-                          <><WifiOff className="h-3 w-3 text-gray-400" /> {getTimeAgo(friend.last_seen)}</>
-                        )}
-                      </p>
+          {showFriends && (
+            <MarkerClusterGroup>
+              {friends.map(friend => (
+                <AnimatedMarker
+                  key={friend.user_id}
+                  position={[friend.latitude, friend.longitude]}
+                  icon={createSnapMarker(friend.first_name, friend.profile_photo_url, friend.presence_status === 'online')}
+                >
+                  <Popup>
+                    <div className="p-2 min-w-[200px]">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Avatar className="w-10 h-10 border-2 border-primary">
+                          <AvatarImage src={friend.profile_photo_url} />
+                          <AvatarFallback className="bg-primary text-primary-foreground font-bold">{friend.first_name?.[0]}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-bold text-sm">{friend.first_name}</p>
+                          <p className="text-xs flex items-center gap-1">
+                            {friend.presence_status === 'online' ? (
+                              <><Wifi className="h-3 w-3 text-green-500" /> Online</>
+                            ) : (
+                              <><WifiOff className="h-3 w-3 text-gray-400" /> {getTimeAgo(friend.last_seen)}</>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      {onNavigateToFriend && (
+                        <Button
+                          size="sm"
+                          className="w-full gap-1.5 h-8 text-xs font-semibold"
+                          onClick={() => {
+                            haptic('success');
+                            onNavigateToFriend({
+                              user_id: friend.user_id,
+                              first_name: friend.first_name,
+                              latitude: friend.latitude,
+                              longitude: friend.longitude,
+                            });
+                          }}
+                        >
+                          <Navigation2 className="h-3.5 w-3.5" />
+                          On my way 🚗
+                        </Button>
+                      )}
                     </div>
-                  </div>
-                </Popup>
-              </AnimatedMarker>
-            ))}
-          </MarkerClusterGroup>
+                  </Popup>
+                </AnimatedMarker>
+              ))}
+            </MarkerClusterGroup>
+          )}
+
         </MapContainer>
 
         {/* Map style picker - floating button */}
@@ -541,7 +581,7 @@ export function FriendsMap({ showMemoryLane = false }: { showMemoryLane?: boolea
 
       {/* Floating Friends list at the bottom */}
       <div className="absolute bottom-24 left-0 right-20 z-[1000] pointer-events-none">
-        {friends.length > 0 && (
+        {showFriendsBar && showFriends && friends.length > 0 && (
           <div className="overflow-x-auto pb-2 hide-scrollbar pointer-events-auto px-4">
             <div className="flex gap-4 min-w-min">
               {friends.map(friend => (

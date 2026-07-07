@@ -581,7 +581,7 @@ export function FriendsMap({
 
       {/* Floating Friends list at the bottom */}
       <div className="absolute bottom-24 left-0 right-20 z-[1000] pointer-events-none">
-        {friends.length > 0 && (
+        {showFriendsBar && showFriends && friends.length > 0 && (
           <div className="overflow-x-auto pb-2 hide-scrollbar pointer-events-auto px-4">
             <div className="flex gap-4 min-w-min">
               {friends.map(friend => (

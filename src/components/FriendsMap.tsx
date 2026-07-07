@@ -372,6 +372,7 @@ export function FriendsMap({
     const updateLocation = (position: GeolocationPosition) => {
       const { latitude, longitude } = position.coords;
       setMyLocation({ lat: latitude, lng: longitude });
+      onMyLocationChange?.({ lat: latitude, lng: longitude });
 
       const now = Date.now();
       if (now - lastWriteAt < writeIntervalMs) return;

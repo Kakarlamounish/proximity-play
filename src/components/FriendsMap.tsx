@@ -512,23 +512,47 @@ export function FriendsMap({
                           </p>
                         </div>
                       </div>
-                      {onNavigateToFriend && (
-                        <Button
-                          size="sm"
-                          className="w-full gap-1.5 h-8 text-xs font-semibold"
-                          onClick={() => {
-                            haptic('success');
-                            onNavigateToFriend({
-                              user_id: friend.user_id,
-                              first_name: friend.first_name,
-                              latitude: friend.latitude,
-                              longitude: friend.longitude,
-                            });
-                          }}
-                        >
-                          <Navigation2 className="h-3.5 w-3.5" />
-                          On my way 🚗
-                        </Button>
+                      {(onNavigateToFriend || onMeetHalfway) && (
+                        <div className="flex gap-1.5">
+                          {onNavigateToFriend && (
+                            <Button
+                              size="sm"
+                              className="flex-1 gap-1.5 h-8 text-xs font-semibold"
+                              onClick={() => {
+                                haptic('success');
+                                onNavigateToFriend({
+                                  user_id: friend.user_id,
+                                  first_name: friend.first_name,
+                                  latitude: friend.latitude,
+                                  longitude: friend.longitude,
+                                });
+                              }}
+                            >
+                              <Navigation2 className="h-3.5 w-3.5" />
+                              On my way
+                            </Button>
+                          )}
+                          {onMeetHalfway && myLocation && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="flex-1 gap-1.5 h-8 text-xs font-semibold"
+                              onClick={() => {
+                                haptic('success');
+                                const midLat = (myLocation.lat + friend.latitude) / 2;
+                                const midLng = (myLocation.lng + friend.longitude) / 2;
+                                onMeetHalfway({
+                                  name: `Halfway with ${friend.first_name}`,
+                                  latitude: midLat,
+                                  longitude: midLng,
+                                });
+                              }}
+                            >
+                              <Handshake className="h-3.5 w-3.5" />
+                              Halfway
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </Popup>

@@ -10,7 +10,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { MapPin, Eye, EyeOff, Users, Wifi, WifiOff, Navigation2, Globe, Layers, Mountain, Satellite, BatteryLow } from 'lucide-react';
+import { MapPin, Eye, EyeOff, Users, Wifi, WifiOff, Navigation2, Globe, Layers, Mountain, Satellite, BatteryLow, Handshake } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
@@ -200,6 +200,7 @@ interface FriendsMapProps {
   showFriends?: boolean;
   showFriendsBar?: boolean;
   onNavigateToFriend?: (friend: { user_id: string; first_name: string; latitude: number; longitude: number }) => void;
+  onMeetHalfway?: (dest: { name: string; latitude: number; longitude: number }) => void;
   onMyLocationChange?: (loc: { lat: number; lng: number } | null) => void;
 }
 
@@ -208,6 +209,7 @@ export function FriendsMap({
   showFriends = true,
   showFriendsBar = true,
   onNavigateToFriend,
+  onMeetHalfway,
   onMyLocationChange,
 }: FriendsMapProps) {
   const { user } = useAuth();
@@ -510,23 +512,47 @@ export function FriendsMap({
                           </p>
                         </div>
                       </div>
-                      {onNavigateToFriend && (
-                        <Button
-                          size="sm"
-                          className="w-full gap-1.5 h-8 text-xs font-semibold"
-                          onClick={() => {
-                            haptic('success');
-                            onNavigateToFriend({
-                              user_id: friend.user_id,
-                              first_name: friend.first_name,
-                              latitude: friend.latitude,
-                              longitude: friend.longitude,
-                            });
-                          }}
-                        >
-                          <Navigation2 className="h-3.5 w-3.5" />
-                          On my way 🚗
-                        </Button>
+                      {(onNavigateToFriend || onMeetHalfway) && (
+                        <div className="flex gap-1.5">
+                          {onNavigateToFriend && (
+                            <Button
+                              size="sm"
+                              className="flex-1 gap-1.5 h-8 text-xs font-semibold"
+                              onClick={() => {
+                                haptic('success');
+                                onNavigateToFriend({
+                                  user_id: friend.user_id,
+                                  first_name: friend.first_name,
+                                  latitude: friend.latitude,
+                                  longitude: friend.longitude,
+                                });
+                              }}
+                            >
+                              <Navigation2 className="h-3.5 w-3.5" />
+                              On my way
+                            </Button>
+                          )}
+                          {onMeetHalfway && myLocation && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="flex-1 gap-1.5 h-8 text-xs font-semibold"
+                              onClick={() => {
+                                haptic('success');
+                                const midLat = (myLocation.lat + friend.latitude) / 2;
+                                const midLng = (myLocation.lng + friend.longitude) / 2;
+                                onMeetHalfway({
+                                  name: `Halfway with ${friend.first_name}`,
+                                  latitude: midLat,
+                                  longitude: midLng,
+                                });
+                              }}
+                            >
+                              <Handshake className="h-3.5 w-3.5" />
+                              Halfway
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </Popup>

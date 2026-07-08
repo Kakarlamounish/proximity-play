@@ -28,10 +28,21 @@ const Maps = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [profileChecked, setProfileChecked] = useState(false);
 
-  // Map filter state
+  // Map filter state (persisted)
   const [showFilters, setShowFilters] = useState(false);
-  const [showFriends, setShowFriends] = useState(true);
-  const [showFriendsBar, setShowFriendsBar] = useState(true);
+  const [showFriends, setShowFriends] = useState<boolean>(() => {
+    try { return JSON.parse(localStorage.getItem('map:showFriends') ?? 'true'); } catch { return true; }
+  });
+  const [showFriendsBar, setShowFriendsBar] = useState<boolean>(() => {
+    try { return JSON.parse(localStorage.getItem('map:showFriendsBar') ?? 'true'); } catch { return true; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('map:showFriends', JSON.stringify(showFriends));
+  }, [showFriends]);
+  useEffect(() => {
+    localStorage.setItem('map:showFriendsBar', JSON.stringify(showFriendsBar));
+  }, [showFriendsBar]);
 
   // Trip sheet + my location
   const [tripDest, setTripDest] = useState<TripDest | null>(null);
@@ -184,6 +195,9 @@ const Maps = () => {
           onMyLocationChange={setMyLocation}
           onNavigateToFriend={(f) => {
             setTripDest({ name: `${f.first_name}'s location`, lat: f.latitude, lng: f.longitude });
+          }}
+          onMeetHalfway={(d) => {
+            setTripDest({ name: d.name, lat: d.latitude, lng: d.longitude });
           }}
         />
       </div>

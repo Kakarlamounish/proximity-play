@@ -196,6 +196,9 @@ const Maps = () => {
           onNavigateToFriend={(f) => {
             setTripDest({ name: `${f.first_name}'s location`, lat: f.latitude, lng: f.longitude });
           }}
+          onMeetHalfway={(d) => {
+            setTripDest({ name: d.name, lat: d.latitude, lng: d.longitude });
+          }}
         />
       </div>
 

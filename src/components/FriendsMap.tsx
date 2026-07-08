@@ -200,6 +200,7 @@ interface FriendsMapProps {
   showFriends?: boolean;
   showFriendsBar?: boolean;
   onNavigateToFriend?: (friend: { user_id: string; first_name: string; latitude: number; longitude: number }) => void;
+  onMeetHalfway?: (dest: { name: string; latitude: number; longitude: number }) => void;
   onMyLocationChange?: (loc: { lat: number; lng: number } | null) => void;
 }
 
@@ -208,6 +209,7 @@ export function FriendsMap({
   showFriends = true,
   showFriendsBar = true,
   onNavigateToFriend,
+  onMeetHalfway,
   onMyLocationChange,
 }: FriendsMapProps) {
   const { user } = useAuth();

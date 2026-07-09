@@ -19,6 +19,7 @@ import { formatDistanceToNow } from 'date-fns';
 
 interface MessagesProps {
   isOverlay?: boolean;
+  initialFriendId?: string;
 }
 
 type FriendWithLastMessage = Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'first_name' | 'profile_photo_url' | 'bio'> & {
@@ -26,7 +27,7 @@ type FriendWithLastMessage = Pick<Database['public']['Tables']['profiles']['Row'
   last_message_content?: string;
 };
 
-const Messages = ({ isOverlay = false }: MessagesProps = {}) => {
+const Messages = ({ isOverlay = false, initialFriendId }: MessagesProps = {}) => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -145,18 +146,19 @@ const Messages = ({ isOverlay = false }: MessagesProps = {}) => {
   }, [user, loading, fetchData]);
 
   useEffect(() => {
-    const selectedFriendIdFromState = location.state?.selectedFriendId;
-    if (friends.length > 0 && selectedFriendIdFromState) {
-      const friend = friends.find(f => f.id === selectedFriendIdFromState);
+    const targetId = initialFriendId ?? location.state?.selectedFriendId;
+    if (friends.length > 0 && targetId) {
+      const friend = friends.find(f => f.id === targetId);
       if (friend && friend.id !== selectedFriend?.id) {
         setSelectedFriend(friend);
         setSelectedBubble(null);
         setActiveTab('friends');
-        // Clear state so it doesn't re-trigger
-        window.history.replaceState({}, document.title)
+        if (location.state?.selectedFriendId) {
+          window.history.replaceState({}, document.title);
+        }
       }
     }
-  }, [friends, location.state?.selectedFriendId]);
+  }, [friends, location.state?.selectedFriendId, initialFriendId]);
 
   if (!user && !loading) return <Navigate to="/auth" replace />;
 

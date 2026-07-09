@@ -10,7 +10,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { MapPin, Eye, EyeOff, Users, Wifi, WifiOff, Navigation2, Globe, Layers, Mountain, Satellite, BatteryLow, Handshake } from 'lucide-react';
+import { MapPin, Eye, EyeOff, Users, Wifi, WifiOff, Navigation2, Globe, Layers, Mountain, Satellite, BatteryLow, Handshake, MessageCircle, AlertTriangle, RefreshCw, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
@@ -65,6 +65,7 @@ interface FriendOnMap {
   longitude: number;
   presence_status?: string;
   last_seen?: string;
+  unread_count?: number;
 }
 
 type MapStyle = 'dark' | 'satellite' | 'terrain' | 'street';
@@ -130,9 +131,13 @@ function FitBounds({ locations, myLocation }: { locations: FriendOnMap[]; myLoca
 }
 
 // Snapchat-style Bitmoji/avatar marker
-function createSnapMarker(name: string, avatarUrl?: string, isOnline?: boolean) {
+function createSnapMarker(name: string, avatarUrl?: string, isOnline?: boolean, unread?: number) {
   const statusDot = isOnline
     ? '<div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;background:#00E676;border-radius:50%;border:2.5px solid #1a1a2e;z-index:2"></div>'
+    : '';
+
+  const unreadBadge = unread && unread > 0
+    ? `<div style="position:absolute;top:-6px;right:-6px;min-width:22px;height:22px;padding:0 6px;background:#FF3B30;color:#fff;border-radius:11px;border:2.5px solid #1a1a2e;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,0.4)">${unread > 99 ? '99+' : unread}</div>`
     : '';
 
   const avatarHtml = avatarUrl
@@ -146,6 +151,7 @@ function createSnapMarker(name: string, avatarUrl?: string, isOnline?: boolean) 
           ${avatarHtml}
         </div>
         ${statusDot}
+        ${unreadBadge}
         <div style="position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:700;color:white;text-shadow:0 1px 4px rgba(0,0,0,0.8);max-width:80px;overflow:hidden;text-overflow:ellipsis">${name}</div>
       </div>
     `,
@@ -201,6 +207,7 @@ interface FriendsMapProps {
   showFriendsBar?: boolean;
   onNavigateToFriend?: (friend: { user_id: string; first_name: string; latitude: number; longitude: number }) => void;
   onMeetHalfway?: (dest: { name: string; latitude: number; longitude: number }) => void;
+  onOpenChat?: (friend: { user_id: string; first_name: string }) => void;
   onMyLocationChange?: (loc: { lat: number; lng: number } | null) => void;
 }
 
@@ -210,6 +217,7 @@ export function FriendsMap({
   showFriendsBar = true,
   onNavigateToFriend,
   onMeetHalfway,
+  onOpenChat,
   onMyLocationChange,
 }: FriendsMapProps) {
   const { user } = useAuth();
@@ -230,11 +238,21 @@ export function FriendsMap({
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [sharing, setSharing] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [geoError, setGeoError] = useState<string | null>(null);
+  const [realtimeError, setRealtimeError] = useState<string | null>(null);
+  const [showActionHint, setShowActionHint] = useState<boolean>(() => {
+    try { return !localStorage.getItem('map:tips:popupActions'); } catch { return false; }
+  });
   const { theme } = useTheme();
   const [mapStyle, setMapStyle] = useState<MapStyle>(theme === 'dark' ? 'dark' : 'street');
   const [showStylePicker, setShowStylePicker] = useState(false);
   const battery = useBatterySaver();
   const [myProfile, setMyProfile] = useState<any>(null);
+  const dismissActionHint = () => {
+    setShowActionHint(false);
+    try { localStorage.setItem('map:tips:popupActions', '1'); } catch { /* noop */ }
+  };
 
   // Load own profile and initial location on mount
   useEffect(() => {
@@ -275,11 +293,13 @@ export function FriendsMap({
     if (!user) return;
 
     try {
+      setLoadError(null);
       // Get friend IDs
-      const { data: friendships } = await supabase
+      const { data: friendships, error: fErr } = await supabase
         .from('friendships')
         .select('user_id_1, user_id_2')
         .or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id}`);
+      if (fErr) throw fErr;
 
       const friendIds = friendships?.map(f =>
         f.user_id_1 === user.id ? f.user_id_2 : f.user_id_1
@@ -292,8 +312,9 @@ export function FriendsMap({
       }
 
       // Fetch friend locations via security-definer RPC
-      const { data: allFriendLocations } = await supabase.rpc('get_friend_locations');
-      
+      const { data: allFriendLocations, error: locErr } = await supabase.rpc('get_friend_locations');
+      if (locErr) throw locErr;
+
       interface FriendProfile {
         id: string;
         first_name: string;
@@ -315,6 +336,19 @@ export function FriendsMap({
         presenceMap.set(p.user_id, { status: p.status, last_seen: p.last_seen });
       });
 
+      // Fetch unread message counts (messages TO me FROM each friend, not yet viewed)
+      const { data: unreadRows } = await supabase
+        .from('messages')
+        .select('sender_id')
+        .eq('recipient_id', user.id)
+        .is('viewed_at', null)
+        .in('sender_id', friendIds);
+
+      const unreadMap = new Map<string, number>();
+      (unreadRows || []).forEach((row: { sender_id: string }) => {
+        unreadMap.set(row.sender_id, (unreadMap.get(row.sender_id) || 0) + 1);
+      });
+
       const mapped: FriendOnMap[] = profiles.map(p => {
         const presence = presenceMap.get(p.id);
         return {
@@ -325,12 +359,14 @@ export function FriendsMap({
           longitude: Number(p.longitude),
           presence_status: presence?.status || 'offline',
           last_seen: presence?.last_seen || undefined,
+          unread_count: unreadMap.get(p.id) || 0,
         };
       });
 
       setFriends(mapped);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching friends map data:', err);
+      setLoadError(err instanceof Error ? err.message : 'Failed to load map data');
     } finally {
       setLoading(false);
     }
@@ -359,7 +395,16 @@ export function FriendsMap({
       .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, () => {
         fetchRef.current();
       })
-      .subscribe();
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `recipient_id=eq.${user.id}` }, () => {
+        fetchRef.current();
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setRealtimeError(null);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          setRealtimeError('Live updates paused — data may be stale.');
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -391,9 +436,17 @@ export function FriendsMap({
       });
     };
 
-    const watchId = navigator.geolocation?.watchPosition(updateLocation, (err) => {
-      console.warn('Geolocation error:', err);
-    }, {
+    const watchId = navigator.geolocation?.watchPosition(
+      (pos) => { setGeoError(null); updateLocation(pos); },
+      (err) => {
+        console.warn('Geolocation error:', err);
+        const msg =
+          err.code === err.PERMISSION_DENIED ? 'Location access denied. Enable it in your browser settings.' :
+          err.code === err.POSITION_UNAVAILABLE ? 'Your location is unavailable right now.' :
+          err.code === err.TIMEOUT ? 'Location request timed out.' :
+          'Unable to read your location.';
+        setGeoError(msg);
+      }, {
       enableHighAccuracy: !battery.saverActive,
       maximumAge: battery.maximumAgeMs,
       timeout: 15000,
@@ -442,6 +495,25 @@ export function FriendsMap({
     );
   }
 
+  if (loadError) {
+    return (
+      <Card className="bg-card border-0">
+        <CardContent className="p-8 text-center flex flex-col items-center gap-4">
+          <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center">
+            <AlertTriangle className="h-7 w-7 text-destructive" />
+          </div>
+          <div>
+            <p className="font-semibold">Couldn't load the map</p>
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm">{loadError}</p>
+          </div>
+          <Button onClick={() => { setLoading(true); fetchFriendsOnMap(); }} className="gap-2">
+            <RefreshCw className="h-4 w-4" /> Try again
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const center: [number, number] = myLocation
     ? [myLocation.lat, myLocation.lng]
     : friends.length > 0
@@ -458,6 +530,45 @@ export function FriendsMap({
           <Switch id="share-loc" checked={!sharing} onCheckedChange={(checked) => handleSharingToggle(!checked)} />
         </div>
       </div>
+
+      {/* Geolocation / realtime error banners */}
+      {(geoError || realtimeError) && (
+        <div className="absolute top-[420px] sm:top-40 left-1/2 -translate-x-1/2 z-[1001] flex flex-col gap-2 pointer-events-auto w-[min(92%,420px)]">
+          {geoError && (
+            <div className="bg-destructive/95 text-destructive-foreground rounded-xl shadow-lg px-3 py-2 flex items-start gap-2 text-xs">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold">Location unavailable</p>
+                <p className="opacity-90">{geoError}</p>
+              </div>
+              <button
+                onClick={() => { setGeoError(null); navigator.geolocation?.getCurrentPosition(
+                  (pos) => { setMyLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); onMyLocationChange?.({ lat: pos.coords.latitude, lng: pos.coords.longitude }); },
+                  (e) => setGeoError(e.message)
+                ); }}
+                className="shrink-0 rounded-md bg-white/20 hover:bg-white/30 px-2 py-1 font-semibold flex items-center gap-1"
+              >
+                <RefreshCw className="h-3 w-3" /> Retry
+              </button>
+            </div>
+          )}
+          {realtimeError && (
+            <div className="bg-amber-500/95 text-white rounded-xl shadow-lg px-3 py-2 flex items-start gap-2 text-xs">
+              <WifiOff className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold">Live updates paused</p>
+                <p className="opacity-90">Friends' pins may be out of date.</p>
+              </div>
+              <button
+                onClick={() => { setRealtimeError(null); fetchFriendsOnMap(); }}
+                className="shrink-0 rounded-md bg-white/20 hover:bg-white/30 px-2 py-1 font-semibold flex items-center gap-1"
+              >
+                <RefreshCw className="h-3 w-3" /> Refresh
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Edge-to-Edge Map */}
       <div className="w-full h-full relative">
@@ -492,17 +603,24 @@ export function FriendsMap({
                 <AnimatedMarker
                   key={friend.user_id}
                   position={[friend.latitude, friend.longitude]}
-                  icon={createSnapMarker(friend.first_name, friend.profile_photo_url, friend.presence_status === 'online')}
+                  icon={createSnapMarker(friend.first_name, friend.profile_photo_url, friend.presence_status === 'online', friend.unread_count)}
                 >
                   <Popup>
-                    <div className="p-2 min-w-[200px]">
+                    <div className="p-2 min-w-[220px]">
                       <div className="flex items-center gap-3 mb-2">
                         <Avatar className="w-10 h-10 border-2 border-primary">
                           <AvatarImage src={friend.profile_photo_url} />
                           <AvatarFallback className="bg-primary text-primary-foreground font-bold">{friend.first_name?.[0]}</AvatarFallback>
                         </Avatar>
-                        <div>
-                          <p className="font-bold text-sm">{friend.first_name}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm flex items-center gap-1.5">
+                            {friend.first_name}
+                            {friend.unread_count && friend.unread_count > 0 ? (
+                              <Badge className="h-4 px-1.5 text-[10px] bg-red-500 hover:bg-red-500 text-white">
+                                {friend.unread_count > 99 ? '99+' : friend.unread_count} new
+                              </Badge>
+                            ) : null}
+                          </p>
                           <p className="text-xs flex items-center gap-1">
                             {friend.presence_status === 'online' ? (
                               <><Wifi className="h-3 w-3 text-green-500" /> Online</>
@@ -512,14 +630,48 @@ export function FriendsMap({
                           </p>
                         </div>
                       </div>
-                      {(onNavigateToFriend || onMeetHalfway) && (
-                        <div className="flex gap-1.5">
+
+                      {showActionHint && (onNavigateToFriend || onMeetHalfway || onOpenChat) && (
+                        <div className="mb-2 p-2 rounded-lg bg-primary/10 border border-primary/20 text-[11px] leading-snug relative">
+                          <button
+                            onClick={dismissActionHint}
+                            className="absolute top-1 right-1.5 text-muted-foreground hover:text-foreground text-xs"
+                            aria-label="Dismiss tip"
+                          >×</button>
+                          <p className="font-semibold flex items-center gap-1 mb-0.5">
+                            <Sparkles className="h-3 w-3 text-primary" /> Quick tips
+                          </p>
+                          <p className="text-muted-foreground">
+                            <b>Chat</b> opens a message · <b>On my way</b> routes to them · <b>Halfway</b> picks a midpoint.
+                          </p>
+                        </div>
+                      )}
+
+                      {(onNavigateToFriend || onMeetHalfway || onOpenChat) && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {onOpenChat && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="flex-1 min-w-[90px] gap-1.5 h-8 text-xs font-semibold"
+                              onClick={() => {
+                                haptic('success');
+                                dismissActionHint();
+                                onOpenChat({ user_id: friend.user_id, first_name: friend.first_name });
+                              }}
+                            >
+                              <MessageCircle className="h-3.5 w-3.5" />
+                              Chat
+                            </Button>
+                          )}
                           {onNavigateToFriend && (
                             <Button
                               size="sm"
-                              className="flex-1 gap-1.5 h-8 text-xs font-semibold"
+                              variant="secondary"
+                              className="flex-1 min-w-[90px] gap-1.5 h-8 text-xs font-semibold"
                               onClick={() => {
                                 haptic('success');
+                                dismissActionHint();
                                 onNavigateToFriend({
                                   user_id: friend.user_id,
                                   first_name: friend.first_name,
@@ -536,9 +688,10 @@ export function FriendsMap({
                             <Button
                               size="sm"
                               variant="secondary"
-                              className="flex-1 gap-1.5 h-8 text-xs font-semibold"
+                              className="flex-1 min-w-[90px] gap-1.5 h-8 text-xs font-semibold"
                               onClick={() => {
                                 haptic('success');
+                                dismissActionHint();
                                 const midLat = (myLocation.lat + friend.latitude) / 2;
                                 const midLng = (myLocation.lng + friend.longitude) / 2;
                                 onMeetHalfway({
@@ -620,6 +773,11 @@ export function FriendsMap({
                     {friend.presence_status === 'online' && (
                       <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-background shadow-sm" />
                     )}
+                    {friend.unread_count && friend.unread_count > 0 ? (
+                      <div className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1.5 rounded-full bg-red-500 text-white text-[11px] font-extrabold border-2 border-background flex items-center justify-center shadow-lg">
+                        {friend.unread_count > 99 ? '99+' : friend.unread_count}
+                      </div>
+                    ) : null}
                   </div>
                   <p className="text-xs font-bold truncate max-w-[80px] text-center drop-shadow-md bg-background/50 backdrop-blur-md px-2 py-0.5 rounded-full">{friend.first_name}</p>
                 </div>

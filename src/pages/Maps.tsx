@@ -47,6 +47,16 @@ const Maps = () => {
   // Trip sheet + my location
   const [tripDest, setTripDest] = useState<TripDest | null>(null);
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [chatFriendId, setChatFriendId] = useState<string | undefined>(undefined);
+
+  // First-time filter tooltip
+  const [showFilterTip, setShowFilterTip] = useState<boolean>(() => {
+    try { return !localStorage.getItem('map:tips:filters'); } catch { return false; }
+  });
+  const dismissFilterTip = () => {
+    setShowFilterTip(false);
+    try { localStorage.setItem('map:tips:filters', '1'); } catch { /* noop */ }
+  };
 
   useEffect(() => {
     const checkProfile = async () => {
@@ -137,7 +147,7 @@ const Maps = () => {
             {/* Filters button + popover */}
             <div className="relative">
               <button
-                onClick={() => { haptic('selection'); setShowFilters(v => !v); }}
+                onClick={() => { haptic('selection'); setShowFilters(v => !v); dismissFilterTip(); }}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-semibold transition-all shadow-lg text-sm ${
                   showFilters
                     ? 'bg-primary text-primary-foreground'
@@ -147,6 +157,19 @@ const Maps = () => {
                 <SlidersHorizontal className="w-4 h-4" />
                 <span>Filters</span>
               </button>
+
+              {/* First-run onboarding tooltip pointing at Filters */}
+              {showFilterTip && !showFilters && (
+                <div className="absolute top-14 left-0 z-[1003] w-64 bg-primary text-primary-foreground rounded-2xl shadow-2xl p-3 text-xs animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="absolute -top-1.5 left-6 w-3 h-3 rotate-45 bg-primary" />
+                  <p className="font-bold mb-1">New: Map filters ✨</p>
+                  <p className="opacity-90 leading-snug">Toggle friend pins, the friends bar, or Memory Lane heatmap. Tap a friend for <b>Chat</b>, <b>On my way</b> or <b>Halfway</b>.</p>
+                  <button
+                    onClick={dismissFilterTip}
+                    className="mt-2 w-full rounded-lg bg-white/20 hover:bg-white/30 py-1 font-semibold"
+                  >Got it</button>
+                </div>
+              )}
 
               {showFilters && (
                 <div className="absolute top-14 left-0 z-[1002] bg-card/95 backdrop-blur-md border rounded-2xl shadow-2xl p-3 w-64 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
@@ -199,6 +222,13 @@ const Maps = () => {
           onMeetHalfway={(d) => {
             setTripDest({ name: d.name, lat: d.latitude, lng: d.longitude });
           }}
+          onOpenChat={(f) => {
+            haptic('success');
+            setChatFriendId(f.user_id);
+            const next = new URLSearchParams(searchParams);
+            next.set('sheet', 'messages');
+            setSearchParams(next);
+          }}
         />
       </div>
 
@@ -224,7 +254,7 @@ const Maps = () => {
       {/* Bottom Sheet Overlays */}
       <MobileBottomSheet
         isOpen={isSheetOpen}
-        onClose={closeSheet}
+        onClose={() => { closeSheet(); setChatFriendId(undefined); }}
         title={
           currentSheet === 'messages' ? 'Chat' :
           currentSheet === 'profile' ? 'Profile' :
@@ -232,7 +262,7 @@ const Maps = () => {
         }
       >
         <div className="h-full overflow-hidden">
-          {currentSheet === 'messages' && <Messages isOverlay={true} />}
+          {currentSheet === 'messages' && <Messages isOverlay={true} initialFriendId={chatFriendId} />}
           {currentSheet === 'profile' && <Profile isOverlay={true} />}
           {currentSheet === 'friends' && <Friends isOverlay={true} />}
         </div>

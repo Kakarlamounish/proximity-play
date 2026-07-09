@@ -531,6 +531,45 @@ export function FriendsMap({
         </div>
       </div>
 
+      {/* Geolocation / realtime error banners */}
+      {(geoError || realtimeError) && (
+        <div className="absolute top-[420px] sm:top-40 left-1/2 -translate-x-1/2 z-[1001] flex flex-col gap-2 pointer-events-auto w-[min(92%,420px)]">
+          {geoError && (
+            <div className="bg-destructive/95 text-destructive-foreground rounded-xl shadow-lg px-3 py-2 flex items-start gap-2 text-xs">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold">Location unavailable</p>
+                <p className="opacity-90">{geoError}</p>
+              </div>
+              <button
+                onClick={() => { setGeoError(null); navigator.geolocation?.getCurrentPosition(
+                  (pos) => { setMyLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); onMyLocationChange?.({ lat: pos.coords.latitude, lng: pos.coords.longitude }); },
+                  (e) => setGeoError(e.message)
+                ); }}
+                className="shrink-0 rounded-md bg-white/20 hover:bg-white/30 px-2 py-1 font-semibold flex items-center gap-1"
+              >
+                <RefreshCw className="h-3 w-3" /> Retry
+              </button>
+            </div>
+          )}
+          {realtimeError && (
+            <div className="bg-amber-500/95 text-white rounded-xl shadow-lg px-3 py-2 flex items-start gap-2 text-xs">
+              <WifiOff className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold">Live updates paused</p>
+                <p className="opacity-90">Friends' pins may be out of date.</p>
+              </div>
+              <button
+                onClick={() => { setRealtimeError(null); fetchFriendsOnMap(); }}
+                className="shrink-0 rounded-md bg-white/20 hover:bg-white/30 px-2 py-1 font-semibold flex items-center gap-1"
+              >
+                <RefreshCw className="h-3 w-3" /> Refresh
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Edge-to-Edge Map */}
       <div className="w-full h-full relative">
         <MapContainer center={center} zoom={friends.length > 0 ? 12 : 3} className="w-full h-full z-0 bg-background" zoomControl={false}>

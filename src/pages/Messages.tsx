@@ -19,6 +19,7 @@ import { formatDistanceToNow } from 'date-fns';
 
 interface MessagesProps {
   isOverlay?: boolean;
+  initialFriendId?: string;
 }
 
 type FriendWithLastMessage = Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'first_name' | 'profile_photo_url' | 'bio'> & {

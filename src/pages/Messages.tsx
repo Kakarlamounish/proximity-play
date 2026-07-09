@@ -27,7 +27,7 @@ type FriendWithLastMessage = Pick<Database['public']['Tables']['profiles']['Row'
   last_message_content?: string;
 };
 
-const Messages = ({ isOverlay = false }: MessagesProps = {}) => {
+const Messages = ({ isOverlay = false, initialFriendId }: MessagesProps = {}) => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();

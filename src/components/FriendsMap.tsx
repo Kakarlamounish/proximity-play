@@ -656,7 +656,7 @@ export function FriendsMap({
           {/* Friend markers - Clustered & Animated */}
           {showFriends && (
             <MarkerClusterGroup>
-              {friends.map(friend => (
+              {visibleFriends.map(friend => (
                 <AnimatedMarker
                   key={friend.user_id}
                   position={[friend.latitude, friend.longitude]}

@@ -402,14 +402,16 @@ export function FriendsMap({
     fetchFriendsOnMap();
   }, [fetchFriendsOnMap]);
 
-  // Realtime subscriptions
+  // Realtime subscriptions with auto-reconnect + exponential backoff
   const fetchRef = useRef(fetchFriendsOnMap);
   fetchRef.current = fetchFriendsOnMap;
+  const [retryAttempt, setRetryAttempt] = useState(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!user) return;
 
-    const channelName = `friends-map-${user.id}-${Date.now()}`;
+    const channelName = `friends-map-${user.id}-${Date.now()}-${retryAttempt}`;
     const channel = supabase
       .channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
@@ -427,8 +429,19 @@ export function FriendsMap({
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           setRealtimeError(null);
+          if (retryAttempt > 0) {
+            // Reconnected — refresh data that may have gone stale
+            fetchRef.current();
+            setRetryAttempt(0);
+          }
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          setRealtimeError('Live updates paused — data may be stale.');
+          const nextAttempt = retryAttempt + 1;
+          const delay = Math.min(30000, 1000 * Math.pow(2, retryAttempt)); // 1s,2s,4s,...cap 30s
+          setRealtimeError(`Reconnecting… (attempt ${nextAttempt})`);
+          if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+          retryTimerRef.current = setTimeout(() => {
+            setRetryAttempt(a => a + 1);
+          }, delay);
         }
       });
 

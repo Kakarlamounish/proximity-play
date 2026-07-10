@@ -446,9 +446,10 @@ export function FriendsMap({
       });
 
     return () => {
+      if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, retryAttempt]);
 
   // Watch own location
   useEffect(() => {

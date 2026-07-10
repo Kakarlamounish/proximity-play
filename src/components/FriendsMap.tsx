@@ -629,9 +629,9 @@ export function FriendsMap({
 
       {/* Edge-to-Edge Map */}
       <div className="w-full h-full relative">
-        <MapContainer center={center} zoom={friends.length > 0 ? 12 : 3} className="w-full h-full z-0 bg-background" zoomControl={false}>
+        <MapContainer center={center} zoom={visibleFriends.length > 0 ? 12 : 3} className="w-full h-full z-0 bg-background" zoomControl={false}>
           <DynamicTileLayer style={mapStyle} />
-          <FitBounds locations={friends} myLocation={myLocation} />
+          <FitBounds locations={visibleFriends} myLocation={myLocation} />
 
           {/* Memory Lane Heatmap */}
           {showMemoryLane && user && allPoints[user.id] && allPoints[user.id].length > 0 && (

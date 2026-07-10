@@ -36,6 +36,9 @@ const Maps = () => {
   const [showFriendsBar, setShowFriendsBar] = useState<boolean>(() => {
     try { return JSON.parse(localStorage.getItem('map:showFriendsBar') ?? 'true'); } catch { return true; }
   });
+  const [onlyUnread, setOnlyUnread] = useState<boolean>(() => {
+    try { return JSON.parse(localStorage.getItem('map:onlyUnread') ?? 'false'); } catch { return false; }
+  });
 
   useEffect(() => {
     localStorage.setItem('map:showFriends', JSON.stringify(showFriends));
@@ -43,6 +46,9 @@ const Maps = () => {
   useEffect(() => {
     localStorage.setItem('map:showFriendsBar', JSON.stringify(showFriendsBar));
   }, [showFriendsBar]);
+  useEffect(() => {
+    localStorage.setItem('map:onlyUnread', JSON.stringify(onlyUnread));
+  }, [onlyUnread]);
 
   // Trip sheet + my location
   const [tripDest, setTripDest] = useState<TripDest | null>(null);

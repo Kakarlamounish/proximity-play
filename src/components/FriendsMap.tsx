@@ -828,10 +828,10 @@ export function FriendsMap({
 
       {/* Floating Friends list at the bottom */}
       <div className="absolute bottom-24 left-0 right-20 z-[1000] pointer-events-none">
-        {showFriendsBar && showFriends && friends.length > 0 && (
+        {showFriendsBar && showFriends && visibleFriends.length > 0 && (
           <div className="overflow-x-auto pb-2 hide-scrollbar pointer-events-auto px-4">
             <div className="flex gap-4 min-w-min">
-              {friends.map(friend => (
+              {visibleFriends.map(friend => (
                 <div key={friend.user_id} className="flex flex-col items-center gap-1 min-w-[72px]">
                   <div className="relative">
                     <Avatar className="w-16 h-16 border-4 shadow-xl" style={{ borderColor: friend.presence_status === 'online' ? '#00E676' : 'hsl(var(--border))' }}>
@@ -848,9 +848,19 @@ export function FriendsMap({
                     ) : null}
                   </div>
                   <p className="text-xs font-bold truncate max-w-[80px] text-center drop-shadow-md bg-background/50 backdrop-blur-md px-2 py-0.5 rounded-full">{friend.first_name}</p>
+                  {friend.last_message_content && (
+                    <p className="text-[10px] text-center truncate max-w-[80px] text-white/90 drop-shadow-md">
+                      {friend.last_message_from_me ? 'You: ' : ''}{formatMsgPreview(friend.last_message_content)}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
+          </div>
+        )}
+        {showFriendsBar && showFriends && onlyUnread && visibleFriends.length === 0 && friends.length > 0 && (
+          <div className="mx-auto w-fit pointer-events-auto bg-card/90 backdrop-blur-md border rounded-full px-4 py-2 text-xs font-medium shadow-lg">
+            🎉 All caught up — no unread messages
           </div>
         )}
       </div>

@@ -554,11 +554,28 @@ export function FriendsMap({
     );
   }
 
+  const visibleFriends = onlyUnread ? friends.filter(f => (f.unread_count || 0) > 0) : friends;
+
   const center: [number, number] = myLocation
     ? [myLocation.lat, myLocation.lng]
-    : friends.length > 0
-      ? [friends[0].latitude, friends[0].longitude]
+    : visibleFriends.length > 0
+      ? [visibleFriends[0].latitude, visibleFriends[0].longitude]
       : [20, 0];
+
+  const formatMsgPreview = (content?: string) => {
+    if (!content) return '';
+    if (content.startsWith('🎵 Voice Message')) return '🎤 Voice message';
+    if (content.length > 60) return content.slice(0, 60) + '…';
+    return content;
+  };
+  const shortTimeAgo = (dateStr?: string) => {
+    if (!dateStr) return '';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    if (diff < 60000) return 'now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h`;
+    return `${Math.floor(diff / 86400000)}d`;
+  };
 
   return (
     <div className="absolute inset-0 w-full h-full z-0 pointer-events-auto">

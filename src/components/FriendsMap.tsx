@@ -354,8 +354,26 @@ export function FriendsMap({
         unreadMap.set(row.sender_id, (unreadMap.get(row.sender_id) || 0) + 1);
       });
 
+      // Fetch latest message per friend (both directions), then reduce
+      const { data: recentMsgs } = await supabase
+        .from('messages')
+        .select('sender_id, recipient_id, content, created_at')
+        .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      const lastMsgMap = new Map<string, { content: string; created_at: string; from_me: boolean }>();
+      (recentMsgs || []).forEach((m: { sender_id: string; recipient_id: string; content: string; created_at: string }) => {
+        const otherId = m.sender_id === user.id ? m.recipient_id : m.sender_id;
+        if (!friendIds.includes(otherId)) return;
+        if (!lastMsgMap.has(otherId)) {
+          lastMsgMap.set(otherId, { content: m.content, created_at: m.created_at, from_me: m.sender_id === user.id });
+        }
+      });
+
       const mapped: FriendOnMap[] = profiles.map(p => {
         const presence = presenceMap.get(p.id);
+        const lastMsg = lastMsgMap.get(p.id);
         return {
           user_id: p.id,
           first_name: p.first_name,
@@ -365,6 +383,9 @@ export function FriendsMap({
           presence_status: presence?.status || 'offline',
           last_seen: presence?.last_seen || undefined,
           unread_count: unreadMap.get(p.id) || 0,
+          last_message_content: lastMsg?.content,
+          last_message_at: lastMsg?.created_at,
+          last_message_from_me: lastMsg?.from_me,
         };
       });
 

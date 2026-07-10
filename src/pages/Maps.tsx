@@ -195,6 +195,12 @@ const Maps = () => {
                     <Switch id="f-bar" checked={showFriendsBar} onCheckedChange={(v) => { haptic('selection'); setShowFriendsBar(v); }} />
                   </div>
                   <div className="flex items-center justify-between px-1">
+                    <Label htmlFor="f-unread" className="text-sm font-medium flex items-center gap-2 cursor-pointer">
+                      <MessageCircle className="w-4 h-4 text-red-500" /> Only unread
+                    </Label>
+                    <Switch id="f-unread" checked={onlyUnread} onCheckedChange={(v) => { haptic('selection'); setOnlyUnread(v); }} />
+                  </div>
+                  <div className="flex items-center justify-between px-1">
                     <Label htmlFor="f-memory" className="text-sm font-medium flex items-center gap-2 cursor-pointer">
                       <Flame className="w-4 h-4 text-orange-500" /> Memory Lane
                     </Label>

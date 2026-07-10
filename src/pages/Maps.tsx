@@ -227,6 +227,7 @@ const Maps = () => {
           showMemoryLane={memoryLaneActive}
           showFriends={showFriends}
           showFriendsBar={showFriendsBar}
+          onlyUnread={onlyUnread}
           onMyLocationChange={setMyLocation}
           onNavigateToFriend={(f) => {
             setTripDest({ name: `${f.first_name}'s location`, lat: f.latitude, lng: f.longitude });
@@ -234,12 +235,25 @@ const Maps = () => {
           onMeetHalfway={(d) => {
             setTripDest({ name: d.name, lat: d.latitude, lng: d.longitude });
           }}
-          onOpenChat={(f) => {
+          onOpenChat={async (f) => {
             haptic('success');
             setChatFriendId(f.user_id);
             const next = new URLSearchParams(searchParams);
             next.set('sheet', 'messages');
             setSearchParams(next);
+            // Auto mark-as-read for messages from this friend
+            if (user) {
+              try {
+                await supabase
+                  .from('messages')
+                  .update({ viewed_at: new Date().toISOString() })
+                  .eq('recipient_id', user.id)
+                  .eq('sender_id', f.user_id)
+                  .is('viewed_at', null);
+              } catch (e) {
+                console.error('mark-as-read failed', e);
+              }
+            }
           }}
         />
       </div>

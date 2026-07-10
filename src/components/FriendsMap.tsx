@@ -219,6 +219,7 @@ export function FriendsMap({
   showMemoryLane = false,
   showFriends = true,
   showFriendsBar = true,
+  onlyUnread = false,
   onNavigateToFriend,
   onMeetHalfway,
   onOpenChat,

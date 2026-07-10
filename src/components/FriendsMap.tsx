@@ -688,6 +688,17 @@ export function FriendsMap({
                         </div>
                       </div>
 
+                      {friend.last_message_content && (
+                        <div className="mb-2 px-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <MessageCircle className="h-3 w-3 shrink-0" />
+                          <span className="truncate flex-1">
+                            {friend.last_message_from_me ? 'You: ' : ''}{formatMsgPreview(friend.last_message_content)}
+                          </span>
+                          <span className="shrink-0 opacity-70">· {shortTimeAgo(friend.last_message_at)}</span>
+                        </div>
+                      )}
+
+
                       {showActionHint && (onNavigateToFriend || onMeetHalfway || onOpenChat) && (
                         <div className="mb-2 p-2 rounded-lg bg-primary/10 border border-primary/20 text-[11px] leading-snug relative">
                           <button

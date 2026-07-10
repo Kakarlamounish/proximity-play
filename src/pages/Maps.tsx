@@ -10,7 +10,7 @@ import EmergencyShareButton from '@/components/EmergencyShareButton';
 import Messages from './Messages';
 import Profile from './Profile';
 import Friends from './Friends';
-import { Loader2, Flame, Navigation as NavIcon, X, SlidersHorizontal, Users, MapPin } from 'lucide-react';
+import { Loader2, Flame, Navigation as NavIcon, X, SlidersHorizontal, Users, MapPin, MessageCircle } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -36,6 +36,9 @@ const Maps = () => {
   const [showFriendsBar, setShowFriendsBar] = useState<boolean>(() => {
     try { return JSON.parse(localStorage.getItem('map:showFriendsBar') ?? 'true'); } catch { return true; }
   });
+  const [onlyUnread, setOnlyUnread] = useState<boolean>(() => {
+    try { return JSON.parse(localStorage.getItem('map:onlyUnread') ?? 'false'); } catch { return false; }
+  });
 
   useEffect(() => {
     localStorage.setItem('map:showFriends', JSON.stringify(showFriends));
@@ -43,6 +46,9 @@ const Maps = () => {
   useEffect(() => {
     localStorage.setItem('map:showFriendsBar', JSON.stringify(showFriendsBar));
   }, [showFriendsBar]);
+  useEffect(() => {
+    localStorage.setItem('map:onlyUnread', JSON.stringify(onlyUnread));
+  }, [onlyUnread]);
 
   // Trip sheet + my location
   const [tripDest, setTripDest] = useState<TripDest | null>(null);
@@ -189,6 +195,12 @@ const Maps = () => {
                     <Switch id="f-bar" checked={showFriendsBar} onCheckedChange={(v) => { haptic('selection'); setShowFriendsBar(v); }} />
                   </div>
                   <div className="flex items-center justify-between px-1">
+                    <Label htmlFor="f-unread" className="text-sm font-medium flex items-center gap-2 cursor-pointer">
+                      <MessageCircle className="w-4 h-4 text-red-500" /> Only unread
+                    </Label>
+                    <Switch id="f-unread" checked={onlyUnread} onCheckedChange={(v) => { haptic('selection'); setOnlyUnread(v); }} />
+                  </div>
+                  <div className="flex items-center justify-between px-1">
                     <Label htmlFor="f-memory" className="text-sm font-medium flex items-center gap-2 cursor-pointer">
                       <Flame className="w-4 h-4 text-orange-500" /> Memory Lane
                     </Label>
@@ -215,6 +227,7 @@ const Maps = () => {
           showMemoryLane={memoryLaneActive}
           showFriends={showFriends}
           showFriendsBar={showFriendsBar}
+          onlyUnread={onlyUnread}
           onMyLocationChange={setMyLocation}
           onNavigateToFriend={(f) => {
             setTripDest({ name: `${f.first_name}'s location`, lat: f.latitude, lng: f.longitude });
@@ -222,12 +235,25 @@ const Maps = () => {
           onMeetHalfway={(d) => {
             setTripDest({ name: d.name, lat: d.latitude, lng: d.longitude });
           }}
-          onOpenChat={(f) => {
+          onOpenChat={async (f) => {
             haptic('success');
             setChatFriendId(f.user_id);
             const next = new URLSearchParams(searchParams);
             next.set('sheet', 'messages');
             setSearchParams(next);
+            // Auto mark-as-read for messages from this friend
+            if (user) {
+              try {
+                await supabase
+                  .from('messages')
+                  .update({ viewed_at: new Date().toISOString() })
+                  .eq('recipient_id', user.id)
+                  .eq('sender_id', f.user_id)
+                  .is('viewed_at', null);
+              } catch (e) {
+                console.error('mark-as-read failed', e);
+              }
+            }
           }}
         />
       </div>

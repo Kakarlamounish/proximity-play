@@ -66,6 +66,9 @@ interface FriendOnMap {
   presence_status?: string;
   last_seen?: string;
   unread_count?: number;
+  last_message_content?: string;
+  last_message_at?: string;
+  last_message_from_me?: boolean;
 }
 
 type MapStyle = 'dark' | 'satellite' | 'terrain' | 'street';
@@ -205,6 +208,7 @@ interface FriendsMapProps {
   showMemoryLane?: boolean;
   showFriends?: boolean;
   showFriendsBar?: boolean;
+  onlyUnread?: boolean;
   onNavigateToFriend?: (friend: { user_id: string; first_name: string; latitude: number; longitude: number }) => void;
   onMeetHalfway?: (dest: { name: string; latitude: number; longitude: number }) => void;
   onOpenChat?: (friend: { user_id: string; first_name: string }) => void;
@@ -215,6 +219,7 @@ export function FriendsMap({
   showMemoryLane = false,
   showFriends = true,
   showFriendsBar = true,
+  onlyUnread = false,
   onNavigateToFriend,
   onMeetHalfway,
   onOpenChat,
@@ -349,8 +354,26 @@ export function FriendsMap({
         unreadMap.set(row.sender_id, (unreadMap.get(row.sender_id) || 0) + 1);
       });
 
+      // Fetch latest message per friend (both directions), then reduce
+      const { data: recentMsgs } = await supabase
+        .from('messages')
+        .select('sender_id, recipient_id, content, created_at')
+        .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      const lastMsgMap = new Map<string, { content: string; created_at: string; from_me: boolean }>();
+      (recentMsgs || []).forEach((m: { sender_id: string; recipient_id: string; content: string; created_at: string }) => {
+        const otherId = m.sender_id === user.id ? m.recipient_id : m.sender_id;
+        if (!friendIds.includes(otherId)) return;
+        if (!lastMsgMap.has(otherId)) {
+          lastMsgMap.set(otherId, { content: m.content, created_at: m.created_at, from_me: m.sender_id === user.id });
+        }
+      });
+
       const mapped: FriendOnMap[] = profiles.map(p => {
         const presence = presenceMap.get(p.id);
+        const lastMsg = lastMsgMap.get(p.id);
         return {
           user_id: p.id,
           first_name: p.first_name,
@@ -360,6 +383,9 @@ export function FriendsMap({
           presence_status: presence?.status || 'offline',
           last_seen: presence?.last_seen || undefined,
           unread_count: unreadMap.get(p.id) || 0,
+          last_message_content: lastMsg?.content,
+          last_message_at: lastMsg?.created_at,
+          last_message_from_me: lastMsg?.from_me,
         };
       });
 
@@ -376,14 +402,16 @@ export function FriendsMap({
     fetchFriendsOnMap();
   }, [fetchFriendsOnMap]);
 
-  // Realtime subscriptions
+  // Realtime subscriptions with auto-reconnect + exponential backoff
   const fetchRef = useRef(fetchFriendsOnMap);
   fetchRef.current = fetchFriendsOnMap;
+  const [retryAttempt, setRetryAttempt] = useState(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!user) return;
 
-    const channelName = `friends-map-${user.id}-${Date.now()}`;
+    const channelName = `friends-map-${user.id}-${Date.now()}-${retryAttempt}`;
     const channel = supabase
       .channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
@@ -401,15 +429,27 @@ export function FriendsMap({
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           setRealtimeError(null);
+          if (retryAttempt > 0) {
+            // Reconnected — refresh data that may have gone stale
+            fetchRef.current();
+            setRetryAttempt(0);
+          }
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          setRealtimeError('Live updates paused — data may be stale.');
+          const nextAttempt = retryAttempt + 1;
+          const delay = Math.min(30000, 1000 * Math.pow(2, retryAttempt)); // 1s,2s,4s,...cap 30s
+          setRealtimeError(`Reconnecting… (attempt ${nextAttempt})`);
+          if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+          retryTimerRef.current = setTimeout(() => {
+            setRetryAttempt(a => a + 1);
+          }, delay);
         }
       });
 
     return () => {
+      if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, retryAttempt]);
 
   // Watch own location
   useEffect(() => {
@@ -514,11 +554,28 @@ export function FriendsMap({
     );
   }
 
+  const visibleFriends = onlyUnread ? friends.filter(f => (f.unread_count || 0) > 0) : friends;
+
   const center: [number, number] = myLocation
     ? [myLocation.lat, myLocation.lng]
-    : friends.length > 0
-      ? [friends[0].latitude, friends[0].longitude]
+    : visibleFriends.length > 0
+      ? [visibleFriends[0].latitude, visibleFriends[0].longitude]
       : [20, 0];
+
+  const formatMsgPreview = (content?: string) => {
+    if (!content) return '';
+    if (content.startsWith('🎵 Voice Message')) return '🎤 Voice message';
+    if (content.length > 60) return content.slice(0, 60) + '…';
+    return content;
+  };
+  const shortTimeAgo = (dateStr?: string) => {
+    if (!dateStr) return '';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    if (diff < 60000) return 'now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h`;
+    return `${Math.floor(diff / 86400000)}d`;
+  };
 
   return (
     <div className="absolute inset-0 w-full h-full z-0 pointer-events-auto">
@@ -572,9 +629,9 @@ export function FriendsMap({
 
       {/* Edge-to-Edge Map */}
       <div className="w-full h-full relative">
-        <MapContainer center={center} zoom={friends.length > 0 ? 12 : 3} className="w-full h-full z-0 bg-background" zoomControl={false}>
+        <MapContainer center={center} zoom={visibleFriends.length > 0 ? 12 : 3} className="w-full h-full z-0 bg-background" zoomControl={false}>
           <DynamicTileLayer style={mapStyle} />
-          <FitBounds locations={friends} myLocation={myLocation} />
+          <FitBounds locations={visibleFriends} myLocation={myLocation} />
 
           {/* Memory Lane Heatmap */}
           {showMemoryLane && user && allPoints[user.id] && allPoints[user.id].length > 0 && (
@@ -599,7 +656,7 @@ export function FriendsMap({
           {/* Friend markers - Clustered & Animated */}
           {showFriends && (
             <MarkerClusterGroup>
-              {friends.map(friend => (
+              {visibleFriends.map(friend => (
                 <AnimatedMarker
                   key={friend.user_id}
                   position={[friend.latitude, friend.longitude]}
@@ -630,6 +687,17 @@ export function FriendsMap({
                           </p>
                         </div>
                       </div>
+
+                      {friend.last_message_content && (
+                        <div className="mb-2 px-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <MessageCircle className="h-3 w-3 shrink-0" />
+                          <span className="truncate flex-1">
+                            {friend.last_message_from_me ? 'You: ' : ''}{formatMsgPreview(friend.last_message_content)}
+                          </span>
+                          <span className="shrink-0 opacity-70">· {shortTimeAgo(friend.last_message_at)}</span>
+                        </div>
+                      )}
+
 
                       {showActionHint && (onNavigateToFriend || onMeetHalfway || onOpenChat) && (
                         <div className="mb-2 p-2 rounded-lg bg-primary/10 border border-primary/20 text-[11px] leading-snug relative">
@@ -760,10 +828,10 @@ export function FriendsMap({
 
       {/* Floating Friends list at the bottom */}
       <div className="absolute bottom-24 left-0 right-20 z-[1000] pointer-events-none">
-        {showFriendsBar && showFriends && friends.length > 0 && (
+        {showFriendsBar && showFriends && visibleFriends.length > 0 && (
           <div className="overflow-x-auto pb-2 hide-scrollbar pointer-events-auto px-4">
             <div className="flex gap-4 min-w-min">
-              {friends.map(friend => (
+              {visibleFriends.map(friend => (
                 <div key={friend.user_id} className="flex flex-col items-center gap-1 min-w-[72px]">
                   <div className="relative">
                     <Avatar className="w-16 h-16 border-4 shadow-xl" style={{ borderColor: friend.presence_status === 'online' ? '#00E676' : 'hsl(var(--border))' }}>
@@ -780,9 +848,19 @@ export function FriendsMap({
                     ) : null}
                   </div>
                   <p className="text-xs font-bold truncate max-w-[80px] text-center drop-shadow-md bg-background/50 backdrop-blur-md px-2 py-0.5 rounded-full">{friend.first_name}</p>
+                  {friend.last_message_content && (
+                    <p className="text-[10px] text-center truncate max-w-[80px] text-white/90 drop-shadow-md">
+                      {friend.last_message_from_me ? 'You: ' : ''}{formatMsgPreview(friend.last_message_content)}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
+          </div>
+        )}
+        {showFriendsBar && showFriends && onlyUnread && visibleFriends.length === 0 && friends.length > 0 && (
+          <div className="mx-auto w-fit pointer-events-auto bg-card/90 backdrop-blur-md border rounded-full px-4 py-2 text-xs font-medium shadow-lg">
+            🎉 All caught up — no unread messages
           </div>
         )}
       </div>

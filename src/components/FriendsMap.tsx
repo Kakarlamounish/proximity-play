@@ -66,6 +66,9 @@ interface FriendOnMap {
   presence_status?: string;
   last_seen?: string;
   unread_count?: number;
+  last_message_content?: string;
+  last_message_at?: string;
+  last_message_from_me?: boolean;
 }
 
 type MapStyle = 'dark' | 'satellite' | 'terrain' | 'street';

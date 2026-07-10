@@ -10,7 +10,7 @@ import EmergencyShareButton from '@/components/EmergencyShareButton';
 import Messages from './Messages';
 import Profile from './Profile';
 import Friends from './Friends';
-import { Loader2, Flame, Navigation as NavIcon, X, SlidersHorizontal, Users, MapPin } from 'lucide-react';
+import { Loader2, Flame, Navigation as NavIcon, X, SlidersHorizontal, Users, MapPin, MessageCircle } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';

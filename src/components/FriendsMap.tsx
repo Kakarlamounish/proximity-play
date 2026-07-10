@@ -208,6 +208,7 @@ interface FriendsMapProps {
   showMemoryLane?: boolean;
   showFriends?: boolean;
   showFriendsBar?: boolean;
+  onlyUnread?: boolean;
   onNavigateToFriend?: (friend: { user_id: string; first_name: string; latitude: number; longitude: number }) => void;
   onMeetHalfway?: (dest: { name: string; latitude: number; longitude: number }) => void;
   onOpenChat?: (friend: { user_id: string; first_name: string }) => void;

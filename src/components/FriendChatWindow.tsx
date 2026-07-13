@@ -404,6 +404,16 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
             );
           })
         )}
+        {friendTyping && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground italic px-2 pb-1">
+            <span className="flex gap-0.5">
+              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            </span>
+            <span>{friend.first_name || 'Friend'} is typing…</span>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -466,7 +476,7 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
           {messageType === 'text' ? (
             <Input
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
+              onChange={(e) => { setNewMessage(e.target.value); sendTyping(); }}
               placeholder="Type a message..."
               className="flex-1"
             />

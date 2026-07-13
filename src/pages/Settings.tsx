@@ -44,6 +44,8 @@ const Settings = () => {
     bubbles: true,
     push: true,
     email: false,
+    chatSound: true,
+    unreadBadges: true,
   });
   const [blockedUsers, setBlockedUsers] = useState<Array<{ blocked_id: string; profiles?: { id: string; first_name: string; profile_photo_url: string } }>>([]);
   const [language, setLanguage] = useState('en');
@@ -400,6 +402,34 @@ const Settings = () => {
                        updateNotifications({ ...notifications, messages: checked })
                      }
                    />
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="chatsound-notif" className="text-base">Chat Sound</Label>
+                    <p className="text-sm text-muted-foreground">Play a sound when a new chat arrives</p>
+                  </div>
+                  <Switch
+                    id="chatsound-notif"
+                    checked={notifications.chatSound}
+                    onCheckedChange={(checked) =>
+                      updateNotifications({ ...notifications, chatSound: checked })
+                    }
+                  />
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="unread-notif" className="text-base">Unread Badges</Label>
+                    <p className="text-sm text-muted-foreground">Show red unread counts on friend pins & bar</p>
+                  </div>
+                  <Switch
+                    id="unread-notif"
+                    checked={notifications.unreadBadges}
+                    onCheckedChange={(checked) =>
+                      updateNotifications({ ...notifications, unreadBadges: checked })
+                    }
+                  />
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">

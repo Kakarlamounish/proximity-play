@@ -12,6 +12,8 @@ export interface NotificationPreferences {
   stories: boolean;
   push: boolean;
   email: boolean;
+  chatSound: boolean;
+  unreadBadges: boolean;
 }
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
@@ -23,6 +25,8 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   stories: true,
   push: true,
   email: false,
+  chatSound: true,
+  unreadBadges: true,
 };
 
 const STORAGE_KEY = 'notification-preferences';

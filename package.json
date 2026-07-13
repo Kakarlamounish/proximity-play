@@ -15,9 +15,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@apollo/client": "^4.0.7",
     "@hookform/resolvers": "^3.10.0",
-    "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-aspect-ratio": "^1.1.7",
@@ -63,7 +61,6 @@
     "dompurify": "3.2.6",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.23.24",
-    "graphql": "^16.11.0",
     "i18next": "^25.6.0",
     "i18next-browser-languagedetector": "^8.2.0",
     "input-otp": "^1.4.2",
@@ -91,6 +88,7 @@
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "three": "^0.185.1",
     "use-gesture": "^1.0.0",
     "vaul": "^0.9.9",
     "vite-plugin-pwa": "^1.1.0",
@@ -110,6 +108,7 @@
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
     "@types/testing-library__jest-dom": "^5.14.9",
+    "@types/three": "^0.185.1",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "@vitest/ui": "^3.2.4",
     "autoprefixer": "^10.4.21",

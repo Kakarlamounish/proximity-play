@@ -157,6 +157,41 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
     };
   }, [user, friend.id]);
 
+  // Typing indicator broadcast channel
+  useEffect(() => {
+    if (!user || !friend.id) return;
+    const roomId = [user.id, friend.id].sort().join('-');
+    const channel = supabase.channel(`typing-${roomId}`, {
+      config: { broadcast: { self: false } },
+    });
+    channel.on('broadcast', { event: 'typing' }, (payload) => {
+      if (payload.payload?.userId === friend.id) {
+        setFriendTyping(true);
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => setFriendTyping(false), 3000);
+      }
+    });
+    channel.subscribe();
+    typingChannelRef.current = channel;
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      supabase.removeChannel(channel);
+      typingChannelRef.current = null;
+    };
+  }, [user, friend.id]);
+
+  const sendTyping = () => {
+    if (!user || !typingChannelRef.current) return;
+    const now = Date.now();
+    if (now - lastTypingSentRef.current < 1500) return;
+    lastTypingSentRef.current = now;
+    typingChannelRef.current.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { userId: user.id },
+    });
+  };
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     scrollToBottom();

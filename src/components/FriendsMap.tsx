@@ -239,10 +239,22 @@ export function FriendsMap({
   const toastRef = useRef(toast);
   toastRef.current = toast;
   
-  const [friends, setFriends] = useState<FriendOnMap[]>([]);
+  const cacheKey = user ? `map:friendsCache:${user.id}` : null;
+  const [friends, setFriends] = useState<FriendOnMap[]>(() => {
+    try {
+      if (!user) return [];
+      const raw = localStorage.getItem(`map:friendsCache:${user.id}`);
+      return raw ? (JSON.parse(raw) as FriendOnMap[]) : [];
+    } catch { return []; }
+  });
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [sharing, setSharing] = useState(true);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    try {
+      if (!user) return true;
+      return !localStorage.getItem(`map:friendsCache:${user.id}`);
+    } catch { return true; }
+  });
   const [loadError, setLoadError] = useState<string | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [realtimeError, setRealtimeError] = useState<string | null>(null);
@@ -390,6 +402,9 @@ export function FriendsMap({
       });
 
       setFriends(mapped);
+      try {
+        if (cacheKey) localStorage.setItem(cacheKey, JSON.stringify(mapped));
+      } catch { /* quota */ }
     } catch (err: unknown) {
       console.error('Error fetching friends map data:', err);
       setLoadError(err instanceof Error ? err.message : 'Failed to load map data');
@@ -554,7 +569,19 @@ export function FriendsMap({
     );
   }
 
-  const visibleFriends = onlyUnread ? friends.filter(f => (f.unread_count || 0) > 0) : friends;
+  const visibleFriends = (onlyUnread ? friends.filter(f => (f.unread_count || 0) > 0) : friends)
+    .slice()
+    .sort((a, b) => {
+      if (onlyUnread) {
+        // Prioritize higher unread counts, then latest message
+        const diff = (b.unread_count || 0) - (a.unread_count || 0);
+        if (diff !== 0) return diff;
+      }
+      const at = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+      const bt = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+      if (bt !== at) return bt - at;
+      return (a.first_name || '').localeCompare(b.first_name || '');
+    });
 
   const center: [number, number] = myLocation
     ? [myLocation.lat, myLocation.lng]

@@ -264,6 +264,7 @@ export function FriendsMap({
       return p.unreadBadges !== false;
     } catch { return true; }
   });
+  const [geoError, setGeoError] = useState<string | null>(null);
   const [realtimeError, setRealtimeError] = useState<string | null>(null);
   const [showActionHint, setShowActionHint] = useState<boolean>(() => {
     try { return !localStorage.getItem('map:tips:popupActions'); } catch { return false; }

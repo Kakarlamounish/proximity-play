@@ -67,12 +67,13 @@ export const BiometricAuth: React.FC<BiometricAuthProps> = ({
     checkSupport();
   }, []);
 
-  // Load user's registered authenticators
+  // Load user's registered authenticators (shown in both modes so Settings
+  // can manage devices even though it renders mode="register").
   useEffect(() => {
-    if (user && mode === 'authenticate') {
+    if (user) {
       loadAuthenticators();
     }
-  }, [user, mode]);
+  }, [user]);
 
   const loadAuthenticators = async () => {
     if (!user) return;
@@ -110,31 +111,21 @@ export const BiometricAuth: React.FC<BiometricAuthProps> = ({
 
     try {
       // Get registration options from server
-      const response = await fetch('/api/webauthn/register/options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          username: user.email,
-        }),
-      });
-
-      const options = await response.json();
+      const { data: options, error: optionsError } = await supabase.functions.invoke(
+        'webauthn-register-options',
+        { body: { username: user.email } },
+      );
+      if (optionsError) throw optionsError;
 
       // Start WebAuthn registration
       const credential = await startRegistration(options);
 
       // Verify registration with server
-      const verificationResponse = await fetch('/api/webauthn/register/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          credential,
-        }),
-      });
-
-      const verification = await verificationResponse.json();
+      const { data: verification, error: verifyError } = await supabase.functions.invoke(
+        'webauthn-register-verify',
+        { body: { credential } },
+      );
+      if (verifyError) throw verifyError;
 
       if (verification.verified) {
         setSuccess('Biometric authentication registered successfully!');
@@ -162,43 +153,26 @@ export const BiometricAuth: React.FC<BiometricAuthProps> = ({
 
     try {
       // Get authentication options from server
-      const response = await fetch('/api/webauthn/authenticate/options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-        }),
-      });
-
-      const options = await response.json();
+      const { data: options, error: optionsError } = await supabase.functions.invoke(
+        'webauthn-authenticate-options',
+        { body: {} },
+      );
+      if (optionsError) throw optionsError;
 
       // Start WebAuthn authentication
       const credential = await startAuthentication(options);
 
       // Verify authentication with server
-      const verificationResponse = await fetch('/api/webauthn/authenticate/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          credential,
-        }),
-      });
-
-      const verification = await verificationResponse.json();
+      const { data: verification, error: verifyError } = await supabase.functions.invoke(
+        'webauthn-authenticate-verify',
+        { body: { credential } },
+      );
+      if (verifyError) throw verifyError;
 
       if (verification.verified) {
         setSuccess('Authentication successful!');
         onSuccess?.(credential);
-
-        // Update last used timestamp server-side
-        if (user) {
-          await supabase
-            .from('webauthn_credentials')
-            .update({ last_used: new Date().toISOString(), counter: authenticators.find(a => a.credentialId === credential.id)?.counter ? (authenticators.find(a => a.credentialId === credential.id)!.counter + 1) : 1 })
-            .eq('user_id', user.id)
-            .eq('credential_id', credential.id);
-        }
+        // The edge function already bumps counter/last_used server-side.
         await loadAuthenticators();
       } else {
         throw new Error('Authentication verification failed');
@@ -345,7 +319,7 @@ export const BiometricAuth: React.FC<BiometricAuthProps> = ({
         </div>
 
         {/* Registered Authenticators */}
-        {mode === 'authenticate' && authenticators.length > 0 && (
+        {authenticators.length > 0 && (
           <div className="space-y-2">
             <h4 className="text-sm font-medium">Registered Devices</h4>
             {authenticators.map((auth) => (
@@ -418,25 +392,21 @@ export const useBiometricAuth = () => {
 
     try {
       // Get authentication options
-      const response = await fetch('/api/webauthn/authenticate/options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-      });
-
-      const options = await response.json();
+      const { data: options, error: optionsError } = await supabase.functions.invoke(
+        'webauthn-authenticate-options',
+        { body: {} },
+      );
+      if (optionsError) throw optionsError;
 
       // Start authentication
       const credential = await startAuthentication(options);
 
       // Verify with server
-      const verificationResponse = await fetch('/api/webauthn/authenticate/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, credential }),
-      });
-
-      const verification = await verificationResponse.json();
+      const { data: verification, error: verifyError } = await supabase.functions.invoke(
+        'webauthn-authenticate-verify',
+        { body: { credential } },
+      );
+      if (verifyError) throw verifyError;
       return verification.verified;
     } catch (error) {
       console.error('Biometric authentication failed:', error);
@@ -451,25 +421,21 @@ export const useBiometricAuth = () => {
 
     try {
       // Get registration options
-      const response = await fetch('/api/webauthn/register/options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, username }),
-      });
-
-      const options = await response.json();
+      const { data: options, error: optionsError } = await supabase.functions.invoke(
+        'webauthn-register-options',
+        { body: { username } },
+      );
+      if (optionsError) throw optionsError;
 
       // Start registration
       const credential = await startRegistration(options);
 
       // Verify with server
-      const verificationResponse = await fetch('/api/webauthn/register/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, credential }),
-      });
-
-      const verification = await verificationResponse.json();
+      const { data: verification, error: verifyError } = await supabase.functions.invoke(
+        'webauthn-register-verify',
+        { body: { credential } },
+      );
+      if (verifyError) throw verifyError;
       return verification.verified;
     } catch (error) {
       console.error('Biometric registration failed:', error);

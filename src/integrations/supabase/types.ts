@@ -702,6 +702,7 @@ export type Database = {
           location_updated_at: string | null
           longitude: number | null
           profile_photo_url: string | null
+          referral_code: string | null
           updated_at: string | null
         }
         Insert: {
@@ -717,6 +718,7 @@ export type Database = {
           location_updated_at?: string | null
           longitude?: number | null
           profile_photo_url?: string | null
+          referral_code?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -732,6 +734,7 @@ export type Database = {
           location_updated_at?: string | null
           longitude?: number | null
           profile_photo_url?: string | null
+          referral_code?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -1295,6 +1298,8 @@ export type Database = {
           id: string
           last_used: string | null
           name: string
+          public_key: string | null
+          transports: string[] | null
           type: string
           user_id: string
         }
@@ -1305,6 +1310,8 @@ export type Database = {
           id?: string
           last_used?: string | null
           name?: string
+          public_key?: string | null
+          transports?: string[] | null
           type?: string
           user_id: string
         }
@@ -1315,7 +1322,30 @@ export type Database = {
           id?: string
           last_used?: string | null
           name?: string
+          public_key?: string | null
+          transports?: string[] | null
           type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      webauthn_challenges: {
+        Row: {
+          challenge: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          challenge: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          challenge?: string
+          created_at?: string
+          id?: string
           user_id?: string
         }
         Relationships: []

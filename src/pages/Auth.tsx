@@ -149,7 +149,6 @@ const Auth = () => {
                   onChange={e => setEmail(e.target.value)}
                   autoComplete="email"
                   className="h-11 pl-9"
-                  required
                 />
               </div>
             </div>
@@ -166,7 +165,6 @@ const Auth = () => {
                   onChange={e => setPassword(e.target.value)}
                   autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                   className="h-11 pl-9 pr-10"
-                  required
                 />
                 <button
                   type="button"

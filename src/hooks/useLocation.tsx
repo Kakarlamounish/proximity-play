@@ -118,8 +118,9 @@ export const useLocation = () => {
   }, [user, toast]);
 
   useEffect(() => {
+    if (!user) return;
     requestLocation();
-  }, [requestLocation]);
+  }, [user, requestLocation]);
 
   return {
     ...location,

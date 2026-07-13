@@ -305,18 +305,42 @@ export const detectSecurityThreats = (input: string): string[] => {
   return threats;
 };
 
-// Secure local storage wrapper
+// Secure local storage wrapper.
+//
+// Encrypts values at rest with AES-GCM before writing to localStorage, so a
+// plaintext dump of localStorage (e.g. via an XSS payload reading storage, or
+// someone inspecting devtools) doesn't hand over the raw value. This is
+// defence-in-depth, not a substitute for keeping real secrets server-side —
+// the key still lives in the page's JS, so anything that can execute script
+// on the page can also derive the key and decrypt. It stops casual/offline
+// inspection of the storage, which the previous plaintext implementation did
+// not.
+const SALT_STORAGE_KEY = 'secure_storage_salt';
+const PBKDF2_ITERATIONS = 100_000;
+
+function getOrCreateSalt(): Uint8Array {
+  const existing = localStorage.getItem(SALT_STORAGE_KEY);
+  if (existing) {
+    return new Uint8Array(existing.match(/.{2}/g)!.map(byte => parseInt(byte, 16)));
+  }
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  localStorage.setItem(SALT_STORAGE_KEY, Array.from(salt, b => b.toString(16).padStart(2, '0')).join(''));
+  return salt;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes));
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  return new Uint8Array(atob(base64).split('').map(c => c.charCodeAt(0)));
+}
+
 export class SecureStorage {
   private static instance: SecureStorage;
-  private encryptionKey: string;
+  private keyPromise: Promise<CryptoKey> | null = null;
 
-  private constructor() {
-    // TODO: Replace with a proper key management solution (e.g., env var or
-    // Web Crypto API key derivation). This plaintext key in source code
-    // provides no real security — it is readable by anyone with access to
-    // the compiled bundle.
-    this.encryptionKey = import.meta.env.VITE_STORAGE_KEY ?? 'proximity-play-secure-key';
-  }
+  private constructor() {}
 
   static getInstance(): SecureStorage {
     if (!SecureStorage.instance) {
@@ -325,24 +349,56 @@ export class SecureStorage {
     return SecureStorage.instance;
   }
 
-  setItem<T>(key: string, value: T): void {
+  private async getKey(): Promise<CryptoKey> {
+    if (!this.keyPromise) {
+      this.keyPromise = (async () => {
+        const passphrase = import.meta.env.VITE_STORAGE_KEY ?? window.location.origin;
+        const salt = getOrCreateSalt();
+        const baseKey = await crypto.subtle.importKey(
+          'raw',
+          new TextEncoder().encode(passphrase),
+          'PBKDF2',
+          false,
+          ['deriveKey'],
+        );
+        return crypto.subtle.deriveKey(
+          { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+          baseKey,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['encrypt', 'decrypt'],
+        );
+      })();
+    }
+    return this.keyPromise;
+  }
+
+  async setItem<T>(key: string, value: T): Promise<void> {
     try {
-      const serializedValue = JSON.stringify(value);
-      // In a real implementation, you would encrypt the value here
-      localStorage.setItem(`secure_${key}`, serializedValue);
+      const cryptoKey = await this.getKey();
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const plaintext = new TextEncoder().encode(JSON.stringify(value));
+      const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, plaintext);
+      const payload = `${bytesToBase64(iv)}.${bytesToBase64(new Uint8Array(ciphertext))}`;
+      localStorage.setItem(`secure_${key}`, payload);
     } catch (error) {
       console.error('Error storing secure item:', error);
     }
   }
 
-  getItem<T>(key: string): T | null {
+  async getItem<T>(key: string): Promise<T | null> {
     try {
       const item = localStorage.getItem(`secure_${key}`);
-      if (item) {
-        // In a real implementation, you would decrypt the value here
-        return JSON.parse(item);
-      }
-      return null;
+      if (!item) return null;
+      const [ivB64, ciphertextB64] = item.split('.');
+      if (!ivB64 || !ciphertextB64) return null;
+      const cryptoKey = await this.getKey();
+      const plaintext = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: base64ToBytes(ivB64) },
+        cryptoKey,
+        base64ToBytes(ciphertextB64),
+      );
+      return JSON.parse(new TextDecoder().decode(plaintext));
     } catch (error) {
       console.error('Error retrieving secure item:', error);
       return null;

@@ -695,7 +695,7 @@ export function FriendsMap({
                 <AnimatedMarker
                   key={friend.user_id}
                   position={[friend.latitude, friend.longitude]}
-                  icon={createSnapMarker(friend.first_name, friend.profile_photo_url, friend.presence_status === 'online', friend.unread_count)}
+                  icon={createSnapMarker(friend.first_name, friend.profile_photo_url, friend.presence_status === 'online', unreadBadgesEnabled ? friend.unread_count : 0)}
                 >
                   <Popup>
                     <div className="p-2 min-w-[220px]">
@@ -707,7 +707,7 @@ export function FriendsMap({
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-sm flex items-center gap-1.5">
                             {friend.first_name}
-                            {friend.unread_count && friend.unread_count > 0 ? (
+                            {unreadBadgesEnabled && friend.unread_count && friend.unread_count > 0 ? (
                               <Badge className="h-4 px-1.5 text-[10px] bg-red-500 hover:bg-red-500 text-white">
                                 {friend.unread_count > 99 ? '99+' : friend.unread_count} new
                               </Badge>
@@ -876,7 +876,7 @@ export function FriendsMap({
                     {friend.presence_status === 'online' && (
                       <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-background shadow-sm" />
                     )}
-                    {friend.unread_count && friend.unread_count > 0 ? (
+                    {unreadBadgesEnabled && friend.unread_count && friend.unread_count > 0 ? (
                       <div className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1.5 rounded-full bg-red-500 text-white text-[11px] font-extrabold border-2 border-background flex items-center justify-center shadow-lg">
                         {friend.unread_count > 99 ? '99+' : friend.unread_count}
                       </div>

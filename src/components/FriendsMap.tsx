@@ -256,7 +256,14 @@ export function FriendsMap({
     } catch { return true; }
   });
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [geoError, setGeoError] = useState<string | null>(null);
+  const [unreadBadgesEnabled] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem('notification-preferences');
+      if (!raw) return true;
+      const p = JSON.parse(raw);
+      return p.unreadBadges !== false;
+    } catch { return true; }
+  });
   const [realtimeError, setRealtimeError] = useState<string | null>(null);
   const [showActionHint, setShowActionHint] = useState<boolean>(() => {
     try { return !localStorage.getItem('map:tips:popupActions'); } catch { return false; }

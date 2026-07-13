@@ -16,6 +16,7 @@ import { useSnapScore } from '@/hooks/useSnapScore';
 import { SnapScoreDisplay } from '@/components/SnapScoreDisplay';
 import { useSnapStreaks } from '@/hooks/useSnapStreaks';
 import { SnapStreakBadge } from '@/components/SnapStreakBadge';
+import { InviteFriendsCard } from '@/components/InviteFriendsCard';
 
 interface ProfileProps {
   isOverlay?: boolean;
@@ -278,6 +279,11 @@ const Profile = ({ isOverlay = false }: ProfileProps = {}) => {
                 )}
               </CardContent>
             </Card>
+
+            {/* Invite Friends */}
+            <div className="lg:col-span-2">
+              <InviteFriendsCard />
+            </div>
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from "react";
+import React, { Suspense, lazy, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -55,7 +55,21 @@ const queryClient = new QueryClient({
 
 const PageLoader = () => <PageSkeleton />;
 
+// A referral link looks like /?ref=CODE. Stash the code so ProfileSetup can
+// redeem it once the visitor actually creates an account — by then the query
+// param is long gone (through the auth redirect), so it can't be read there.
+function capturePendingReferral() {
+  const code = new URLSearchParams(window.location.search).get('ref');
+  if (code && !localStorage.getItem('pending_referral_code')) {
+    localStorage.setItem('pending_referral_code', code);
+  }
+}
+
 function App() {
+  useEffect(() => {
+    capturePendingReferral();
+  }, []);
+
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>

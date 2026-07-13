@@ -24,6 +24,7 @@ interface ReferralState {
   loading: boolean;
   generateCode: () => string;
   setReferralCode: (code: string) => void;
+  getOrCreateCode: (userId: string) => Promise<string>;
   fetchReferrals: (userId: string) => Promise<void>;
   addReferral: (input: {
     referrerId: string;
@@ -56,6 +57,32 @@ export const useReferralStore = create<ReferralState>((set, get) => ({
   },
 
   setReferralCode: (code) => set({ referralCode: code }),
+
+  // Returns the user's persistent referral code, generating and saving one
+  // to their profile the first time it's needed (retries on the rare
+  // collision, same approach ShareBubbleDialog uses for invite codes).
+  getOrCreateCode: async (userId) => {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('referral_code')
+      .eq('id', userId)
+      .single();
+
+    if (profile?.referral_code) {
+      set({ referralCode: profile.referral_code });
+      return profile.referral_code;
+    }
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = get().generateCode();
+      const { error } = await supabase
+        .from('profiles')
+        .update({ referral_code: code })
+        .eq('id', userId);
+      if (!error) return code;
+    }
+    throw new Error('Could not generate a unique referral code');
+  },
 
   fetchReferrals: async (userId) => {
     set({ loading: true });

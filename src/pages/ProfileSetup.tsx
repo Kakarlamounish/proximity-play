@@ -101,6 +101,14 @@ const ProfileSetup = () => {
         throw error;
       }
 
+      const pendingReferralCode = localStorage.getItem('pending_referral_code');
+      if (pendingReferralCode) {
+        localStorage.removeItem('pending_referral_code');
+        // Best-effort — a bad/expired code shouldn't block onboarding.
+        supabase.functions.invoke('redeem-referral', { body: { code: pendingReferralCode } })
+          .catch(() => {});
+      }
+
       toast({
         title: "Profile created!",
         description: "Welcome to Proximity Play. Let's find your bubbles!",

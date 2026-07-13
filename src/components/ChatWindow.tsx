@@ -296,7 +296,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
       const { error } = await supabase
         .from('messages')
         .insert({
-          content: 'Shared an image',
+          content: `🖼️ Image: ${imageUrl}`,
           sender_id: user.id,
           bubble_id: bubble.id
         });
@@ -427,6 +427,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
                   >
                     {isVoiceMessage && voiceUrl ? (
                       <VoiceMessagePlayer audioUrl={voiceUrl} duration={duration} />
+                    ) : message.content.startsWith('📸 Snap: ') ? (
+                      <img
+                        src={message.content.replace('📸 Snap: ', '')}
+                        alt="Snap"
+                        className="rounded-lg max-w-full max-h-64 object-cover"
+                      />
+                    ) : message.content.startsWith('🖼️ Image: ') ? (
+                      <img
+                        src={message.content.replace('🖼️ Image: ', '')}
+                        alt="Shared image"
+                        className="rounded-lg max-w-full max-h-64 object-cover"
+                      />
                     ) : (
                       <p className="text-sm">{message.content}</p>
                     )}

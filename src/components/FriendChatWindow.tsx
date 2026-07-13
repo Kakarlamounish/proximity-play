@@ -251,7 +251,7 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
       const { error } = await supabase
         .from('messages')
         .insert({
-          content: 'Shared an image',
+          content: `🖼️ Image: ${imageUrl}`,
           sender_id: user.id,
           recipient_id: friend.id
         });
@@ -350,6 +350,18 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
                 >
                   {message.content.startsWith('🎵 Voice Message: ') ? (
                     <VoiceMessagePlayer audioUrl={message.content.replace('🎵 Voice Message: ', '')} duration={0} />
+                  ) : message.content.startsWith('📸 Snap: ') ? (
+                    <img
+                      src={message.content.replace('📸 Snap: ', '')}
+                      alt="Snap"
+                      className="rounded-lg max-w-full max-h-64 object-cover"
+                    />
+                  ) : message.content.startsWith('🖼️ Image: ') ? (
+                    <img
+                      src={message.content.replace('🖼️ Image: ', '')}
+                      alt="Shared image"
+                      className="rounded-lg max-w-full max-h-64 object-cover"
+                    />
                   ) : (
                     <p className="text-sm leading-relaxed">{message.content}</p>
                   )}

@@ -16,7 +16,8 @@ const CameraPage = () => {
   }
 
   const handleCapture = (imageDataUrl: string) => {
-    // In a full implementation, this would upload the snap and let you send to friends
+    // Upload + send already happened inside CameraScreen.handleSend by the time
+    // this fires; this just tracks score and returns to the chat list.
     incrementScore('snaps_sent');
     toast({
       title: '📸 Snap captured!',

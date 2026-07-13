@@ -4,6 +4,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Camera, SwitchCamera, X, Send, Download, Zap, ZapOff, BookOpen, MessageCircle, Users, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface CameraScreenProps {
   onCapture?: (imageDataUrl: string) => void;
@@ -22,6 +23,7 @@ export function CameraScreen({ onCapture, onClose }: CameraScreenProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { user } = useAuth();
+  const { toast } = useToast();
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -116,10 +118,22 @@ export function CameraScreen({ onCapture, onClose }: CameraScreenProps) {
     setSending(true);
 
     try {
+      // Upload the actual photo once; both the friend-sends and the story
+      // post below point at this same URL. Previously the image data never
+      // left the browser — only a placeholder text row was ever written.
+      const blob = await (await fetch(capturedImage)).blob();
+      const fileName = `${user.id}/snap-${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('stories')
+        .upload(fileName, blob, { contentType: 'image/jpeg' });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from('stories').getPublicUrl(fileName);
+      const imageUrl = urlData.publicUrl;
+
       // Send to selected friends as chat messages
       if (selectedFriends.size > 0) {
         const inserts = Array.from(selectedFriends).map(friendId => ({
-          content: '📸 Sent a Snap!',
+          content: `📸 Snap: ${imageUrl}`,
           sender_id: user.id,
           recipient_id: friendId,
           message_type: 'snap',
@@ -142,6 +156,7 @@ export function CameraScreen({ onCapture, onClose }: CameraScreenProps) {
         await supabase.from('location_stories').insert({
           user_id: user.id,
           text_content: '📸 New Story Snap',
+          image_url: imageUrl,
           latitude: lat,
           longitude: lng,
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
@@ -152,6 +167,11 @@ export function CameraScreen({ onCapture, onClose }: CameraScreenProps) {
       if (onCapture) onCapture(capturedImage);
     } catch (err) {
       console.error('Send error:', err);
+      toast({
+        title: 'Failed to send snap',
+        description: 'Please check your connection and try again.',
+        variant: 'destructive',
+      });
     } finally {
       setSending(false);
       setCapturedImage(null);

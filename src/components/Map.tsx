@@ -376,24 +376,6 @@ const NotificationCenter: React.FC<{ notifications: { id: string; message: strin
   </div>
 );
 
-// --- Chat Sidebar Skeleton ---
-const ChatSidebar: React.FC<{ messages: { id: string; user: string; text: string; time: string }[] }> = ({ messages }) => (
-  <div style={{ position: 'absolute', right: 0, top: 0, height: '100%', width: 320, background: 'rgba(30,41,59,0.97)', zIndex: 2000, boxShadow: '-2px 0 12px #6366f1', display: 'flex', flexDirection: 'column' }}>
-    <div style={{ padding: '16px', borderBottom: '1px solid #334155', fontWeight: 'bold', color: '#fff' }}>💬 Live Chat</div>
-    <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-      {messages.map(m => (
-        <div key={m.id} style={{ marginBottom: 12 }}>
-          <span style={{ color: '#6366f1', fontWeight: 'bold' }}>{m.user}</span>
-          <span style={{ color: '#fff', marginLeft: 8 }}>{m.text}</span>
-          <div style={{ fontSize: 11, color: '#94a3b8' }}>{m.time}</div>
-        </div>
-      ))}
-    </div>
-    <div style={{ padding: '12px', borderTop: '1px solid #334155' }}>
-      <input type="text" placeholder="Type a message..." style={{ width: '100%', padding: 8, borderRadius: 6, border: 'none', background: '#334155', color: '#fff' }} />
-    </div>
-  </div>
-);
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1052,16 +1034,6 @@ export function Map(props: MapProps) {
     { id: '1', message: 'Welcome to Proximity Play!', time: 'Just now' },
     { id: '2', message: 'User Alice joined the map.', time: '1 min ago' },
   ]);
-  interface Message {
-    id: string;
-    user: string;
-    text: string;
-    time: string;
-  }
-  const [messages, setMessages] = useState<Message[]>([
-    { id: '1', user: 'Alice', text: 'Hello everyone!', time: '1 min ago' },
-    { id: '2', user: 'Bob', text: 'Hi Alice!', time: 'Just now' },
-  ]);
   // Center map on first live location if available
 
   return (
@@ -1108,8 +1080,6 @@ export function Map(props: MapProps) {
     )}
     {/* Notification Center */}
     <NotificationCenter notifications={notifications} />
-    {/* Chat Sidebar */}
-    <ChatSidebar messages={messages} />
     {/* Location Sharing Toggle */}
     <LocationSharingToggle
       enabled={locationSharingEnabled}

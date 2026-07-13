@@ -49,7 +49,11 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [messageType, setMessageType] = useState<'text' | 'video' | 'voice'>('text');
   const [isDisappearing, setIsDisappearing] = useState(false);
+  const [friendTyping, setFriendTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const lastTypingSentRef = useRef<number>(0);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const streak = streaks.find(s => s.friend_id === friend.id);
 
   const scrollToBottom = () => {

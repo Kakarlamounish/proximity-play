@@ -49,7 +49,11 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [messageType, setMessageType] = useState<'text' | 'video' | 'voice'>('text');
   const [isDisappearing, setIsDisappearing] = useState(false);
+  const [friendTyping, setFriendTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const lastTypingSentRef = useRef<number>(0);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const streak = streaks.find(s => s.friend_id === friend.id);
 
   const scrollToBottom = () => {
@@ -152,6 +156,41 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
       supabase.removeChannel(channel);
     };
   }, [user, friend.id]);
+
+  // Typing indicator broadcast channel
+  useEffect(() => {
+    if (!user || !friend.id) return;
+    const roomId = [user.id, friend.id].sort().join('-');
+    const channel = supabase.channel(`typing-${roomId}`, {
+      config: { broadcast: { self: false } },
+    });
+    channel.on('broadcast', { event: 'typing' }, (payload) => {
+      if (payload.payload?.userId === friend.id) {
+        setFriendTyping(true);
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => setFriendTyping(false), 3000);
+      }
+    });
+    channel.subscribe();
+    typingChannelRef.current = channel;
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      supabase.removeChannel(channel);
+      typingChannelRef.current = null;
+    };
+  }, [user, friend.id]);
+
+  const sendTyping = () => {
+    if (!user || !typingChannelRef.current) return;
+    const now = Date.now();
+    if (now - lastTypingSentRef.current < 1500) return;
+    lastTypingSentRef.current = now;
+    typingChannelRef.current.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { userId: user.id },
+    });
+  };
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -377,6 +416,16 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
             );
           })
         )}
+        {friendTyping && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground italic px-2 pb-1">
+            <span className="flex gap-0.5">
+              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            </span>
+            <span>{friend.first_name || 'Friend'} is typing…</span>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -439,7 +488,7 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
           {messageType === 'text' ? (
             <Input
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
+              onChange={(e) => { setNewMessage(e.target.value); sendTyping(); }}
               placeholder="Type a message..."
               className="flex-1"
             />

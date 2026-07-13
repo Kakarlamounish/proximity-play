@@ -402,6 +402,34 @@ const Settings = () => {
                 <Separator />
                 <div className="flex items-center justify-between">
                   <div>
+                    <Label htmlFor="chatsound-notif" className="text-base">Chat Sound</Label>
+                    <p className="text-sm text-muted-foreground">Play a sound when a new chat arrives</p>
+                  </div>
+                  <Switch
+                    id="chatsound-notif"
+                    checked={notifications.chatSound}
+                    onCheckedChange={(checked) =>
+                      updateNotifications({ ...notifications, chatSound: checked })
+                    }
+                  />
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="unread-notif" className="text-base">Unread Badges</Label>
+                    <p className="text-sm text-muted-foreground">Show red unread counts on friend pins & bar</p>
+                  </div>
+                  <Switch
+                    id="unread-notif"
+                    checked={notifications.unreadBadges}
+                    onCheckedChange={(checked) =>
+                      updateNotifications({ ...notifications, unreadBadges: checked })
+                    }
+                  />
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
                     <Label htmlFor="meetups-notif" className="text-base">Meetups</Label>
                     <p className="text-sm text-muted-foreground">Get notified about meetup invites</p>
                   </div>

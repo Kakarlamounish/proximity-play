@@ -239,11 +239,31 @@ export function FriendsMap({
   const toastRef = useRef(toast);
   toastRef.current = toast;
   
-  const [friends, setFriends] = useState<FriendOnMap[]>([]);
+  const cacheKey = user ? `map:friendsCache:${user.id}` : null;
+  const [friends, setFriends] = useState<FriendOnMap[]>(() => {
+    try {
+      if (!user) return [];
+      const raw = localStorage.getItem(`map:friendsCache:${user.id}`);
+      return raw ? (JSON.parse(raw) as FriendOnMap[]) : [];
+    } catch { return []; }
+  });
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [sharing, setSharing] = useState(true);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    try {
+      if (!user) return true;
+      return !localStorage.getItem(`map:friendsCache:${user.id}`);
+    } catch { return true; }
+  });
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [unreadBadgesEnabled] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem('notification-preferences');
+      if (!raw) return true;
+      const p = JSON.parse(raw);
+      return p.unreadBadges !== false;
+    } catch { return true; }
+  });
   const [geoError, setGeoError] = useState<string | null>(null);
   const [realtimeError, setRealtimeError] = useState<string | null>(null);
   const [showActionHint, setShowActionHint] = useState<boolean>(() => {
@@ -390,6 +410,9 @@ export function FriendsMap({
       });
 
       setFriends(mapped);
+      try {
+        if (cacheKey) localStorage.setItem(cacheKey, JSON.stringify(mapped));
+      } catch { /* quota */ }
     } catch (err: unknown) {
       console.error('Error fetching friends map data:', err);
       setLoadError(err instanceof Error ? err.message : 'Failed to load map data');
@@ -554,7 +577,19 @@ export function FriendsMap({
     );
   }
 
-  const visibleFriends = onlyUnread ? friends.filter(f => (f.unread_count || 0) > 0) : friends;
+  const visibleFriends = (onlyUnread ? friends.filter(f => (f.unread_count || 0) > 0) : friends)
+    .slice()
+    .sort((a, b) => {
+      if (onlyUnread) {
+        // Prioritize higher unread counts, then latest message
+        const diff = (b.unread_count || 0) - (a.unread_count || 0);
+        if (diff !== 0) return diff;
+      }
+      const at = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+      const bt = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+      if (bt !== at) return bt - at;
+      return (a.first_name || '').localeCompare(b.first_name || '');
+    });
 
   const center: [number, number] = myLocation
     ? [myLocation.lat, myLocation.lng]
@@ -660,7 +695,7 @@ export function FriendsMap({
                 <AnimatedMarker
                   key={friend.user_id}
                   position={[friend.latitude, friend.longitude]}
-                  icon={createSnapMarker(friend.first_name, friend.profile_photo_url, friend.presence_status === 'online', friend.unread_count)}
+                  icon={createSnapMarker(friend.first_name, friend.profile_photo_url, friend.presence_status === 'online', unreadBadgesEnabled ? friend.unread_count : 0)}
                 >
                   <Popup>
                     <div className="p-2 min-w-[220px]">
@@ -672,7 +707,7 @@ export function FriendsMap({
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-sm flex items-center gap-1.5">
                             {friend.first_name}
-                            {friend.unread_count && friend.unread_count > 0 ? (
+                            {unreadBadgesEnabled && friend.unread_count && friend.unread_count > 0 ? (
                               <Badge className="h-4 px-1.5 text-[10px] bg-red-500 hover:bg-red-500 text-white">
                                 {friend.unread_count > 99 ? '99+' : friend.unread_count} new
                               </Badge>
@@ -841,7 +876,7 @@ export function FriendsMap({
                     {friend.presence_status === 'online' && (
                       <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-background shadow-sm" />
                     )}
-                    {friend.unread_count && friend.unread_count > 0 ? (
+                    {unreadBadgesEnabled && friend.unread_count && friend.unread_count > 0 ? (
                       <div className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1.5 rounded-full bg-red-500 text-white text-[11px] font-extrabold border-2 border-background flex items-center justify-center shadow-lg">
                         {friend.unread_count > 99 ? '99+' : friend.unread_count}
                       </div>

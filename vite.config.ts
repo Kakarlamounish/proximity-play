@@ -22,32 +22,10 @@ export default defineConfig(({ mode }) => {
       mode === 'development' && componentTagger(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['logo.svg', 'logo.png', 'robots.txt'],
-        manifest: {
-          name: 'Proximity Play',
-          short_name: 'Proximity',
-          description: 'Real-time location sharing and community building platform',
-          theme_color: '#6366f1',
-          background_color: '#111827',
-          display: 'standalone',
-          orientation: 'portrait',
-          scope: '/',
-          start_url: '/',
-          icons: [
-            {
-              src: '/logo.png',
-              sizes: '192x192',
-              type: 'image/png',
-              purpose: 'any maskable'
-            },
-            {
-              src: '/logo.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'any maskable'
-            }
-          ]
-        },
+        includeAssets: ['logo.svg', 'logo.png', 'icon-96x96.png', 'icon-192x192.png', 'icon-512x512.png', 'robots.txt'],
+        // manifest is served statically from public/manifest.json (linked in index.html) — disable
+        // generation here so there's only one manifest, not two competing ones.
+        manifest: false,
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp}'],
           runtimeCaching: [

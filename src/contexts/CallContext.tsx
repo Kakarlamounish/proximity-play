@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useRingtone } from '@/hooks/useRingtone';
 import { VideoCall } from '@/components/VideoCall';
+import { GroupVideoCall } from '@/components/GroupVideoCall';
 import { IncomingCallNotification } from '@/components/IncomingCallNotification';
 
 export interface ActiveCallState {
@@ -296,25 +297,28 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       {activeCall && (
         <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center">
-          <VideoCall
-            bubbleId={activeCall.bubbleId || activeCall.friendId || ''}
-            callType={activeCall.type}
-            isInitiator={activeCall.isInitiator}
-            callLogId={activeCall.callLogId}
-            identity={
-              activeCall.bubbleId && bubbleInfo
-                ? {
-                    kind: 'bubble',
-                    title: bubbleInfo.name || 'Bubble call',
-                  }
-                : {
-                    kind: 'direct',
-                    title: callerProfile?.first_name || 'Call',
-                    avatarUrl: callerProfile?.profile_photo_url || undefined,
-                  }
-            }
-            onCallEnd={endCall}
-          />
+          {activeCall.bubbleId ? (
+            <GroupVideoCall
+              bubbleId={activeCall.bubbleId}
+              callType={activeCall.type}
+              callLogId={activeCall.callLogId}
+              title={bubbleInfo?.name || 'Bubble call'}
+              onCallEnd={endCall}
+            />
+          ) : (
+            <VideoCall
+              bubbleId={activeCall.friendId || ''}
+              callType={activeCall.type}
+              isInitiator={activeCall.isInitiator}
+              callLogId={activeCall.callLogId}
+              identity={{
+                kind: 'direct',
+                title: callerProfile?.first_name || 'Call',
+                avatarUrl: callerProfile?.profile_photo_url || undefined,
+              }}
+              onCallEnd={endCall}
+            />
+          )}
         </div>
       )}
     </CallContext.Provider>

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PushNotificationPayload {
   title: string;
@@ -17,6 +19,7 @@ export const usePushNotifications = () => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
   const { addNotification } = useAppStore();
+  const { user } = useAuth();
 
   // Check notification permission on mount
   useEffect(() => {
@@ -81,6 +84,13 @@ export const usePushNotifications = () => {
   const subscribe = async (vapidPublicKey?: string): Promise<boolean> => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       console.warn('Push messaging is not supported');
+      return false;
+    }
+
+    if (Notification.permission === 'default') {
+      const granted = await requestPermission();
+      if (!granted) return false;
+    } else if (Notification.permission === 'denied') {
       return false;
     }
 
@@ -167,46 +177,38 @@ export const usePushNotifications = () => {
     }
   };
 
-  // Send subscription to server
+  // Persist the subscription directly — push_subscriptions RLS already lets
+  // a user manage their own rows, so there's no need for a server hop here.
   const sendSubscriptionToServer = async (subscription: PushSubscription) => {
+    if (!user) return;
     try {
-      const response = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const json = subscription.toJSON();
+      const { error } = await supabase.from('push_subscriptions').upsert(
+        {
+          user_id: user.id,
+          endpoint: subscription.endpoint,
+          p256dh: json.keys?.p256dh ?? '',
+          auth: json.keys?.auth ?? '',
         },
-        body: JSON.stringify({
-          subscription: subscription.toJSON(),
-          userAgent: navigator.userAgent,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to send subscription to server');
-      }
+        { onConflict: 'user_id,endpoint' },
+      );
+      if (error) throw error;
     } catch (error) {
-      console.error('Error sending subscription to server:', error);
+      console.error('Error saving push subscription:', error);
     }
   };
 
-  // Remove subscription from server
   const removeSubscriptionFromServer = async (subscription: PushSubscription) => {
+    if (!user) return;
     try {
-      const response = await fetch('/api/push/unsubscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          endpoint: subscription.endpoint,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to remove subscription from server');
-      }
+      const { error } = await supabase
+        .from('push_subscriptions')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('endpoint', subscription.endpoint);
+      if (error) throw error;
     } catch (error) {
-      console.error('Error removing subscription from server:', error);
+      console.error('Error removing push subscription:', error);
     }
   };
 

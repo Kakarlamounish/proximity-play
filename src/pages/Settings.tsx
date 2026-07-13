@@ -16,6 +16,9 @@ import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UpdateLocationDialog } from '@/components/UpdateLocationDialog';
+import { BiometricAuth } from '@/components/BiometricAuth';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { DEFAULT_NOTIFICATION_PREFERENCES } from '@/utils/notificationPreferences';
 import { Link } from 'react-router-dom';
 import {
   AlertDialog,
@@ -38,13 +41,8 @@ const Settings = () => {
   const [deleteDataOpen, setDeleteDataOpen] = useState(false);
   const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [notifications, setNotifications] = useState({
-    messages: true,
-    meetups: true,
-    bubbles: true,
-    push: true,
-    email: false,
-  });
+  const [notifications, setNotifications] = useState(DEFAULT_NOTIFICATION_PREFERENCES);
+  const { permission: pushPermission, isSubscribed: pushSubscribed, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotifications();
   const [blockedUsers, setBlockedUsers] = useState<Array<{ blocked_id: string; profiles?: { id: string; first_name: string; profile_photo_url: string } }>>([]);
   const [language, setLanguage] = useState('en');
   const [timezone, setTimezone] = useState('UTC');
@@ -432,15 +430,64 @@ const Settings = () => {
                  <Separator />
                  <div className="flex items-center justify-between">
                    <div>
+                     <Label htmlFor="calls-notif" className="text-base">Calls</Label>
+                     <p className="text-sm text-muted-foreground">Get notified about missed calls</p>
+                   </div>
+                   <Switch
+                     id="calls-notif"
+                     checked={notifications.calls}
+                     onCheckedChange={(checked) =>
+                       updateNotifications({ ...notifications, calls: checked })
+                     }
+                   />
+                 </div>
+                 <Separator />
+                 <div className="flex items-center justify-between">
+                   <div>
+                     <Label htmlFor="friend-requests-notif" className="text-base">Friend Requests</Label>
+                     <p className="text-sm text-muted-foreground">Get notified about friend requests</p>
+                   </div>
+                   <Switch
+                     id="friend-requests-notif"
+                     checked={notifications.friendRequests}
+                     onCheckedChange={(checked) =>
+                       updateNotifications({ ...notifications, friendRequests: checked })
+                     }
+                   />
+                 </div>
+                 <Separator />
+                 <div className="flex items-center justify-between">
+                   <div>
+                     <Label htmlFor="stories-notif" className="text-base">Stories</Label>
+                     <p className="text-sm text-muted-foreground">Get notified about reactions to your stories</p>
+                   </div>
+                   <Switch
+                     id="stories-notif"
+                     checked={notifications.stories}
+                     onCheckedChange={(checked) =>
+                       updateNotifications({ ...notifications, stories: checked })
+                     }
+                   />
+                 </div>
+                 <Separator />
+                 <div className="flex items-center justify-between">
+                   <div>
                      <Label htmlFor="push-notif" className="text-base">Push Notifications</Label>
-                     <p className="text-sm text-muted-foreground">Receive push notifications on your device</p>
+                     <p className="text-sm text-muted-foreground">
+                       {pushPermission === 'denied'
+                         ? 'Blocked in your browser settings'
+                         : 'Receive push notifications on your device'}
+                     </p>
                    </div>
                    <Switch
                      id="push-notif"
-                     checked={notifications.push}
-                     onCheckedChange={(checked) => 
-                       updateNotifications({ ...notifications, push: checked })
-                     }
+                     checked={notifications.push && pushSubscribed}
+                     disabled={pushPermission === 'denied'}
+                     onCheckedChange={async (checked) => {
+                       const ok = checked ? await subscribePush() : await unsubscribePush();
+                       if (checked && !ok) return; // permission denied or unsupported — leave toggle off
+                       updateNotifications({ ...notifications, push: checked });
+                     }}
                    />
                  </div>
                  <Separator />
@@ -558,6 +605,9 @@ const Settings = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Biometric / Security Keys */}
+            <BiometricAuth mode="register" />
 
             {/* Preferences */}
             <Card className="glass border-0">

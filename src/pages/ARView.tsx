@@ -7,10 +7,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import {
-  Camera, CameraOff, Compass, Navigation as NavIcon, Users,
+  Camera, CameraOff, Compass, Users,
   AlertCircle, MapPin, ChevronLeft
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { ARScene, requestDeviceOrientationPermission } from '@/components/ARScene';
 
 interface FriendMarker {
   id: string;
@@ -38,57 +39,6 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   const Δλ = ((lng2 - lng1) * Math.PI) / 180;
   const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function formatDistance(meters: number): string {
-  if (meters < 1000) return `${Math.round(meters)}m`;
-  return `${(meters / 1000).toFixed(1)}km`;
-}
-
-// ── Friend arrow overlay (positioned based on bearing relative to device heading) ──
-function FriendArrow({ friend, deviceHeading }: { friend: FriendMarker; deviceHeading: number }) {
-  // Relative angle: friend bearing minus device heading = screen angle
-  const relativeAngle = (friend.bearing - deviceHeading + 360) % 360;
-  const rad = (relativeAngle * Math.PI) / 180;
-
-  // Map to screen position: center of screen + offset along angle
-  const cx = 50; // % from left
-  const cy = 50; // % from top
-  const dist = 35; // % radius from center
-  const x = cx + dist * Math.sin(rad);
-  const y = cy - dist * Math.cos(rad);
-
-  // Size based on distance (closer = bigger)
-  const sizePct = Math.max(0.5, Math.min(1.4, 300 / (friend.distance + 10)));
-
-  return (
-    <div
-      className="absolute flex flex-col items-center pointer-events-none transition-all duration-500"
-      style={{
-        left: `${x}%`,
-        top: `${y}%`,
-        transform: `translate(-50%, -50%) scale(${sizePct})`,
-      }}
-    >
-      {/* Arrow */}
-      <div
-        className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg border-2 border-white"
-        style={{
-          background: 'linear-gradient(135deg, #6366f1, #3b82f6)',
-          transform: `rotate(${relativeAngle}deg)`,
-        }}
-      >
-        <NavIcon className="h-5 w-5 text-white" style={{ transform: 'rotate(0deg)' }} />
-      </div>
-      {/* Label */}
-      <div
-        className="mt-1 px-2 py-0.5 rounded-full text-xs font-bold text-white shadow-lg"
-        style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
-      >
-        {friend.name} · {formatDistance(friend.distance)}
-      </div>
-    </div>
-  );
 }
 
 // ── Main AR page ─────────────────────────────────────────────────────────────
@@ -136,6 +86,10 @@ const ARView = () => {
 
   const startCamera = async () => {
     try {
+      // Must be requested from this user-gesture handler — iOS Safari silently
+      // drops deviceorientation events if this isn't granted before camera start.
+      await requestDeviceOrientationPermission();
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
@@ -253,10 +207,8 @@ const ARView = () => {
               <div className="absolute w-1 h-1 bg-white rounded-full" />
             </div>
 
-            {/* Friend arrows */}
-            {friends.map(friend => (
-              <FriendArrow key={friend.id} friend={friend} deviceHeading={deviceHeading} />
-            ))}
+            {/* Friend markers — real 3D-projected overlay, reacts to tilt/roll too, not just compass heading */}
+            <ARScene friends={friends} />
 
             {/* Empty state — no friends sharing live */}
             {friends.length === 0 && (

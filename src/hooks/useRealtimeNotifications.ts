@@ -173,12 +173,22 @@ export const useRealtimeNotifications = (options: UseRealtimeNotificationsOption
                     supabase.from('bubbles').select('name').eq('id', message.bubble_id).single(),
                   ]);
 
+                  const title = `💬 ${bubble?.name || 'Bubble'}`;
+                  const description = `${sender?.first_name || 'Someone'}: ${message.content.substring(0, 50)}${message.content.length > 50 ? '...' : ''}`;
+
                   // Play notification chime + show toast card
                   playSoundRef.current();
-                  toastRef.current({
-                    title: `💬 ${bubble?.name || 'Bubble'}`,
-                    description: `${sender?.first_name || 'Someone'}: ${message.content.substring(0, 50)}${message.content.length > 50 ? '...' : ''}`,
-                  });
+                  toastRef.current({ title, description });
+
+                  const prefs = getNotificationPreferences();
+                  if (prefs.push && (typeof document === 'undefined' || document.visibilityState !== 'visible')) {
+                    showSystemNotification({
+                      title,
+                      body: description,
+                      tag: `bubble-${message.bubble_id}`,
+                      data: { type: 'bubble_message', bubbleId: message.bubble_id },
+                    });
+                  }
                 }
 
                 optionsRef.current.onNewMessage?.(message);

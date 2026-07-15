@@ -157,10 +157,16 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
     };
   }, [user, friend.id]);
 
-  // Typing indicator broadcast channel
+  // Typing indicator broadcast channel — debounced sender + explicit "stop"
+  // event, with a receiver hide-window that only extends on fresh events.
+  // Prevents flicker on flaky connections and stale "typing…" bubbles.
+  const stopTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const channelReadyRef = useRef(false);
+
   useEffect(() => {
     if (!user || !friend.id) return;
     const roomId = [user.id, friend.id].sort().join('-');
+    channelReadyRef.current = false;
     const channel = supabase.channel(`typing-${roomId}`, {
       config: { broadcast: { self: false } },
     });
@@ -168,28 +174,57 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
       if (payload.payload?.userId === friend.id) {
         setFriendTyping(true);
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-        typingTimeoutRef.current = setTimeout(() => setFriendTyping(false), 3000);
+        // Auto-hide if no follow-up event within 4s (covers dropped "stop").
+        typingTimeoutRef.current = setTimeout(() => setFriendTyping(false), 4000);
       }
     });
-    channel.subscribe();
+    channel.on('broadcast', { event: 'stop-typing' }, (payload) => {
+      if (payload.payload?.userId === friend.id) {
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        setFriendTyping(false);
+      }
+    });
+    channel.subscribe((status) => {
+      channelReadyRef.current = status === 'SUBSCRIBED';
+      if (status !== 'SUBSCRIBED') {
+        // Connection dropped — clear stale indicator instead of leaving it stuck.
+        setFriendTyping(false);
+      }
+    });
     typingChannelRef.current = channel;
     return () => {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      if (stopTypingTimerRef.current) clearTimeout(stopTypingTimerRef.current);
+      channelReadyRef.current = false;
       supabase.removeChannel(channel);
       typingChannelRef.current = null;
     };
   }, [user, friend.id]);
 
   const sendTyping = () => {
-    if (!user || !typingChannelRef.current) return;
+    if (!user || !typingChannelRef.current || !channelReadyRef.current) return;
     const now = Date.now();
-    if (now - lastTypingSentRef.current < 1500) return;
-    lastTypingSentRef.current = now;
-    typingChannelRef.current.send({
-      type: 'broadcast',
-      event: 'typing',
-      payload: { userId: user.id },
-    });
+    // Throttle broadcasts so we send at most every 1500ms while typing.
+    if (now - lastTypingSentRef.current >= 1500) {
+      lastTypingSentRef.current = now;
+      typingChannelRef.current.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: { userId: user.id },
+      });
+    }
+    // Debounced "stop" — fires 1500ms after the last keystroke.
+    if (stopTypingTimerRef.current) clearTimeout(stopTypingTimerRef.current);
+    stopTypingTimerRef.current = setTimeout(() => {
+      lastTypingSentRef.current = 0;
+      if (typingChannelRef.current && channelReadyRef.current) {
+        typingChannelRef.current.send({
+          type: 'broadcast',
+          event: 'stop-typing',
+          payload: { userId: user.id },
+        });
+      }
+    }, 1500);
   };
 
   // Auto-scroll to bottom when new messages arrive

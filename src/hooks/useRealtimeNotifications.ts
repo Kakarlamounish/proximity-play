@@ -75,6 +75,18 @@ export const useRealtimeNotifications = (options: UseRealtimeNotificationsOption
               title: n.title || 'New Notification',
               description: n.body || '',
             });
+            // Fire OS-level push-style notification when the tab isn't
+            // focused, so the Settings toggle actually reaches the user
+            // outside the app.
+            const prefs = getNotificationPreferences();
+            if (prefs.push && (typeof document === 'undefined' || document.visibilityState !== 'visible')) {
+              showSystemNotification({
+                title: n.title || 'New Notification',
+                body: n.body || '',
+                tag: `notif-${n.id}`,
+                data: { type: n.type, id: n.id },
+              });
+            }
           }
 
           optionsRef.current.onNewNotification?.(n);
@@ -83,6 +95,55 @@ export const useRealtimeNotifications = (options: UseRealtimeNotificationsOption
       .subscribe();
 
     activeChannels.push(notifChannel);
+
+    // 1b. Direct messages addressed to the current user (1:1 chat).
+    // Bubble messages are handled separately below; this covers DMs so the
+    // "Messages" toggle in Settings actually gates chat alerts.
+    const dmChannel = supabase
+      .channel(`${channelId}-dm`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `recipient_id=eq.${user.id}`,
+        },
+        async (payload) => {
+          if (!isMounted) return;
+          const message = payload.new as Message;
+          if (message.sender_id === user.id) return;
+          if (!isNotificationCategoryEnabled('message')) return;
+
+          const { data: sender } = await supabase
+            .from('profiles')
+            .select('first_name')
+            .eq('id', message.sender_id)
+            .single();
+
+          const name = sender?.first_name || 'Someone';
+          const preview = (message.content || '').substring(0, 80);
+          const title = `💬 ${name}`;
+
+          playSoundRef.current();
+          toastRef.current({ title, description: preview });
+
+          const prefs = getNotificationPreferences();
+          if (prefs.push && (typeof document === 'undefined' || document.visibilityState !== 'visible')) {
+            showSystemNotification({
+              title,
+              body: preview,
+              tag: `dm-${message.sender_id}`,
+              data: { type: 'message', senderId: message.sender_id },
+            });
+          }
+
+          optionsRef.current.onNewMessage?.(message);
+        }
+      )
+      .subscribe();
+
+    activeChannels.push(dmChannel);
 
     // 2. Messages & memberships in user's bubbles
     const setupBubbleSubs = async () => {

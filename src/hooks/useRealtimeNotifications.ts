@@ -3,7 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useNotificationSound } from '@/hooks/useNotificationSound';
-import { isNotificationCategoryEnabled } from '@/utils/notificationPreferences';
+import {
+  isNotificationCategoryEnabled,
+  getNotificationPreferences,
+} from '@/utils/notificationPreferences';
+import { showSystemNotification } from '@/utils/showSystemNotification';
 import { Database } from '@/integrations/supabase/types';
 import { RealtimeChannel } from '@supabase/supabase-js';
 

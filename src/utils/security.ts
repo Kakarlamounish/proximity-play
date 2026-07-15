@@ -396,7 +396,7 @@ export class SecureStorage {
       const plaintext = await crypto.subtle.decrypt(
         { name: 'AES-GCM', iv: base64ToBytes(ivB64) as BufferSource },
         cryptoKey,
-        base64ToBytes(ciphertextB64),
+        base64ToBytes(ciphertextB64) as BufferSource,
       );
       return JSON.parse(new TextDecoder().decode(plaintext));
     } catch (error) {

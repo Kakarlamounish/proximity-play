@@ -394,7 +394,7 @@ export class SecureStorage {
       if (!ivB64 || !ciphertextB64) return null;
       const cryptoKey = await this.getKey();
       const plaintext = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: base64ToBytes(ivB64) },
+        { name: 'AES-GCM', iv: base64ToBytes(ivB64) as BufferSource },
         cryptoKey,
         base64ToBytes(ciphertextB64),
       );

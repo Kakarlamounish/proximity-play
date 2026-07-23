@@ -40,10 +40,10 @@ const PrivacyScheduleDialog: React.FC<PrivacyScheduleDialogProps> = ({ open, onC
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogHeader>
-        <DialogTitle>Privacy Scheduling</DialogTitle>
-      </DialogHeader>
       <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Privacy Scheduling</DialogTitle>
+        </DialogHeader>
         <div className="space-y-4">
           <label className="block text-sm font-medium">Start Time</label>
           <input type="time" value={start} onChange={e => setStart(e.target.value)} className="border rounded px-2 py-1 w-32" />

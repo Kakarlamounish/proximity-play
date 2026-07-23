@@ -43,6 +43,12 @@ const Index = () => {
   const [bubblesLoading, setBubblesLoading] = useState(false);
   const [radius, setRadius] = useState('2');
   const [trendingBubbles, setTrendingBubbles] = useState<Bubble[]>([]);
+  // Bumped by refreshBubbles() to force the bubbles-fetch effect below to
+  // re-run even when latitude/longitude haven't changed (the common case —
+  // refreshBubbles previously only called requestLocation(), which is a
+  // no-op re-fetch trigger if the device reports the same coordinates, so a
+  // just-created bubble never appeared without a full page reload).
+  const [refreshKey, setRefreshKey] = useState(0);
   const [filters, setFilters] = useState({
     radius: 2,
     interests: [] as string[],
@@ -53,6 +59,7 @@ const Index = () => {
     storiesCreated: 0,
     reactionsReceived: 0,
     friendsCount: 0,
+    joinedBubblesCount: 0,
     level: 1,
     xp: 0
   });
@@ -130,6 +137,17 @@ const Index = () => {
 
       const friendsCount = friendships?.length || 0;
 
+      // Total bubble memberships, independent of the location-filtered
+      // `bubbles` list below — that list only contains bubbles within the
+      // current search radius, so `bubbles.filter(b => b.is_member).length`
+      // read as "0 Joined Bubbles" for a user who belongs to several bubbles
+      // outside the current radius (or with location denied entirely).
+      // Found via live QA testing.
+      const { count: joinedBubblesCount } = await supabase
+        .from('bubble_memberships')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
       const totalXP = (storiesCount || 0) * 10 + reactionsCount * 2 + friendsCount * 5;
       const level = Math.floor(totalXP / 100) + 1;
       const xp = totalXP % 100;
@@ -138,6 +156,7 @@ const Index = () => {
         storiesCreated: storiesCount || 0,
         reactionsReceived: reactionsCount,
         friendsCount,
+        joinedBubblesCount: joinedBubblesCount || 0,
         level,
         xp
       });
@@ -207,7 +226,7 @@ const Index = () => {
 
     fetchNearbyBubbles();
     fetchTrendingBubbles();
-  }, [latitude, longitude, filters, user]);
+  }, [latitude, longitude, filters, user, refreshKey]);
 
   const fetchTrendingBubbles = async () => {
     if (!latitude || !longitude || !user) return;
@@ -287,6 +306,7 @@ const Index = () => {
 
   const refreshBubbles = () => {
     requestLocation();
+    setRefreshKey(k => k + 1);
   };
 
   return (
@@ -397,7 +417,7 @@ const Index = () => {
 
                 <Card className="glass border-0">
                   <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-primary">{bubbles.filter(b => b.is_member).length}</div>
+                    <div className="text-2xl font-bold text-primary">{userStats.joinedBubblesCount}</div>
                     <p className="text-sm text-muted-foreground">Joined Bubbles</p>
                   </CardContent>
                 </Card>
@@ -527,9 +547,11 @@ const Index = () => {
                           onChat={handleChatClick}
                           onJoin={(bubbleId) => {
                             setBubbles(prev => prev.map(b => b.id === bubbleId ? { ...b, is_member: true, member_count: b.member_count + 1 } : b));
+                            setTrendingBubbles(prev => prev.map(b => b.id === bubbleId ? { ...b, is_member: true, member_count: b.member_count + 1 } : b));
                           }}
                           onLeave={(bubbleId) => {
                             setBubbles(prev => prev.map(b => b.id === bubbleId ? { ...b, is_member: false, member_count: Math.max(0, b.member_count - 1) } : b));
+                            setTrendingBubbles(prev => prev.map(b => b.id === bubbleId ? { ...b, is_member: false, member_count: Math.max(0, b.member_count - 1) } : b));
                           }}
                         />
                       ))}

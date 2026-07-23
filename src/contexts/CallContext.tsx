@@ -111,6 +111,19 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     try {
       if (!isBubble) {
+        // BUG-018: RLS on user_blocks only lets a user read blocks they
+        // created, so if the callee blocked the caller (not the other way
+        // around), a plain client-side check can't see it. Check both
+        // directions server-side. The ring already started above (kept
+        // synchronous, pre-await, to preserve the autoplay-bypass trick) —
+        // stop it immediately if the call can't proceed.
+        const { data: blocked } = await supabase.rpc('is_blocked', { user_a: user.id, user_b: targetId });
+        if (blocked) {
+          stopOutgoingRing();
+          toast({ title: 'Unable to call', description: 'This user is not reachable.', variant: 'destructive' });
+          return;
+        }
+
         const { data: profile } = await supabase
           .from('profiles')
           .select('id, first_name, profile_photo_url')
@@ -262,17 +275,25 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .eq('id', currentCall.callLogId)
         .maybeSingle();
 
-      if (c && c.status === 'ringing') {
+      // BUG-013: previously only wrote a terminal status if the read caught
+      // status still 'ringing'. If the callee accepted (status -> 'connected')
+      // in the instant before this ran, the write was skipped entirely — the
+      // caller's own UI still tore down locally, but no DB transition ever
+      // reached the callee, leaving their VideoCall's status watcher (which
+      // only reacts to declined/missed/ended) stuck on "Connecting..."
+      // forever. Now any non-terminal status gets an explicit close-out.
+      if (c && c.status !== 'declined' && c.status !== 'missed' && c.status !== 'ended') {
+        const wasRinging = c.status === 'ringing';
         const endedAt = new Date().toISOString();
         await supabase
           .from('call_logs')
           .update({
-            status: c.receiver_id ? 'missed' : 'ended',
+            status: wasRinging ? (c.receiver_id ? 'missed' : 'ended') : 'ended',
             ended_at: endedAt,
           })
           .eq('id', c.id);
 
-        if (c.receiver_id && c.caller_id === user.id) {
+        if (wasRinging && c.receiver_id && c.caller_id === user.id) {
           await createMissedCallNotification({
             receiverId: c.receiver_id,
             callerId: user.id,

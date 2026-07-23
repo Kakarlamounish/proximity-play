@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,7 @@ import { PageSkeleton } from '@/components/ui/skeleton-loader';
 const Auth = () => {
   const { user, loading } = useAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [showPassword, setShowPassword] = useState(false);
@@ -20,7 +21,17 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
 
-  if (user && !loading) return <Navigate to="/" replace />;
+  // Previously always redirected to "/" regardless of returnTo, silently
+  // dropping JoinBubble's invite-code deep link — a user who followed an
+  // invite while logged out, signed in via /auth?returnTo=/join/CODE,
+  // landed on Maps instead of finishing the join, breaking the app's own
+  // most important conversion path. Only honor same-origin relative paths
+  // (must start with "/", reject "//" to avoid a protocol-relative open
+  // redirect) — anything else falls back to "/".
+  const rawReturnTo = searchParams.get('returnTo');
+  const returnTo = rawReturnTo && rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//') ? rawReturnTo : '/';
+
+  if (user && !loading) return <Navigate to={returnTo} replace />;
   if (loading) return <PageSkeleton />;
 
   const handleGoogleAuth = async () => {
@@ -28,7 +39,7 @@ const Auth = () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: `${window.location.origin}/` },
+        options: { redirectTo: `${window.location.origin}${returnTo}` },
       });
       if (error) toast({ title: 'Google sign in failed', description: error.message, variant: 'destructive' });
     } catch (error: unknown) {

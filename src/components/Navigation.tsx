@@ -90,6 +90,9 @@ export function Navigation(): JSX.Element {
     { to: '/calls', label: '📞 Calls' },
     { to: '/live', label: '📡 Live' },
     { to: '/leaderboard', label: '🏆 Scores' },
+    { to: '/ar', label: '📷 AR' },
+    { to: '/analytics', label: '📊 Analytics' },
+    { to: '/premium', label: '👑 Premium' },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -226,51 +229,12 @@ export function Navigation(): JSX.Element {
                 <span className="text-lg">🔥</span>
                 <span className="font-medium">Memory Lane</span>
               </Link>
-              <Link
-                to="/ar"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
-              >
-                <span className="text-lg">📷</span>
-                <span className="font-medium">AR View</span>
-              </Link>
-
-              <Link
-                to="/live"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
-              >
-                <span className="text-lg">📡</span>
-                <span className="font-medium">Live Sharing</span>
-              </Link>
-
-              <Link
-                to="/leaderboard"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
-              >
-                <span className="text-lg">🏆</span>
-                <span className="font-medium">Leaderboard</span>
-              </Link>
-
-              <Link
-                to="/analytics"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
-              >
-                <span className="text-lg">📊</span>
-                <span className="font-medium">Analytics</span>
-              </Link>
-
-              <Link
-                to="/premium"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
-              >
-                <span className="text-lg">👑</span>
-                <span className="font-medium">Go Premium</span>
-              </Link>
-
+              {/* AR View, Live Sharing, Leaderboard, Analytics, and Go
+                  Premium used to be duplicated here — they're now in the
+                  shared `navLinks` list above (rendered here too), which
+                  also fixed BUG-030 (desktop had no entry point to
+                  Analytics/Premium/AR at all). Kept Memory Lane here since
+                  it's a query-param sheet trigger, not a real route. */}
               <Link
                 to="/settings"
                 onClick={() => setIsMobileMenuOpen(false)}

@@ -8,12 +8,20 @@ vi.mock('@/contexts/AuthContext', () => ({
 }));
 
 // Mock lucide-react icons
-vi.mock('lucide-react', () => ({
-  Users: () => <div data-testid="users-icon">Users</div>,
-  MapPin: () => <div data-testid="map-pin-icon">MapPin</div>,
-  Calendar: () => <div data-testid="calendar-icon">Calendar</div>,
-  MessageCircle: () => <div data-testid="message-circle-icon">MessageCircle</div>,
-}));
+// Real icon set is kept (via importOriginal) so any icon BubbleCard or a
+// component it renders (e.g. ShareBubbleDialog) imports "just works" without
+// this file needing to be updated every time an icon import changes —
+// only the few icons tests assert on get a data-testid override.
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('lucide-react')>();
+  return {
+    ...actual,
+    Users: () => <div data-testid="users-icon">Users</div>,
+    MapPin: () => <div data-testid="map-pin-icon">MapPin</div>,
+    Calendar: () => <div data-testid="calendar-icon">Calendar</div>,
+    MessageCircle: () => <div data-testid="message-circle-icon">MessageCircle</div>,
+  };
+});
 
 // Mock toast hook
 vi.mock('@/hooks/use-toast', () => ({
@@ -153,5 +161,24 @@ describe('BubbleCard', () => {
 
     // Should not crash and should still render the bubble name
     expect(screen.getByText('Test Bubble')).toBeInTheDocument();
+  });
+
+  it('does not crash on an empty interest_tag (regression: was a TypeError on .toUpperCase())', () => {
+    const bubbleWithEmptyTag = { ...mockBubble, interest_tag: '' };
+    render(<BubbleCard bubble={bubbleWithEmptyTag} />);
+
+    expect(screen.getByText('Test Bubble')).toBeInTheDocument();
+    expect(screen.getByText('?')).toBeInTheDocument();
+  });
+
+  it('re-syncs its Join/Leave label when bubble.is_member changes on an already-mounted card (regression: same bubble shown in two lists went out of sync)', () => {
+    const { rerender } = render(<BubbleCard bubble={mockBubble} />);
+    expect(screen.getByRole('button', { name: /join/i })).toBeInTheDocument();
+
+    // Simulate the parent updating this same card's props after the bubble
+    // was joined from a *different* card rendering the same bubble.id
+    // (Dashboard's "Hot Right Now" + "Nearby Bubbles" sections).
+    rerender(<BubbleCard bubble={{ ...mockBubble, is_member: true }} />);
+    expect(screen.getByRole('button', { name: /leave/i })).toBeInTheDocument();
   });
 });

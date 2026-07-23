@@ -48,7 +48,7 @@ interface AnalyticsData {
 }
 
 export default function Analytics() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState<AnalyticsData>({
     totalBubbles: 0,
@@ -173,8 +173,13 @@ export default function Analytics() {
     </Card>
   );
 
-  // Auth guard
-  if (!user && !loading) return <Navigate to="/auth" replace />;
+  // Auth guard — previously checked the local analytics-data `loading` flag
+  // instead of the auth context's own `loading`. Since `loadAnalytics()` is
+  // only invoked when `user` is already truthy, a logged-out visitor's local
+  // `loading` never flips to false, so `!loading` was always false and this
+  // redirect never fired — found via live QA testing (a logged-out visit to
+  // `/analytics` was stuck on the skeleton forever instead of redirecting).
+  if (!user && !authLoading) return <Navigate to="/auth" replace />;
 
   // Visual bar chart for activity breakdown
   const UsageChart = () => {
@@ -369,7 +374,7 @@ export default function Analytics() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {badges.map((userBadge) => (
+                    {badges.filter((userBadge) => userBadge.badge).map((userBadge) => (
                       <div
                         key={userBadge.id}
                         className="flex flex-col items-center p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"

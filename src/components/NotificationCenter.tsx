@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { showSystemNotification } from '@/utils/showSystemNotification';
 import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
@@ -26,6 +26,7 @@ export function NotificationCenter() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const { user } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!user) return;
@@ -46,7 +47,8 @@ export function NotificationCenter() {
       setNotifications(prev => [notification, ...prev]);
       setUnreadCount(prev => prev + 1);
 
-      toast(notification.title, {
+      toast({
+        title: notification.title,
         description: notification.body,
       });
 
@@ -65,9 +67,14 @@ export function NotificationCenter() {
   const loadNotifications = async () => {
     if (!user) return;
 
+    // BUG-028: relied entirely on RLS to scope rows to the caller — add an
+    // explicit filter as defense-in-depth so this still can't leak another
+    // user's notifications if a policy is ever misconfigured or the mock/dev
+    // backend's RLS-equivalent has a gap.
     const { data, error } = await supabase
       .from('notifications')
       .select('*')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(50);
 

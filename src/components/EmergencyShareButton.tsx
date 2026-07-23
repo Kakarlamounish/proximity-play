@@ -42,10 +42,10 @@ const EmergencyShareButton: React.FC<EmergencyShareButtonProps> = ({ userLocatio
         Emergency Share
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogHeader>
-          <DialogTitle>Share Live Location (Emergency)</DialogTitle>
-        </DialogHeader>
         <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share Live Location (Emergency)</DialogTitle>
+          </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">Your live location will be shared with trusted contacts.</p>
             {error && <div className="text-red-500 text-sm">{error}</div>}

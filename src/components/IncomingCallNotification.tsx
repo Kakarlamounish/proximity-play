@@ -30,6 +30,15 @@ interface IncomingCall {
   caller_avatar?: string;
 }
 
+// BUG-014: the no-answer timeout only lives in the *caller's* own setTimeout —
+// if their tab closes/loses network before it fires, call_logs.status never
+// leaves 'ringing' and this component would treat it as live for up to 90s.
+// A real server-side expiry (scheduled function / DB trigger) is out of
+// reach without production infra, so mirror the caller's own default timeout
+// (30s) here with a margin, and self-heal by marking it missed rather than
+// letting it stay answerable indefinitely.
+const STALE_RINGING_CALL_MS = 45_000;
+
 interface Props {
   onAccept: (callId: string, callType: 'audio' | 'video', callerId: string) => void;
   onDecline: (callId: string) => void;
@@ -68,13 +77,34 @@ export const IncomingCallNotification: React.FC<Props> = ({ onAccept, onDecline 
     };
   }, []);
 
+  // Best-effort: mark a call that's been sitting in 'ringing' past a sane
+  // timeout as missed, so it stops being answerable even if the caller's own
+  // client never got to write that transition itself.
+  const markStaleAsMissed = useCallback(async (callId: string) => {
+    try {
+      await supabase
+        .from('call_logs')
+        .update({ status: 'missed', ended_at: new Date().toISOString() })
+        .eq('id', callId)
+        .eq('status', 'ringing');
+    } catch (e) {
+      console.error('Failed to mark stale call as missed', e);
+    }
+  }, []);
+
   // ── show a call (deduplicate) ──
-  const showCall = useCallback(async (raw: { id: string; caller_id: string; call_type: 'audio' | 'video' }) => {
+  const showCall = useCallback(async (raw: { id: string; caller_id: string; call_type: 'audio' | 'video'; created_at?: string }) => {
     if (seenIds.current.has(raw.id)) return;
     seenIds.current.add(raw.id);
+
+    if (raw.created_at && Date.now() - new Date(raw.created_at).getTime() > STALE_RINGING_CALL_MS) {
+      await markStaleAsMissed(raw.id);
+      return;
+    }
+
     const resolved = await resolveCall(raw);
     setIncomingCall(resolved);
-  }, [resolveCall]);
+  }, [resolveCall, markStaleAsMissed]);
 
   // ── Strategy 1: Supabase realtime INSERT ──
   useEffect(() => {
@@ -88,7 +118,7 @@ export const IncomingCallNotification: React.FC<Props> = ({ onAccept, onDecline 
         async (payload: any) => {
           const call = payload.new;
           if (call.status === 'ringing' || call.status === 'pending') {
-            await showCall({ id: call.id, caller_id: call.caller_id, call_type: call.call_type });
+            await showCall({ id: call.id, caller_id: call.caller_id, call_type: call.call_type, created_at: call.created_at });
           }
         }
       )
@@ -107,7 +137,7 @@ export const IncomingCallNotification: React.FC<Props> = ({ onAccept, onDecline 
       const since = new Date(Date.now() - 90_000).toISOString();
       const { data } = await supabase
         .from('call_logs')
-        .select('id, caller_id, call_type, status')
+        .select('id, caller_id, call_type, status, created_at')
         .eq('receiver_id', user.id)
         .eq('status', 'ringing')
         .gte('created_at', since)
@@ -116,7 +146,7 @@ export const IncomingCallNotification: React.FC<Props> = ({ onAccept, onDecline 
 
       if (data && data.length > 0) {
         const call = data[0];
-        await showCall({ id: call.id, caller_id: call.caller_id, call_type: call.call_type });
+        await showCall({ id: call.id, caller_id: call.caller_id, call_type: call.call_type, created_at: call.created_at });
       }
     };
 

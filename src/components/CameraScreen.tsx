@@ -33,6 +33,7 @@ export function CameraScreen({ onCapture, onClose }: CameraScreenProps) {
   const [selectedFriends, setSelectedFriends] = useState<Set<string>>(new Set());
   const [sendToStory, setSendToStory] = useState(false);
   const [sending, setSending] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   const startCamera = useCallback(async () => {
     try {
@@ -42,11 +43,26 @@ export function CameraScreen({ onCapture, onClose }: CameraScreenProps) {
         audio: false,
       });
       setStream(newStream);
+      setCameraError(null);
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
       }
     } catch (err) {
       console.error('Camera error:', err);
+      // Previously logged only — a user denying camera access, or a device/
+      // browser with no camera at all, saw a plain black screen with the
+      // shutter button still fully active and no indication anything was
+      // wrong. Found via live QA testing (headless Chromium has no camera
+      // device, which reproduces the same "no camera available" case a real
+      // user's browser/OS-level denial would hit).
+      const name = err instanceof DOMException ? err.name : '';
+      const message =
+        name === 'NotAllowedError' || name === 'PermissionDeniedError'
+          ? 'Camera access was denied. Please enable camera permission in your browser settings and try again.'
+          : name === 'NotFoundError' || name === 'NotSupportedError' || name === 'OverconstrainedError'
+          ? 'No camera was found on this device.'
+          : 'Could not access the camera. Please check your device and browser settings.';
+      setCameraError(message);
     }
   }, [facingMode]);
 
@@ -165,6 +181,16 @@ export function CameraScreen({ onCapture, onClose }: CameraScreenProps) {
 
       // Call original onCapture for score tracking etc.
       if (onCapture) onCapture(capturedImage);
+
+      // BUG-022: previously reset unconditionally in `finally`, so any send
+      // failure (including a transient network blip) discarded the already-
+      // captured photo — the user had to retake it entirely instead of just
+      // retrying. Only clear on success; on failure, keep the image and
+      // selections so "Send" can be tapped again.
+      setCapturedImage(null);
+      setShowSendSheet(false);
+      setSelectedFriends(new Set());
+      setSendToStory(false);
     } catch (err) {
       console.error('Send error:', err);
       toast({
@@ -174,10 +200,6 @@ export function CameraScreen({ onCapture, onClose }: CameraScreenProps) {
       });
     } finally {
       setSending(false);
-      setCapturedImage(null);
-      setShowSendSheet(false);
-      setSelectedFriends(new Set());
-      setSendToStory(false);
     }
   };
 
@@ -317,6 +339,15 @@ export function CameraScreen({ onCapture, onClose }: CameraScreenProps) {
         <>
           <div className="flex-1 relative overflow-hidden">
             <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+            {cameraError && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/90 px-8 text-center z-20">
+                <Camera className="h-10 w-10 text-white/60" />
+                <p className="text-white text-sm">{cameraError}</p>
+                <Button variant="outline" size="sm" onClick={startCamera}>
+                  Try Again
+                </Button>
+              </div>
+            )}
             <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4 z-10">
               <Button variant="ghost" size="icon" className="text-white bg-black/30 rounded-full" onClick={onClose}>
                 <X className="h-5 w-5" />
@@ -330,7 +361,8 @@ export function CameraScreen({ onCapture, onClose }: CameraScreenProps) {
             <div className="w-12" />
             <button
               onClick={takePhoto}
-              className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center active:scale-90 transition-transform"
+              disabled={!!cameraError}
+              className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center active:scale-90 transition-transform disabled:opacity-40 disabled:pointer-events-none"
             >
               <div className="w-16 h-16 rounded-full bg-white" />
             </button>

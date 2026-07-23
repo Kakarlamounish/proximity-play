@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Button } from './ui/button';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { sentry } from '@/utils/sentry';
 
 interface Props {
   children?: ReactNode;
@@ -24,6 +25,11 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
+    // Previously the fallback UI claimed "We've been notified" but nothing
+    // ever reported the error anywhere — a fully-built Sentry integration
+    // existed in src/utils/sentry.ts but was never imported by anything in
+    // the app, so it silently never ran. Found via live QA testing.
+    sentry.captureException(error, { componentStack: errorInfo.componentStack });
   }
 
   private handleReset = () => {

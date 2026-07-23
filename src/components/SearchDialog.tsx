@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/use-toast';
 
 interface SearchFilters {
   distance?: number;
@@ -25,6 +25,7 @@ export function SearchDialog() {
   const [activeTab, setActiveTab] = useState('bubbles');
   const [showFilters, setShowFilters] = useState(false);
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const [filters, setFilters] = useState<SearchFilters>({
     distance: 10,
@@ -67,7 +68,7 @@ export function SearchDialog() {
       }
     } catch (error) {
       console.error('Search error:', error);
-      toast.error('Search failed');
+      toast({ title: 'Search failed', variant: 'destructive' });
     } finally {
       setLoading(false);
     }

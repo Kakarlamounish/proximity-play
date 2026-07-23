@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Heart, MessageCircle, Eye, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { ProgressiveImage } from '@/components/ProgressiveImage';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -38,6 +38,7 @@ interface Comment {
 
 export const StoryCard: React.FC<StoryCardProps> = memo(({ story }) => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [viewsCount, setViewsCount] = useState(0);
@@ -168,14 +169,14 @@ export const StoryCard: React.FC<StoryCardProps> = memo(({ story }) => {
       });
 
     if (error) {
-      toast.error('Failed to post comment');
+      toast({ title: 'Failed to post comment', variant: 'destructive' });
       haptic.error();
       return;
     }
 
     setNewComment('');
     fetchStoryData();
-    toast.success('Comment posted!');
+    toast({ title: 'Comment posted!' });
     haptic.success();
   };
 

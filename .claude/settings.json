@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(GEO_LAT=40.7228 GEO_LNG=-73.996 NODE_PATH=__TRACKED_VAR__/node_modules node 'C:\\\\Users\\\\DELL\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-DELL-Desktop-Proxi-proximity-play\\\\9a0ba40b-8067-47fe-a831-daf48186c458\\\\scratchpad\\\\drive.js' 'C:\\\\Users\\\\DELL\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-DELL-Desktop-Proxi-proximity-play\\\\9a0ba40b-8067-47fe-a831-daf48186c458\\\\scratchpad\\\\cmds-full-invite-flow4.json')"
+    ]
+  }
+}

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,6 +29,7 @@ type Bubble = { id: string; name: string };
 const MissedCalls = () => {
   const { user, loading } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'today' | 'week'>('all');
@@ -111,7 +112,11 @@ const MissedCalls = () => {
   const handleCallBack = (callerId?: string, bubbleId?: string, callType: 'audio' | 'video' = 'audio') => {
     const target = bubbleId || callerId;
     if (!target) return;
-    window.location.href = `/calls`;
+    // BUG-015: this previously did a full-page reload with no context carried
+    // over, so it never actually called anyone back — it just landed the
+    // user on a generic Calls page. Carry the target via router state
+    // (Calls.tsx auto-dials it on mount) instead.
+    navigate('/calls', { state: { autoCallTarget: target, autoCallType: callType, autoCallIsBubble: !!bubbleId } });
   };
 
   if (!user && !loading) return <Navigate to="/auth" replace />;

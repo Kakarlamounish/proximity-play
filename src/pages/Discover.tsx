@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card } from '@/components/ui/card';
@@ -42,7 +43,7 @@ interface Bubble {
 }
 
 export default function Discover() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const { latitude, longitude, loading: locationLoading, error: locationError } = useLocation();
   const [nearbyUsers, setNearbyUsers] = useState<NearbyUser[]>([]);
@@ -297,6 +298,8 @@ export default function Discover() {
     b.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     b.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (!user && !authLoading) return <Navigate to="/auth?returnTo=/discover" replace />;
 
   if (locationLoading) {
     return (

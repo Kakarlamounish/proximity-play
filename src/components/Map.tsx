@@ -386,7 +386,7 @@ import { ExplorationBadge } from '@/components/ui/exploration-badge';
 import { UserMarker } from '@/components/user-marker';
 import { createRoot } from 'react-dom/client';
 
-import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, FeatureGroup } from 'react-leaflet';
 import { Tooltip } from 'react-leaflet';
 import { Polyline, Polygon } from 'react-leaflet';
 import { LayersControl } from 'react-leaflet';
@@ -557,6 +557,7 @@ interface MapProps {
   showStories?: boolean;
   storyRadius?: number;
   showARPins?: boolean;
+  onBubbleCreated?: () => void;
 }
 
 export function Map(props: MapProps) {
@@ -571,7 +572,9 @@ export function Map(props: MapProps) {
   showARPins = false,
   showStories = false,
   storyRadius = 1000,
+  onBubbleCreated,
   } = props;
+  const { toast } = useToast();
   // Center map on first live location if available
   const mapCenter: [number, number] = liveLocations.length > 0
     ? [liveLocations[0].latitude, liveLocations[0].longitude]
@@ -583,20 +586,41 @@ export function Map(props: MapProps) {
     main: { temp: number; humidity: number };
   }
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
   const [showWeather, setShowWeather] = useState(false);
 
-  // Fetch weather for current map center
+  // BUG-024: this previously fetched against a literal placeholder string
+  // (`'<YOUR_OPENWEATHERMAP_API_KEY>'`) on every toggle — always a 401, and
+  // the failure response body was set into `weatherData` as if it were real
+  // weather data (no `res.ok`/error handling at all), so the panel silently
+  // rendered `undefined`s. Gated behind a real env var, same pattern as
+  // Stripe/Sentry: works the moment a real key is configured, and shows an
+  // explicit "not configured" state instead of a broken request in the
+  // meantime.
+  const openWeatherApiKey = import.meta.env.VITE_OPENWEATHERMAP_API_KEY as string | undefined;
+
   useEffect(() => {
     if (!showWeather) return;
+    if (!openWeatherApiKey) {
+      setWeatherError('Weather requires an OpenWeatherMap API key (VITE_OPENWEATHERMAP_API_KEY) to be configured.');
+      setWeatherData(null);
+      return;
+    }
+    setWeatherError(null);
     const [lat, lon] = mapCenter;
-    const apiKey = '<YOUR_OPENWEATHERMAP_API_KEY>';
-    fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}`)
-      .then(res => res.json())
-      .then(data => setWeatherData(data));
-  }, [showWeather, mapCenter]);
+    let cancelled = false;
+    fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${openWeatherApiKey}`)
+      .then(async res => {
+        if (!res.ok) throw new Error(`Weather request failed (${res.status})`);
+        return res.json();
+      })
+      .then(data => { if (!cancelled) setWeatherData(data); })
+      .catch(err => { if (!cancelled) setWeatherError(err instanceof Error ? err.message : 'Failed to load weather'); });
+    return () => { cancelled = true; };
+  }, [showWeather, mapCenter, openWeatherApiKey]);
 
   // Weather overlay tile layer URL (OpenWeatherMap clouds)
-  const weatherTileUrl = 'https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=<YOUR_OPENWEATHERMAP_API_KEY>';
+  const weatherTileUrl = `https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${openWeatherApiKey || ''}`;
   // Route planning state
   const [showRouteDialog, setShowRouteDialog] = useState(false);
   const [routePoints, setRoutePoints] = useState({ start: null, end: null });
@@ -631,19 +655,53 @@ export function Map(props: MapProps) {
     }
   };
 
-  // Add new bubble to bubbles array
-  const handleCreateBubble = () => {
-    if (newBubble.name && newBubble.lat && newBubble.lng) {
-      bubbles.push({
-        id: Date.now().toString(),
-        name: newBubble.name,
-        interest_tag: newBubble.interest_tag,
-        member_count: newBubble.member_count,
-        latitude: newBubble.lat,
-        longitude: newBubble.lng,
+  const [creatingBubble, setCreatingBubble] = useState(false);
+
+  // BUG-024: this previously mutated the `bubbles` prop array directly and
+  // never touched Supabase — the created bubble vanished on refresh and
+  // never showed up for other users. Now it inserts a real row (matching
+  // CreateBubbleDialog's schema) and joins the creator as admin.
+  const handleCreateBubble = async () => {
+    if (!newBubble.name || !newBubble.lat || !newBubble.lng) return;
+    if (!currentUserId) {
+      toast({ title: 'Sign in required', description: 'You must be signed in to create a bubble.', variant: 'destructive' });
+      return;
+    }
+
+    setCreatingBubble(true);
+    try {
+      const { data: bubble, error } = await supabase
+        .from('bubbles')
+        .insert({
+          name: newBubble.name,
+          description: '',
+          interest_tag: newBubble.interest_tag || 'general',
+          latitude: newBubble.lat,
+          longitude: newBubble.lng,
+          creator_id: currentUserId,
+          is_private: false,
+          member_count: 1,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await supabase.from('bubble_memberships').insert({
+        user_id: currentUserId,
+        bubble_id: bubble!.id,
+        role: 'admin',
       });
+
+      toast({ title: 'Bubble created!', description: `"${newBubble.name}" is now live on the map.` });
       setShowBubbleDialog(false);
       setNewBubble({ name: '', interest_tag: '', member_count: 1, lat: null, lng: null });
+      onBubbleCreated?.();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to create bubble';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+    } finally {
+      setCreatingBubble(false);
     }
   };
 
@@ -669,40 +727,6 @@ export function Map(props: MapProps) {
       setAnnotationText('');
     }
   };
-  {/* Floating Annotation Button */}
-  <div style={{ position: 'absolute', bottom: 310, right: 32, zIndex: 2000 }}>
-    <button
-      onClick={() => setShowAnnotationDialog(true)}
-      style={{ background: 'linear-gradient(90deg,#6366f1,#f59e42)', color: '#fff', border: 'none', borderRadius: '50%', width: 56, height: 56, fontSize: 28, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', cursor: 'pointer' }}
-      title="Add Annotation"
-    >
-      📝
-    </button>
-  </div>
-
-  {/* Annotation Dialog */}
-  {showAnnotationDialog && (
-    <div style={{ position: 'absolute', top: 120, right: 170, zIndex: 3000, background: 'rgba(30,41,59,0.97)', borderRadius: 12, boxShadow: '0 2px 12px #6366f1', padding: '24px 32px', minWidth: 320 }}>
-      <h2 style={{ color: '#fff', fontWeight: 'bold', marginBottom: 12 }}>Add Annotation</h2>
-      <div style={{ color: '#a3e635', marginBottom: 10 }}>
-        {pendingAnnotation ? `Location: (${pendingAnnotation.lat.toFixed(4)}, ${pendingAnnotation.lng.toFixed(4)})` : 'Click on the map to set annotation location'}
-      </div>
-      <input type="text" value={annotationText} onChange={e => setAnnotationText(e.target.value)} placeholder="Annotation text" style={{ width: '100%', marginBottom: 10, padding: 8, borderRadius: 6, border: 'none', background: '#334155', color: '#fff' }} />
-      <div style={{ display: 'flex', gap: 12 }}>
-        <button onClick={handleAddAnnotation} style={{ background: '#6366f1', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}>Add</button>
-        <button onClick={() => setShowAnnotationDialog(false)} style={{ background: '#64748b', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}>Cancel</button>
-      </div>
-    </div>
-  )}
-  {/* Listen for map clicks for annotation if dialog is open */}
-  <MapEvents onClick={showAnnotationDialog ? handleAnnotationMapClick : showRouteDialog ? handleRouteMapClick : handleMapClick} />
-  {/* Listen for map clicks for route planning if dialog is open */}
-  <MapEvents onClick={showRouteDialog ? handleRouteMapClick : handleMapClick} />
-  {/* Listen for map clicks to set bubble location */}
-  <MapEvents onClick={handleMapClick} />
-      {annotations.map(a => (
-        <Marker key={a.id} position={[a.lat, a.lng]} icon={L.divIcon({ className: '', html: `<span style='font-size:18px;background:#6366f1;color:#fff;padding:4px 8px;border-radius:6px;'>${a.text}</span>` })} />
-      ))}
   // Demo live user presence and activity feed state
   interface LiveUser {
     id: string;
@@ -876,36 +900,6 @@ export function Map(props: MapProps) {
       📸
     </button>
   </div>
-  {/* Floating Create Event/Bubble Button */}
-  <div style={{ position: 'absolute', bottom: 100, right: 32, zIndex: 2000 }}>
-    <button
-      onClick={() => setShowBubbleDialog(true)}
-      style={{ background: 'linear-gradient(90deg,#22c55e,#16a34a)', color: '#fff', border: 'none', borderRadius: '50%', width: 56, height: 56, fontSize: 28, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', cursor: 'pointer' }}
-      title="Create Event/Bubble"
-    >
-      ＋
-    </button>
-  </div>
-
-  {/* Event/Bubble Creation Dialog */}
-  {showBubbleDialog && (
-    <div style={{ position: 'absolute', top: 120, right: 32, zIndex: 3000, background: 'rgba(30,41,59,0.97)', borderRadius: 12, boxShadow: '0 2px 12px #22c55e', padding: '24px 32px', minWidth: 320 }}>
-      <h2 style={{ color: '#fff', fontWeight: 'bold', marginBottom: 12 }}>Create Event/Bubble</h2>
-      <label style={{ color: '#fff', marginBottom: 6 }}>Name:</label>
-      <input type="text" value={newBubble.name} onChange={e => setNewBubble(b => ({ ...b, name: e.target.value }))} style={{ width: '100%', marginBottom: 10, padding: 8, borderRadius: 6, border: 'none', background: '#334155', color: '#fff' }} />
-      <label style={{ color: '#fff', marginBottom: 6 }}>Interest Tag:</label>
-      <input type="text" value={newBubble.interest_tag} onChange={e => setNewBubble(b => ({ ...b, interest_tag: e.target.value }))} style={{ width: '100%', marginBottom: 10, padding: 8, borderRadius: 6, border: 'none', background: '#334155', color: '#fff' }} />
-      <label style={{ color: '#fff', marginBottom: 6 }}>Member Count:</label>
-      <input type="number" value={newBubble.member_count} min={1} onChange={e => setNewBubble(b => ({ ...b, member_count: parseInt(e.target.value) }))} style={{ width: '100%', marginBottom: 10, padding: 8, borderRadius: 6, border: 'none', background: '#334155', color: '#fff' }} />
-      <div style={{ color: '#a3e635', marginBottom: 10 }}>
-        {newBubble.lat && newBubble.lng ? `Location: (${newBubble.lat.toFixed(4)}, ${newBubble.lng.toFixed(4)})` : 'Click on the map to set location'}
-      </div>
-      <div style={{ display: 'flex', gap: 12 }}>
-        <button onClick={handleCreateBubble} style={{ background: '#22c55e', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}>Create</button>
-        <button onClick={() => setShowBubbleDialog(false)} style={{ background: '#64748b', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}>Cancel</button>
-      </div>
-    </div>
-  )}
   // Nearby places state
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   // Center map on first live location if available
@@ -1068,16 +1062,134 @@ export function Map(props: MapProps) {
     </div>
 
     {/* Weather Info Panel */}
-    {showWeather && weatherData && (
-      <div style={{ position: 'absolute', top: 24, left: 100, zIndex: 3000, background: 'rgba(30,41,59,0.97)', borderRadius: 12, boxShadow: '0 2px 12px #38bdf8', padding: '18px 28px', minWidth: 260 }}>
+    {showWeather && (weatherData || weatherError) && (
+      <div style={{ position: 'absolute', top: 24, left: 100, zIndex: 3000, background: 'rgba(30,41,59,0.97)', borderRadius: 12, boxShadow: '0 2px 12px #38bdf8', padding: '18px 28px', minWidth: 260, maxWidth: 300 }}>
         <h2 style={{ color: '#fff', fontWeight: 'bold', marginBottom: 8 }}>Weather</h2>
-        <div style={{ color: '#38bdf8', fontSize: 18, marginBottom: 6 }}>
-          {weatherData.weather[0].main} ({weatherData.weather[0].description})
-        </div>
-        <div style={{ color: '#fff', fontSize: 15 }}>🌡️ Temp: {weatherData.main.temp}°C</div>
-        <div style={{ color: '#fff', fontSize: 15 }}>💧 Humidity: {weatherData.main.humidity}%</div>
+        {weatherError ? (
+          <div style={{ color: '#fca5a5', fontSize: 14 }}>{weatherError}</div>
+        ) : weatherData ? (
+          <>
+            <div style={{ color: '#38bdf8', fontSize: 18, marginBottom: 6 }}>
+              {weatherData.weather[0].main} ({weatherData.weather[0].description})
+            </div>
+            <div style={{ color: '#fff', fontSize: 15 }}>🌡️ Temp: {weatherData.main.temp}°C</div>
+            <div style={{ color: '#fff', fontSize: 15 }}>💧 Humidity: {weatherData.main.humidity}%</div>
+          </>
+        ) : null}
       </div>
     )}
+
+    {/* Floating Create Event/Bubble Button */}
+    {/* BUG-024: this button + its dialog previously sat before the
+        component's `return (`, as a bare unused JSX expression statement —
+        it was evaluated and discarded every render, never part of the DOM,
+        so it was unreachable no matter what handleCreateBubble did. Moved
+        inside the actual render tree so it's clickable. */}
+    <div style={{ position: 'absolute', bottom: 100, right: 32, zIndex: 2000 }}>
+      <button
+        onClick={() => setShowBubbleDialog(true)}
+        style={{ background: 'linear-gradient(90deg,#22c55e,#16a34a)', color: '#fff', border: 'none', borderRadius: '50%', width: 56, height: 56, fontSize: 28, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', cursor: 'pointer' }}
+        title="Create Event/Bubble"
+        type="button"
+      >
+        ＋
+      </button>
+    </div>
+
+    {/* Event/Bubble Creation Dialog */}
+    {showBubbleDialog && (
+      <div style={{ position: 'absolute', top: 120, right: 32, zIndex: 3000, background: 'rgba(30,41,59,0.97)', borderRadius: 12, boxShadow: '0 2px 12px #22c55e', padding: '24px 32px', minWidth: 320 }}>
+        <h2 style={{ color: '#fff', fontWeight: 'bold', marginBottom: 12 }}>Create Event/Bubble</h2>
+        <label style={{ color: '#fff', marginBottom: 6 }}>Name:</label>
+        <input type="text" value={newBubble.name} onChange={e => setNewBubble(b => ({ ...b, name: e.target.value }))} style={{ width: '100%', marginBottom: 10, padding: 8, borderRadius: 6, border: 'none', background: '#334155', color: '#fff' }} />
+        <label style={{ color: '#fff', marginBottom: 6 }}>Interest Tag:</label>
+        <input type="text" value={newBubble.interest_tag} onChange={e => setNewBubble(b => ({ ...b, interest_tag: e.target.value }))} style={{ width: '100%', marginBottom: 10, padding: 8, borderRadius: 6, border: 'none', background: '#334155', color: '#fff' }} />
+        <label style={{ color: '#fff', marginBottom: 6 }}>Member Count:</label>
+        <input type="number" value={newBubble.member_count} min={1} onChange={e => setNewBubble(b => ({ ...b, member_count: parseInt(e.target.value) }))} style={{ width: '100%', marginBottom: 10, padding: 8, borderRadius: 6, border: 'none', background: '#334155', color: '#fff' }} />
+        <div style={{ color: '#a3e635', marginBottom: 10 }}>
+          {newBubble.lat && newBubble.lng ? `Location: (${newBubble.lat.toFixed(4)}, ${newBubble.lng.toFixed(4)})` : 'Click on the map to set location'}
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button onClick={handleCreateBubble} disabled={creatingBubble} style={{ background: '#22c55e', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: creatingBubble ? 'default' : 'pointer', opacity: creatingBubble ? 0.6 : 1 }}>{creatingBubble ? 'Creating…' : 'Create'}</button>
+          <button onClick={() => setShowBubbleDialog(false)} disabled={creatingBubble} style={{ background: '#64748b', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}>Cancel</button>
+        </div>
+      </div>
+    )}
+
+    {/* Floating Annotation Button */}
+    {/* Relocated from before the component's `return (` — same dead-JSX
+        issue as the Create Event/Bubble button above: evaluated and
+        discarded every render, never part of the DOM. */}
+    <div style={{ position: 'absolute', bottom: 168, right: 32, zIndex: 2000 }}>
+      <button
+        onClick={() => setShowAnnotationDialog(true)}
+        style={{ background: 'linear-gradient(90deg,#6366f1,#f59e42)', color: '#fff', border: 'none', borderRadius: '50%', width: 56, height: 56, fontSize: 28, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', cursor: 'pointer' }}
+        title="Add Annotation"
+        type="button"
+      >
+        📝
+      </button>
+    </div>
+
+    {/* Annotation Dialog */}
+    {showAnnotationDialog && (
+      <div style={{ position: 'absolute', top: 120, right: 170, zIndex: 3000, background: 'rgba(30,41,59,0.97)', borderRadius: 12, boxShadow: '0 2px 12px #6366f1', padding: '24px 32px', minWidth: 320 }}>
+        <h2 style={{ color: '#fff', fontWeight: 'bold', marginBottom: 12 }}>Add Annotation</h2>
+        <div style={{ color: '#a3e635', marginBottom: 10 }}>
+          {pendingAnnotation ? `Location: (${pendingAnnotation.lat.toFixed(4)}, ${pendingAnnotation.lng.toFixed(4)})` : 'Click on the map to set annotation location'}
+        </div>
+        <input type="text" value={annotationText} onChange={e => setAnnotationText(e.target.value)} placeholder="Annotation text" style={{ width: '100%', marginBottom: 10, padding: 8, borderRadius: 6, border: 'none', background: '#334155', color: '#fff' }} />
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button onClick={handleAddAnnotation} disabled={!pendingAnnotation || !annotationText} style={{ background: '#6366f1', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer', opacity: (!pendingAnnotation || !annotationText) ? 0.6 : 1 }}>Add</button>
+          <button onClick={() => { setShowAnnotationDialog(false); setPendingAnnotation(null); setAnnotationText(''); }} style={{ background: '#64748b', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}>Cancel</button>
+        </div>
+      </div>
+    )}
+
+    {/* Floating Route Planning Button */}
+    {/* This feature (click two map points to draw a route) had state and
+        handlers (handleRouteMapClick, handleResetRoute) but no button ever
+        called setShowRouteDialog(true) — it was unreachable from any UI,
+        not just dead-JSX-before-return like the others. Added the missing
+        trigger and a status panel so it's actually usable. */}
+    <div style={{ position: 'absolute', bottom: 236, right: 32, zIndex: 2000 }}>
+      <button
+        onClick={() => {
+          if (showRouteDialog) {
+            setShowRouteDialog(false);
+            handleResetRoute();
+          } else {
+            setShowRouteDialog(true);
+          }
+        }}
+        style={{ background: showRouteDialog ? 'linear-gradient(90deg,#16a34a,#22c55e)' : 'linear-gradient(90deg,#0ea5e9,#6366f1)', color: '#fff', border: 'none', borderRadius: '50%', width: 56, height: 56, fontSize: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', cursor: 'pointer' }}
+        title={showRouteDialog ? 'Cancel route planning' : 'Plan a route'}
+        type="button"
+      >
+        🧭
+      </button>
+    </div>
+
+    {/* Route Planning Status Panel */}
+    {showRouteDialog && (
+      <div style={{ position: 'absolute', top: 120, right: 260, zIndex: 3000, background: 'rgba(30,41,59,0.97)', borderRadius: 12, boxShadow: '0 2px 12px #0ea5e9', padding: '20px 28px', minWidth: 260 }}>
+        <h2 style={{ color: '#fff', fontWeight: 'bold', marginBottom: 8 }}>Plan a Route</h2>
+        <div style={{ color: '#a3e635', marginBottom: 10, fontSize: 14 }}>
+          {!routePoints.start
+            ? 'Click the map to set your start point.'
+            : !routePoints.end
+              ? 'Now click the map to set your destination.'
+              : 'Route ready — shown on the map.'}
+        </div>
+        <button
+          onClick={() => { setShowRouteDialog(false); handleResetRoute(); }}
+          style={{ background: '#64748b', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}
+        >
+          {routeReady ? 'Done' : 'Cancel'}
+        </button>
+      </div>
+    )}
+
     {/* Notification Center */}
     <NotificationCenter notifications={notifications} />
     {/* Location Sharing Toggle */}
@@ -1095,12 +1207,15 @@ export function Map(props: MapProps) {
       style={{ height: '100%', width: '100%' }}
     >
       {/* Weather overlay tile layer */}
-      {showWeather && (
+      {showWeather && openWeatherApiKey && (
         <TileLayer url={weatherTileUrl} opacity={0.5} />
       )}
       {routeReady && routePoints.start && routePoints.end && (
         <Routing start={routePoints.start} end={routePoints.end} />
       )}
+      {annotations.map(a => (
+        <Marker key={a.id} position={[a.lat, a.lng]} icon={L.divIcon({ className: '', html: `<span style='font-size:18px;background:#6366f1;color:#fff;padding:4px 8px;border-radius:6px;'>${a.text}</span>` })} />
+      ))}
       {bubbles.map((bubble, idx) => (
         <Marker key={bubble.id} position={[bubble.latitude, bubble.longitude]} icon={L.divIcon({ className: '', html: `<span style='font-size:28px;color:#22c55e;'>🫧</span>` })}>
           <Popup>
@@ -1148,23 +1263,35 @@ export function Map(props: MapProps) {
       {/* Scale control for distance measurement */}
       <ScaleControl position="bottomleft" />
       {/* Map event handlers */}
-      <MapEvents />
-      {/* Routing/Directions demo: Hyderabad to nearby point */}
-      <Routing start={[17.385, 78.4867]} end={[17.391, 78.490]} />
+      {/* BUG-024/annotation+route fix: previously an onClick-less no-op —
+          three separate onClick-wired copies of this existed (one per
+          feature: annotation, route, bubble) but all sat before the
+          component's `return (` as dead code, so map clicks never reached
+          any of them. Restored the same priority order (annotation beats
+          route beats bubble creation, matching each dialog's own
+          precedence when more than one happens to be open) in the one live
+          instance instead of stacking three separate listeners. */}
+      <MapEvents onClick={showAnnotationDialog ? handleAnnotationMapClick : showRouteDialog ? handleRouteMapClick : handleMapClick} />
       {/* Geocoding/Search bar */}
       <Geosearch />
-      {/* Drawing tools for polygons, polylines, rectangles, circles, markers */}
-      <EditControl
-        position="topright"
-        draw={{
-          rectangle: true,
-          polyline: true,
-          polygon: true,
-          circle: true,
-          marker: true,
-        }}
-  onCreated={handleGeofenceCreated}
-      />
+      {/* Drawing tools for polygons, polylines, rectangles, circles, markers.
+          EditControl requires a FeatureGroup ancestor to attach drawn layers
+          to (react-leaflet-draw reads it via context) — without it, it
+          throws "options.featureGroup must be a L.FeatureGroup" and takes
+          down the whole page. */}
+      <FeatureGroup>
+        <EditControl
+          position="topright"
+          draw={{
+            rectangle: true,
+            polyline: true,
+            polygon: true,
+            circle: true,
+            marker: true,
+          }}
+          onCreated={handleGeofenceCreated}
+        />
+      </FeatureGroup>
       {/* Optionally show a circle for story radius */}
       {showStories && liveLocations[0] && (
         <Circle

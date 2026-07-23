@@ -87,6 +87,10 @@ const Live = () => {
   const [userBubbles, setUserBubbles] = useState<Database['public']['Tables']['bubbles']['Row'][]>([]);
   const [selectedBubble, setSelectedBubble] = useState<Database['public']['Tables']['bubbles']['Row'] | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
+  // BUG-024: bumped after the in-map "Create Event/Bubble" dialog persists a
+  // new bubble, so the user's bubble list (and the map's in-view bubbles)
+  // reflects it without needing a manual reload.
+  const [bubbleRefreshKey, setBubbleRefreshKey] = useState(0);
   const [liveLocations, setLiveLocations] = useState<Location[]>([]);
   const [bubbleActivity, setBubbleActivity] = useState<ActivityUpdate[]>([]);
   const [activityStatus, setActivityStatus] = useState<string>('Online');
@@ -249,7 +253,7 @@ const Live = () => {
       }
     };
     if (user && !loading) fetchData();
-  }, [user, loading]);
+  }, [user, loading, bubbleRefreshKey]);
 
   // Publish current user's location to live_locations
   useEffect(() => {
@@ -632,7 +636,13 @@ const Live = () => {
                               onSubmit={e => {
                                 e.preventDefault();
                                 if (chatMessage.trim()) {
-                                  setChatLog(log => [...log, {user: profile?.first_name || 'You', message: chatMessage, time: new Date().toISOString()}]);
+                                  const msg = {user: profile?.first_name || 'You', message: chatMessage, time: new Date().toISOString()};
+                                  // Broadcast-only channels don't echo back to the sender by
+                                  // default (BUG-012 — this composer previously only ever
+                                  // updated local state, so no other bubble member ever saw
+                                  // it), so append locally and broadcast for everyone else.
+                                  setChatLog(log => [...log, msg]);
+                                  chatChannelRef.current?.send({ type: 'broadcast', event: 'chat', payload: { message: msg } });
                                   setChatMessage("");
                                 }
                               }}
@@ -649,16 +659,33 @@ const Live = () => {
                             </form>
                           </div>
 
-                          <Map
-                            bubbles={[selectedBubble]}
-                            showBubbles={true}
-                            center={[selectedBubble.latitude, selectedBubble.longitude]}
-                            liveLocations={liveLocations}
-                            currentUserId={user?.id}
-                            showARPins={true}
-                            showStories={true}
-                            storyRadius={1000}
-                          />
+                          {/* BUG-024 investigation: Map's own root div sets
+                              `height: '100%'`, but CSS only resolves a
+                              percentage height against an ancestor with an
+                              explicit (non-auto, non-percentage) height — none
+                              of Map's ancestors here have one, so it was
+                              silently collapsing to ~20px of shrink-to-fit
+                              content (Leaflet's attribution line, which is
+                              the only in-flow content — tiles/markers are all
+                              absolutely positioned and invisible in a 20px
+                              box). That made every map interaction on this
+                              tab — clicking to place a bubble, viewing
+                              markers, drawing tools — effectively unusable.
+                              An explicit pixel height here breaks the
+                              percentage chain. */}
+                          <div style={{ height: 500 }}>
+                            <Map
+                              bubbles={[selectedBubble]}
+                              showBubbles={true}
+                              center={[selectedBubble.latitude, selectedBubble.longitude]}
+                              liveLocations={liveLocations}
+                              currentUserId={user?.id}
+                              onBubbleCreated={() => setBubbleRefreshKey(k => k + 1)}
+                              showARPins={true}
+                              showStories={true}
+                              storyRadius={1000}
+                            />
+                          </div>
                           <CreateARPinDialog
                             open={arPinDialogOpen}
                             onClose={() => setArPinDialogOpen(false)}

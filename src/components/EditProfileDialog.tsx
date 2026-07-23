@@ -51,6 +51,21 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ profile, o
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Previously allowed as low as 13 here (mismatched against
+    // ProfileSetup's own min=15 and the DB's `CHECK (age >= 15)`) — found
+    // via live QA testing: submitting age 13 succeeded silently with a
+    // generic "Profile updated" toast, no indication the value was even
+    // questionable. Matches ProfileSetup's own client-side check.
+    if (formData.age < 15) {
+      toast({
+        title: 'Age requirement',
+        description: 'You must be at least 15 years old.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -194,7 +209,7 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ profile, o
               <Input
                 id="age"
                 type="number"
-                min="13"
+                min="15"
                 max="120"
                 value={formData.age}
                 onChange={(e) => setFormData(prev => ({ ...prev, age: parseInt(e.target.value) }))}

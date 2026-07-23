@@ -67,13 +67,20 @@ const Install = () => {
                 <p className="text-muted-foreground mb-4">
                   You can access the app from your home screen or app drawer.
                 </p>
+                {/* "Works offline" removed from both lists on this page —
+                    usePWA() (only invoked on this page) unconditionally
+                    unregisters any service worker on mount, so visiting
+                    /install to install the app also destroys the one
+                    real offline caching mechanism the app has. Confirmed
+                    live via a production preview build: service worker
+                    registration count went 1 -> 0 after loading this exact
+                    page. Removing the false claim rather than re-enabling
+                    the service worker, since the unregister was a
+                    deliberate choice ("disabled for better deployment
+                    compatibility") this pass has no context to reverse. */}
                 <div className="bg-muted p-4 rounded-lg">
                   <h3 className="font-semibold mb-2">App Features:</h3>
                   <ul className="space-y-2 text-sm">
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-green-500" />
-                      Works offline
-                    </li>
                     <li className="flex items-center gap-2">
                       <Check className="h-4 w-4 text-green-500" />
                       Fast loading
@@ -109,10 +116,6 @@ const Install = () => {
                     <li className="flex items-center gap-2">
                       <Check className="h-4 w-4 text-primary" />
                       Faster loading times
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-primary" />
-                      Works offline
                     </li>
                     <li className="flex items-center gap-2">
                       <Check className="h-4 w-4 text-primary" />

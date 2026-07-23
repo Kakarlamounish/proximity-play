@@ -112,6 +112,28 @@ const Settings = () => {
   const toggleGhostMode = (val: boolean) => {
     setGhostMode(val);
     localStorage.setItem('ghost-mode', String(val));
+    // This toggle previously only set localStorage, which the Maps page's
+    // own Ghost Mode switch (correctly wired to `profiles.ghost_mode`, the
+    // column other users' visibility actually depends on) never saw — found
+    // via live QA testing: toggling this control left the Maps switch
+    // showing unchecked, meaning other users could still see your location
+    // despite the "Completely hide your location from everyone" promise.
+    if (user) {
+      supabase
+        .from('profiles')
+        .update({ ghost_mode: val })
+        .eq('id', user.id)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Error updating ghost mode:', error);
+            toast({
+              title: 'Error',
+              description: 'Failed to update ghost mode on the server',
+              variant: 'destructive',
+            });
+          }
+        });
+    }
   };
 
   const toggleBlurLocation = (val: boolean) => {
@@ -125,21 +147,52 @@ const Settings = () => {
     localStorage.setItem('trusted-only', String(val));
   };
 
-  const startShareTimer = (hours: number) => {
-    const end = new Date(Date.now() + hours * 3600000);
+  const SHARE_TIMER_STORAGE_KEY = 'share-timer-end';
+
+  const finishShareTimer = () => {
+    setShareTimerActive(false);
+    setShareTimerEnd(null);
+    localStorage.removeItem(SHARE_TIMER_STORAGE_KEY);
+    toggleGhostMode(true);
+    toast({ title: '👻 Ghost Mode activated', description: 'Your timed share has ended' });
+  };
+
+  const armShareTimer = (end: Date) => {
     setShareTimerEnd(end);
     setShareTimerActive(true);
+    const remainingMs = end.getTime() - Date.now();
+    setTimeout(finishShareTimer, Math.max(0, remainingMs));
+  };
+
+  const startShareTimer = (hours: number) => {
+    const end = new Date(Date.now() + hours * 3600000);
+    localStorage.setItem(SHARE_TIMER_STORAGE_KEY, String(end.getTime()));
+    armShareTimer(end);
     toast({
       title: `⏱️ Sharing for ${hours}h`,
       description: `Your location will be hidden after ${end.toLocaleTimeString()}`,
     });
-    setTimeout(() => {
-      setShareTimerActive(false);
-      setShareTimerEnd(null);
-      toggleGhostMode(true);
-      toast({ title: '👻 Ghost Mode activated', description: 'Your timed share has ended' });
-    }, hours * 3600000);
   };
+
+  // Resume a timed share across navigation/remount — the timer was
+  // previously plain in-memory state, so leaving Settings and coming back
+  // (or reloading) silently lost it, meaning a user who started a 24h timed
+  // share and closed the tab would never get auto-ghosted. Found via live
+  // QA testing: "Sharing until" was showing right after starting a timer,
+  // then gone after navigating away and back to Settings.
+  useEffect(() => {
+    const storedEnd = localStorage.getItem(SHARE_TIMER_STORAGE_KEY);
+    if (!storedEnd) return;
+    const end = new Date(Number(storedEnd));
+    if (end.getTime() <= Date.now()) {
+      // The timer should have already fired while this page wasn't mounted
+      // to run its setTimeout — catch up immediately instead of losing it.
+      finishShareTimer();
+    } else {
+      armShareTimer(end);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -259,7 +312,15 @@ const Settings = () => {
         trips: tripRes.data,
         deadDrops: dropRes.data,
         exportDate: new Date().toISOString(),
-        gdprNote: 'This is all data stored about you. You can request deletion at any time.',
+        // Was "This is all data stored about you" — false: this export
+        // never included received messages (only messages.sender_id=you),
+        // badges, snap scores/streaks, blocks, webauthn credentials, or
+        // push subscriptions. Found via live QA testing (downloaded and
+        // inspected the actual exported file). Softened the claim rather
+        // than adding queries for every remaining table in this pass, to
+        // avoid overclaiming completeness that still wouldn't be accurate
+        // without a full audit of every user-referencing table.
+        gdprNote: 'This includes your profile, bubble memberships, sent messages, recent location history, trips, and dead drops. It may not include every table that references your account. You can request full deletion at any time.',
       };
 
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -795,16 +856,35 @@ const Settings = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button variant="ghost" className="w-full justify-start">
+                {/* Previously had no onClick at all — silently did nothing
+                    when tapped, which is a bad look especially for "Report a
+                    Bug" during a QA pass. Found via live QA testing. */}
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => toast({ title: 'Coming soon', description: 'This page is not available yet.' })}
+                >
                   Privacy Policy
                 </Button>
-                <Button variant="ghost" className="w-full justify-start">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => toast({ title: 'Coming soon', description: 'This page is not available yet.' })}
+                >
                   Terms of Service
                 </Button>
-                <Button variant="ghost" className="w-full justify-start">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => toast({ title: 'Coming soon', description: 'Support contact is not available yet.' })}
+                >
                   Contact Support
                 </Button>
-                <Button variant="ghost" className="w-full justify-start">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => toast({ title: 'Coming soon', description: 'Bug reporting is not available yet.' })}
+                >
                   Report a Bug
                 </Button>
               </CardContent>

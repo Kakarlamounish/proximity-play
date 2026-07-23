@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card } from '@/components/ui/card';
@@ -8,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { MessageSquare, UserMinus, Users, Search, MapPin, UserPlus, Phone, Video, Flame } from 'lucide-react';
+import { MessageSquare, UserMinus, Users, Search, MapPin, UserPlus, Phone, Video, Flame, Ban } from 'lucide-react';
 import { getMutualFriendsCountBatch } from '@/utils/mutualFriends';
 import { useNavigate } from 'react-router-dom';
 import { FriendRequests } from '@/components/FriendRequests';
@@ -33,13 +34,19 @@ interface FriendsProps {
 }
 
 export default function Friends({ isOverlay = false }: FriendsProps = {}) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const { startCall } = useCallContext();
   const navigate = useNavigate();
   const { streaks } = useSnapStreaks();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [sentRequests, setSentRequests] = useState<string[]>([]);
+  const [sendingRequestIds, setSendingRequestIds] = useState<string[]>([]);
+  // BUG-018: users had no way to block anyone (a `user_blocks` table existed,
+  // but Settings' "Blocked Users" list could only unblock — nothing ever
+  // created a block).
+  const [blockedIds, setBlockedIds] = useState<string[]>([]);
+  const [blockingIds, setBlockingIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   interface Profile {
     id: string;
@@ -107,6 +114,48 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBlockedIds = async () => {
+    if (!user) return;
+    // RLS on user_blocks only lets a user read rows where they're the
+    // blocker — this covers "who have I blocked" for filtering my own
+    // lists. The reverse ("who has blocked me") is checked separately via
+    // the is_blocked RPC at the point of action (send request/message/call).
+    const { data } = await supabase.from('user_blocks').select('blocked_id').eq('blocker_id', user.id);
+    setBlockedIds((data || []).map((r) => r.blocked_id));
+  };
+
+  const blockUser = async (targetId: string, targetName?: string) => {
+    if (!user) return;
+    setBlockingIds((prev) => [...prev, targetId]);
+    try {
+      const { error } = await supabase.from('user_blocks').insert({ blocker_id: user.id, blocked_id: targetId });
+      if (error) throw error;
+
+      // Blocking someone severs any existing friendship/pending requests —
+      // staying "friends" with someone you just blocked doesn't make sense.
+      const userId1 = user.id < targetId ? user.id : targetId;
+      const userId2 = user.id < targetId ? targetId : user.id;
+      await supabase.from('friendships').delete().eq('user_id_1', userId1).eq('user_id_2', userId2);
+      await supabase
+        .from('friend_requests')
+        .delete()
+        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${targetId}),and(sender_id.eq.${targetId},receiver_id.eq.${user.id})`);
+
+      setBlockedIds((prev) => [...prev, targetId]);
+      setFriends((prev) => prev.filter((f) => f.id !== targetId));
+      setSuggestedFriends((prev) => prev.filter((f) => f.id !== targetId));
+      setSearchResults((prev) => prev.filter((f) => f.id !== targetId));
+      setSentRequests((prev) => prev.filter((id) => id !== targetId));
+
+      toast({ title: 'User blocked', description: `${targetName || 'This user'} can no longer contact you.` });
+    } catch (error) {
+      console.error('Error blocking user:', error);
+      toast({ title: 'Error', description: 'Failed to block user', variant: 'destructive' });
+    } finally {
+      setBlockingIds((prev) => prev.filter((id) => id !== targetId));
     }
   };
 
@@ -202,30 +251,47 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
   }, [user, profile, friends]);
 
   const sendFriendRequest = async (receiverId: string) => {
+    // BUG-017: fast double-click on "Add Friend" could fire this twice before
+    // either request's guard query resolved, creating two pending rows.
+    if (sendingRequestIds.includes(receiverId)) return;
+    setSendingRequestIds(prev => [...prev, receiverId]);
+
     try {
-      // Check if request already exists
-      const { data: existingRequest } = await supabase
+      // BUG-018: RLS on user_blocks only lets a user read blocks they
+      // created, so a receiver who blocked the current user is invisible to
+      // a plain client-side list filter. Check both directions server-side
+      // via the is_blocked RPC before sending.
+      const { data: blocked } = await supabase.rpc('is_blocked', { user_a: user?.id, user_b: receiverId });
+      if (blocked) {
+        toast({ title: 'Unable to send request', description: 'This user is not reachable.', variant: 'destructive' });
+        return;
+      }
+
+      // BUG-017: this previously used `.single()`, which returns null (with
+      // no thrown error) once more than one historical row matches — a
+      // realistic case after a reject-then-resend cycle — silently
+      // bypassing the guard entirely. Fetch all matching rows and check
+      // across the whole set instead of assuming exactly one exists.
+      const { data: existingRequests } = await supabase
         .from('friend_requests')
         .select('id, status')
-        .or(`and(sender_id.eq.${user?.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user?.id})`)
-        .single();
+        .or(`and(sender_id.eq.${user?.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user?.id})`);
 
-      if (existingRequest) {
-        if (existingRequest.status === 'pending') {
-          toast({
-            title: 'Request already sent',
-            description: 'You have already sent a friend request to this person',
-            variant: 'destructive',
-          });
-          return;
-        } else if (existingRequest.status === 'accepted') {
-          toast({
-            title: 'Already friends',
-            description: 'You are already friends with this person',
-            variant: 'destructive',
-          });
-          return;
-        }
+      if (existingRequests?.some(r => r.status === 'pending')) {
+        toast({
+          title: 'Request already sent',
+          description: 'You have already sent a friend request to this person',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (existingRequests?.some(r => r.status === 'accepted')) {
+        toast({
+          title: 'Already friends',
+          description: 'You are already friends with this person',
+          variant: 'destructive',
+        });
+        return;
       }
 
       // Check if they are already friends
@@ -233,7 +299,7 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
         .from('friendships')
         .select('id')
         .or(`and(user_id_1.eq.${user?.id},user_id_2.eq.${receiverId}),and(user_id_1.eq.${receiverId},user_id_2.eq.${user?.id})`)
-        .single();
+        .maybeSingle();
 
       if (existingFriendship) {
         toast({
@@ -270,7 +336,7 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
 
       // Update local state so it persists across searches without reload
       setSentRequests(prev => [...prev, receiverId]);
-      
+
       // Remove from suggestions and search results
       setSuggestedFriends(prev => prev.filter(f => f.id !== receiverId));
       // Optional: keep in search results but it will be disabled now
@@ -282,6 +348,8 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
         description: 'Failed to send friend request',
         variant: 'destructive',
       });
+    } finally {
+      setSendingRequestIds(prev => prev.filter(id => id !== receiverId));
     }
   };
 
@@ -392,6 +460,7 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
     fetchProfile();
     fetchFriends();
     fetchSentRequests();
+    fetchBlockedIds();
     getUserLocation();
   }, [user]);
 
@@ -406,6 +475,11 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
   useEffect(() => {
     fetchSuggestedFriends();
   }, [fetchSuggestedFriends, user, profile, friends]);
+
+  const visibleSearchResults = (searchResults || []).filter((p) => !blockedIds.includes(p.id));
+  const visibleSuggestedFriends = (suggestedFriends || []).filter((p) => !blockedIds.includes(p.id));
+
+  if (!isOverlay && !user && !authLoading) return <Navigate to="/auth?returnTo=/friends" replace />;
 
   return (
     <div className={`bg-background ${!isOverlay ? 'min-h-[calc(100vh-4rem)] pt-20' : 'h-full overflow-y-auto'}`}>
@@ -456,16 +530,16 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
           {(searchQuery || (searchRange !== 'global' && userLocation)) && (
             <div className="mt-6">
               <h3 className="text-lg font-semibold mb-4">
-                {searchQuery ? 'Search Results' : 'Nearby People'} {searchResults?.length > 0 && `(${searchResults.length})`}
+                {searchQuery ? 'Search Results' : 'Nearby People'} {visibleSearchResults.length > 0 && `(${visibleSearchResults.length})`}
               </h3>
 
               {searchLoading ? (
                 <div className="flex justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>
-              ) : (searchResults?.length || 0) === 0 ? (
+              ) : visibleSearchResults.length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">
-                  {searchQuery 
+                  {searchQuery
                     ? `No users found matching "${searchQuery}"`
                     : 'No users found nearby'
                   }
@@ -473,7 +547,7 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
                 </p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {searchResults?.map((person) => (
+                  {visibleSearchResults.map((person) => (
                     <Card key={person.id} className="p-4 hover:shadow-lg transition-shadow">
                       <div className="flex items-start gap-4">
                         <Avatar className="w-12 h-12">
@@ -502,19 +576,31 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
                             </div>
                           )}
 
-                          <Button
-                            size="sm"
-                            onClick={() => sendFriendRequest(person.id)}
-                            className="w-full bg-gradient-to-r from-secondary to-primary"
-                            disabled={friends?.some(f => f.id === person.id) || sentRequests.includes(person.id)}
-                          >
-                            <UserPlus className="w-3 h-3 mr-1" />
-                            {friends?.some(f => f.id === person.id) 
-                              ? 'Already Friends' 
-                              : sentRequests.includes(person.id)
-                                ? 'Request Sent'
-                                : 'Add Friend'}
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => sendFriendRequest(person.id)}
+                              className="flex-1 bg-gradient-to-r from-secondary to-primary"
+                              disabled={friends?.some(f => f.id === person.id) || sentRequests.includes(person.id) || sendingRequestIds.includes(person.id)}
+                            >
+                              <UserPlus className="w-3 h-3 mr-1" />
+                              {friends?.some(f => f.id === person.id)
+                                ? 'Already Friends'
+                                : sentRequests.includes(person.id)
+                                  ? 'Request Sent'
+                                  : 'Add Friend'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                              onClick={() => blockUser(person.id, person.first_name)}
+                              disabled={blockingIds.includes(person.id)}
+                              title="Block user"
+                            >
+                              <Ban className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </Card>
@@ -527,19 +613,19 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
         <div className="lg:col-span-1">
-          <FriendRequests />
+          <FriendRequests onAccepted={fetchFriends} />
         </div>
 
         <div className="lg:col-span-3 space-y-8">
           {/* Suggested Friends */}
-          {suggestedFriends?.length > 0 && (
+          {visibleSuggestedFriends.length > 0 && (
             <div>
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
                 💡 People You May Know
                 <Badge variant="secondary" className="text-xs">Suggested</Badge>
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                {suggestedFriends?.map((suggested) => (
+                {visibleSuggestedFriends.map((suggested) => (
                   <Card key={suggested.id} className="p-4 hover:shadow-lg transition-shadow">
                     <div className="flex items-start gap-4">
                       <Avatar className="w-16 h-16">
@@ -572,18 +658,30 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
                           </div>
                         )}
 
-                        <Button
-                          size="sm"
-                          onClick={() => sendFriendRequest(suggested.id)}
-                          className="bg-gradient-to-r from-secondary to-primary"
-                          disabled={friends?.some(f => f.id === suggested.id) || sentRequests.includes(suggested.id)}
-                        >
-                          {friends?.some(f => f.id === suggested.id) 
-                            ? 'Already Friends' 
-                            : sentRequests.includes(suggested.id)
-                              ? 'Request Sent'
-                              : 'Add Friend'}
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => sendFriendRequest(suggested.id)}
+                            className="bg-gradient-to-r from-secondary to-primary"
+                            disabled={friends?.some(f => f.id === suggested.id) || sentRequests.includes(suggested.id) || sendingRequestIds.includes(suggested.id)}
+                          >
+                            {friends?.some(f => f.id === suggested.id)
+                              ? 'Already Friends'
+                              : sentRequests.includes(suggested.id)
+                                ? 'Request Sent'
+                                : 'Add Friend'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                            onClick={() => blockUser(suggested.id, suggested.first_name)}
+                            disabled={blockingIds.includes(suggested.id)}
+                            title="Block user"
+                          >
+                            <Ban className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </Card>
@@ -683,8 +781,20 @@ export default function Friends({ isOverlay = false }: FriendsProps = {}) {
                             variant="ghost"
                             className="text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
                             onClick={() => removeFriend(friend.id)}
+                            title="Remove friend"
                           >
                             <UserMinus className="w-4 h-4" />
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                            onClick={() => blockUser(friend.id, friend.first_name)}
+                            disabled={blockingIds.includes(friend.id)}
+                            title="Block user"
+                          >
+                            <Ban className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>

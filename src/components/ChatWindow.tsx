@@ -338,7 +338,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ bubble, onCreateMeetup }
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10 bg-gradient-to-br from-secondary to-primary">
             <AvatarFallback className="text-white font-semibold">
-              {bubble.interest_tag[0].toUpperCase()}
+              {(bubble.interest_tag?.[0] || '?').toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div>

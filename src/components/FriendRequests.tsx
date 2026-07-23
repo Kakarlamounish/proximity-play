@@ -22,7 +22,16 @@ interface FriendRequest {
   };
 }
 
-export const FriendRequests = memo(() => {
+interface FriendRequestsProps {
+  // Called after a request is accepted so the parent page can refresh its
+  // own "My Friends" list — this component only ever refetches its own
+  // pending-requests state, so without this callback, the parent page's
+  // friends list silently goes stale until a manual reload even though the
+  // friendship was actually created.
+  onAccepted?: () => void;
+}
+
+export const FriendRequests = memo(({ onAccepted }: FriendRequestsProps = {}) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [requests, setRequests] = useState<FriendRequest[]>([]);
@@ -120,6 +129,7 @@ export const FriendRequests = memo(() => {
             data: { receiver_id: user.id }
           });
         }
+        onAccepted?.();
       }
 
       toast({
@@ -138,7 +148,7 @@ export const FriendRequests = memo(() => {
         variant: 'destructive',
       });
     }
-  }, [fetchRequests, toast]);
+  }, [fetchRequests, toast, requests, user, onAccepted]);
 
   if (loading) {
     return (

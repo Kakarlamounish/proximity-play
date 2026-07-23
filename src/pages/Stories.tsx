@@ -12,7 +12,7 @@ import { StorySkeleton, PageSkeleton } from '@/components/ui/skeleton-loader';
 import { EmptyState } from '@/components/EmptyState';
 import { StoryRing } from '@/components/StoryRing';
 import { useSnapScore } from '@/hooks/useSnapScore';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/use-toast';
 
 interface StoryProfile {
   id: string;
@@ -59,7 +59,18 @@ function expiresIn(dateStr: string): string {
 
 const Stories = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [stories, setStories] = useState<Story[]>([]);
+  // BUG-020: expiry was only ever evaluated at fetch time — a story that
+  // expired while the page stayed open remained reactable/viewable (only its
+  // countdown badge text went stale) until the next manual refetch. Re-check
+  // every 30s and drop expired ones from the rendered grid client-side.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => clearInterval(interval);
+  }, []);
+  const visibleStories = stories.filter(s => new Date(s.expires_at).getTime() > nowTick);
   const [loading, setLoading] = useState(true);
   const [storyDialogOpen, setStoryDialogOpen] = useState(false);
   const [profile, setProfile] = useState<StoryProfile | null>(null);
@@ -186,24 +197,41 @@ const Stories = () => {
 
       const { data: friendStories } = await supabase
         .from('location_stories')
-        .select('user_id')
+        .select('id, user_id')
         .in('user_id', friendIds)
         .gt('expires_at', new Date().toISOString());
 
       const creatorIds = [...new Set(friendStories?.map(s => s.user_id) || [])];
-      if (creatorIds.length === 0) return;
+      if (creatorIds.length === 0) {
+        setFriendStoryCreators([]);
+        return;
+      }
 
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, first_name, profile_photo_url')
         .in('id', creatorIds);
 
+      // BUG-019: hasUnwatched was hardcoded `true` — the ring never turned
+      // off even after the user had seen every story. Derive it from the
+      // same story_views rows the "Nearby Stories" grid already records.
+      const allStoryIds = (friendStories || []).map(s => s.id);
+      let viewedStoryIds = new Set<string>();
+      if (allStoryIds.length > 0) {
+        const { data: myViews } = await supabase
+          .from('story_views')
+          .select('story_id')
+          .eq('viewer_id', user.id)
+          .in('story_id', allStoryIds);
+        viewedStoryIds = new Set((myViews || []).map(v => v.story_id));
+      }
+
       setFriendStoryCreators(
         (profiles || []).map(p => ({
           id: p.id,
           first_name: p.first_name,
           profile_photo_url: p.profile_photo_url,
-          hasUnwatched: true,
+          hasUnwatched: (friendStories || []).some(s => s.user_id === p.id && !viewedStoryIds.has(s.id)),
         }))
       );
     } catch (err) {
@@ -331,7 +359,7 @@ const Stories = () => {
 
         if (error) {
           console.error('Error deleting reaction:', error);
-          toast.error(`Failed to remove reaction: ${error.message}`);
+          toast({ title: `Failed to remove reaction: ${error.message}`, variant: 'destructive' });
           return;
         }
 
@@ -352,7 +380,7 @@ const Stories = () => {
 
         if (error) {
           console.error('Error upserting reaction:', error);
-          toast.error(`Failed to save reaction: ${error.message}`);
+          toast({ title: `Failed to save reaction: ${error.message}`, variant: 'destructive' });
           return;
         }
 
@@ -367,6 +395,25 @@ const Stories = () => {
     } catch (error) {
       console.error('Error handling reaction:', error);
     }
+  };
+
+  // BUG-019: clicking a friend's story ring did nothing — no dedicated
+  // tap-through story viewer exists (stories render as an inline grid, not a
+  // modal), so building one is out of scope for a fix pass. This is the
+  // lightweight interaction that scope allows: jump to and highlight that
+  // creator's card in the grid below, since it's the same data already
+  // rendered on this page.
+  const handleStoryRingClick = (creatorId: string) => {
+    const target = stories.find(s => s.user_id === creatorId);
+    if (!target) {
+      toast({ title: "This friend's story isn't visible from your current location right now." });
+      return;
+    }
+    const el = document.getElementById(`story-card-${target.id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('ring-2', 'ring-primary');
+    setTimeout(() => el.classList.remove('ring-2', 'ring-primary'), 1500);
   };
 
   if (loading) {
@@ -410,6 +457,7 @@ const Stories = () => {
                   name={creator.first_name}
                   avatarUrl={creator.profile_photo_url}
                   hasUnwatched={creator.hasUnwatched}
+                  onClick={() => handleStoryRingClick(creator.id)}
                 />
               ))}
             </div>
@@ -425,12 +473,12 @@ const Stories = () => {
             </Button>
           </div>
 
-          {stories.length > 0 ? (
+          {visibleStories.length > 0 ? (
             <div className="stories-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {stories.map((story: Story) => {
+              {visibleStories.map((story: Story) => {
                 const isExpired = new Date(story.expires_at) < new Date();
                 return (
-                  <div key={story.id} className={`stories-card backdrop-blur-sm bg-card/95 border-0 rounded-xl p-6 ${isExpired ? 'opacity-60' : ''}`}>
+                  <div key={story.id} id={`story-card-${story.id}`} className={`stories-card backdrop-blur-sm bg-card/95 border-0 rounded-xl p-6 transition-shadow ${isExpired ? 'opacity-60' : ''}`}>
                     <div className="flex items-center gap-3 mb-4">
                         <img
                           src={story.profiles?.profile_photo_url || '/avatar-placeholder.png'}

@@ -128,8 +128,18 @@ const Messages = ({ isOverlay = false, initialFriendId }: MessagesProps = {}) =>
           setFriends(mappedFriends);
         }
 
-        // Auto-select first bubble if none selected
-        if (bubblesData.length > 0 && !selectedBubble) {
+        // Auto-select first bubble if none selected — but never override an
+        // explicit friend selection. Without the `!selectedFriend` guard,
+        // selecting a friend (which clears selectedBubble to null so the
+        // render ternary shows FriendChatWindow) changes this callback's own
+        // `[user, selectedBubble]` dependency, which re-runs the effect below
+        // that calls fetchData() again, which re-enters this exact branch
+        // and silently re-selects the first bubble — reverting the UI back
+        // to bubble chat even though the friend list still shows the friend
+        // as "selected". Found via live QA testing: sending a message after
+        // selecting a friend actually sent to whatever bubble got
+        // re-auto-selected, not to the friend.
+        if (bubblesData.length > 0 && !selectedBubble && !selectedFriend) {
           setSelectedBubble(bubblesData[0]);
         }
     } catch (error) {
@@ -137,7 +147,7 @@ const Messages = ({ isOverlay = false, initialFriendId }: MessagesProps = {}) =>
     } finally {
       setProfileLoading(false);
     }
-  }, [user, selectedBubble]);
+  }, [user, selectedBubble, selectedFriend]);
 
   useEffect(() => {
     if (user && !loading) {

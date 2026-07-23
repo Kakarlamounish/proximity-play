@@ -135,25 +135,11 @@ const JoinBubble = () => {
           throw joinError;
         }
       } else {
-        // Increment invite uses
-        await supabase
-          .from('bubble_invites')
-          .update({ uses: supabase.rpc ? undefined : 1 }) // Will be handled differently
-          .eq('invite_code', inviteCode);
-
-        // Update uses count
-        const { data: currentInvite } = await supabase
-          .from('bubble_invites')
-          .select('uses')
-          .eq('invite_code', inviteCode)
-          .single();
-
-        if (currentInvite) {
-          await supabase
-            .from('bubble_invites')
-            .update({ uses: (currentInvite.uses || 0) + 1 })
-            .eq('invite_code', inviteCode);
-        }
+        // Atomic increment via a Postgres function (see migration
+        // 20260721000001_atomic_invite_uses_increment.sql) — replaces a
+        // previous read-then-write that could race under concurrent joins
+        // and undercount usage past max_uses (BUG-010).
+        await supabase.rpc('increment_invite_uses', { invite_code_param: inviteCode });
 
         setJoined(true);
         toast({
@@ -240,7 +226,7 @@ const JoinBubble = () => {
           <div className="text-center space-y-3">
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-secondary to-primary mx-auto flex items-center justify-center">
               <span className="text-3xl text-primary-foreground font-bold">
-                {bubble.interest_tag[0].toUpperCase()}
+                {(bubble.interest_tag?.[0] || '?').toUpperCase()}
               </span>
             </div>
             <h3 className="text-xl font-semibold">{bubble.name}</h3>

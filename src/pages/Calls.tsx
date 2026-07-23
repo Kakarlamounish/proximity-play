@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,6 +61,7 @@ const Calls = () => {
   const { toast } = useToast();
   const { startCall } = useCallContext();
   const navigate = useNavigate();
+  const location = useLocation();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userBubbles, setUserBubbles] = useState<Bubble[]>([]);
   const [friends, setFriends] = useState<Profile[]>([]);
@@ -131,6 +132,53 @@ const Calls = () => {
       fetchData();
     }
   }, [user, loading, fetchData]);
+
+  // BUG-015: MissedCalls' "Call back" now carries the target via router
+  // state instead of doing a full-page reload; auto-dial it once on arrival
+  // and strip the state so a refresh/back-nav doesn't redial.
+  useEffect(() => {
+    const state = location.state as { autoCallTarget?: string; autoCallType?: 'audio' | 'video'; autoCallIsBubble?: boolean } | null;
+    if (!user || !state?.autoCallTarget) return;
+    startCall(state.autoCallTarget, state.autoCallType || 'audio', !!state.autoCallIsBubble);
+    navigate(location.pathname, { replace: true, state: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, location.state]);
+
+  // BUG-016: setMissedCall was never invoked with real data anywhere, so
+  // this in-page banner was permanently dead. Wire it to the same call_logs
+  // status transition the drawer/notifications rely on, scoped to calls
+  // that go missed while the user is actually sitting on this page.
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`calls-page-missed-${user.id}-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'call_logs', filter: `receiver_id=eq.${user.id}` },
+        async (payload: any) => {
+          const updated = payload?.new;
+          const before = payload?.old;
+          if (!updated || updated.status !== 'missed' || before?.status === 'missed') return;
+
+          const { data: caller } = await supabase
+            .from('profiles')
+            .select('first_name')
+            .eq('id', updated.caller_id)
+            .maybeSingle();
+
+          setMissedCall({
+            callId: updated.id,
+            callerId: updated.caller_id,
+            callType: updated.call_type,
+            callerName: caller?.first_name || undefined,
+          });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
 
   // Removed local startCall, handleAcceptCall, handleDeclineCall, endCall
 

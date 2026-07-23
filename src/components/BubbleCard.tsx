@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -69,6 +69,16 @@ export const BubbleCard: React.FC<BubbleCardProps> = ({
   const [isMember, setIsMember] = useState(bubble.is_member || false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Re-sync when the parent's copy of this bubble changes membership (e.g.
+  // the same bubble is also rendered in a second list — Dashboard shows a
+  // bubble in both "Hot Right Now" and "Nearby Bubbles" when it qualifies
+  // for both — and the user joins/leaves from the other card). Without
+  // this, this already-mounted card's local `isMember` never updates even
+  // though the parent's state and this card's own `bubble` prop did.
+  useEffect(() => {
+    setIsMember(bubble.is_member || false);
+  }, [bubble.is_member]);
 
   const isCreator = user?.id === bubble.creator_id;
 
@@ -190,7 +200,7 @@ export const BubbleCard: React.FC<BubbleCardProps> = ({
           <div className="flex items-center gap-3">
             <Avatar className="h-12 w-12 bg-gradient-to-br from-secondary to-primary">
               <AvatarFallback className="text-white font-semibold">
-                {bubble.interest_tag[0].toUpperCase()}
+                {(bubble.interest_tag?.[0] || '?').toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div>

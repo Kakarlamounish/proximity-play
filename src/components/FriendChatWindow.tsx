@@ -23,11 +23,18 @@ type Message = {
   created_at: string;
   sender_id: string;
   recipient_id: string;
+  is_disappearing?: boolean | null;
   sender?: {
     first_name: string | null;
     profile_photo_url: string | null;
   };
 };
+
+// BUG-011: "Disappearing" was written to the row and never acted on. Chose a
+// fixed timer (content hidden 10s after send, for both sender and recipient)
+// over view-once/read-then-delete — it's symmetric and needs no cross-device
+// read-receipt state to implement correctly.
+const DISAPPEAR_TTL_MS = 10_000;
 
 interface FriendChatWindowProps {
   friend: {
@@ -73,7 +80,8 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
             content,
             created_at,
             sender_id,
-            recipient_id
+            recipient_id,
+            is_disappearing
           `)
           .or(`and(sender_id.eq.${user.id},recipient_id.eq.${friend.id}),and(sender_id.eq.${friend.id},recipient_id.eq.${user.id})`)
           .order('created_at', { ascending: true })
@@ -197,8 +205,27 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
     scrollToBottom();
   }, [messages]);
 
+  // Re-render periodically so disappearing messages hide once their TTL
+  // elapses, without needing a server push for a purely time-based fade.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!messages.some(m => m.is_disappearing)) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [messages]);
+
   const sendMessageContent = async (content: string, type: 'text' | 'voice' | 'video' = 'text') => {
     if (!user) return;
+
+    // BUG-018: RLS on user_blocks only lets a user read blocks they created,
+    // so if this friend blocked the current user (rather than the other way
+    // around), a plain client-side check can't see it — the friendship row
+    // may even still exist momentarily. Check both directions server-side.
+    const { data: blocked } = await supabase.rpc('is_blocked', { user_a: user.id, user_b: friend.id });
+    if (blocked) {
+      toast({ title: 'Message not sent', description: 'You can no longer message this user.', variant: 'destructive' });
+      return;
+    }
 
     // Optimistic update — show message immediately
     const optimisticId = `optimistic-${Date.now()}`;
@@ -208,6 +235,7 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
       created_at: new Date().toISOString(),
       sender_id: user.id,
       recipient_id: friend.id,
+      is_disappearing: isDisappearing,
       sender: { first_name: 'You', profile_photo_url: null },
     };
     setMessages(prev => [...prev, optimisticMsg]);
@@ -287,6 +315,12 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
     if (!user) return;
 
     try {
+      const { data: blocked } = await supabase.rpc('is_blocked', { user_a: user.id, user_b: friend.id });
+      if (blocked) {
+        toast({ title: 'Image not sent', description: 'You can no longer message this user.', variant: 'destructive' });
+        return;
+      }
+
       const { error } = await supabase
         .from('messages')
         .insert({
@@ -363,6 +397,8 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
         ) : (
           messages.map((message) => {
             const isMine = message.sender_id === user?.id;
+            const isExpired = !!message.is_disappearing &&
+              now - new Date(message.created_at).getTime() > DISAPPEAR_TTL_MS;
             return (
             <div
               key={message.id}
@@ -387,7 +423,11 @@ export const FriendChatWindow: React.FC<FriendChatWindowProps> = ({ friend, onSt
                       : 'bg-muted text-foreground rounded-bl-sm'
                   }`}
                 >
-                  {message.content.startsWith('🎵 Voice Message: ') ? (
+                  {isExpired ? (
+                    <p className="text-sm italic text-muted-foreground/70 flex items-center gap-1.5">
+                      <Ghost className="h-3.5 w-3.5" /> This message disappeared
+                    </p>
+                  ) : message.content.startsWith('🎵 Voice Message: ') ? (
                     <VoiceMessagePlayer audioUrl={message.content.replace('🎵 Voice Message: ', '')} duration={0} />
                   ) : message.content.startsWith('📸 Snap: ') ? (
                     <img

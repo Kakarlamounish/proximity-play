@@ -362,7 +362,7 @@ export class SecureStorage {
           ['deriveKey'],
         );
         return crypto.subtle.deriveKey(
-          { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+          { name: 'PBKDF2', salt: salt as BufferSource, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
           baseKey,
           { name: 'AES-GCM', length: 256 },
           false,
@@ -394,9 +394,9 @@ export class SecureStorage {
       if (!ivB64 || !ciphertextB64) return null;
       const cryptoKey = await this.getKey();
       const plaintext = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: base64ToBytes(ivB64) },
+        { name: 'AES-GCM', iv: base64ToBytes(ivB64) as BufferSource },
         cryptoKey,
-        base64ToBytes(ciphertextB64),
+        base64ToBytes(ciphertextB64) as BufferSource,
       );
       return JSON.parse(new TextDecoder().decode(plaintext));
     } catch (error) {
